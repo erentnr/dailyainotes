@@ -24,6 +24,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from dailyainotes.domain.embedding import EMBEDDING_DIMENSIONS
+
 # Stable constraint names, so hand-written migrations can refer to them.
 NAMING_CONVENTION = {
     "ix": "ix_%(column_0_label)s",
@@ -32,9 +34,6 @@ NAMING_CONVENTION = {
     "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
     "pk": "pk_%(table_name)s",
 }
-
-# BAAI/bge-small-en-v1.5 (INTENT.md, Architectural Constraints). Changing it means re-embedding.
-EMBEDDING_DIMENSIONS = 384
 
 
 class Base(DeclarativeBase):

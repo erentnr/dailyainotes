@@ -7,6 +7,9 @@
 .private/
 CLAUDE.local.md
 
+# Downloaded models
+.cache/
+
 # Python
 .venv/
 __pycache__/

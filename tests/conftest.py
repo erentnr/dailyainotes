@@ -5,6 +5,9 @@ The guard wraps Python sockets. libpq, which psycopg uses, connects from C and i
 guarded, so database access stays limited to tests marked `integration`.
 """
 
+import hashlib
+import math
+import re
 import socket
 from collections.abc import Callable
 from pathlib import Path
@@ -12,7 +15,9 @@ from typing import Any
 
 import httpx2
 import pytest
+from langchain_core.embeddings import Embeddings
 
+from dailyainotes.domain.embedding import EMBEDDING_DIMENSIONS
 from dailyainotes.sources.http import Http
 
 LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost"}
@@ -41,6 +46,27 @@ class RecordedWeb:
                 status, body, headers = recording
                 return httpx2.Response(status, content=body, headers=headers)
         return httpx2.Response(404)
+
+
+class WordHashEmbeddings(Embeddings):
+    """A deterministic stand-in for the local model, which tests must not download: each word
+    adds to one dimension, so texts that share words get close vectors."""
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self.embed_query(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        vector = [0.0] * EMBEDDING_DIMENSIONS
+        for word in re.findall(r"\w+", text.lower()) or ["empty"]:
+            digest = hashlib.blake2b(word.encode(), digest_size=4).digest()
+            vector[int.from_bytes(digest) % EMBEDDING_DIMENSIONS] += 1.0
+        norm = math.sqrt(sum(x * x for x in vector))
+        return [x / norm for x in vector]
+
+
+@pytest.fixture
+def embeddings() -> Embeddings:
+    return WordHashEmbeddings()
 
 
 @pytest.fixture

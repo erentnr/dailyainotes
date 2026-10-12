@@ -27,6 +27,7 @@ SEAMS = {
     "feedparser": "sources",
     "tldextract": "sources",
     "trafilatura": "sources",
+    "fastembed": "llm",
 }
 
 

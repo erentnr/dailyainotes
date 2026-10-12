@@ -16,6 +16,10 @@ class Settings(BaseSettings):
 
     log_level: LogLevel = "INFO"
     database_url: str = "postgresql+psycopg://dan:dan@localhost:5432/dailyainotes"
+    # Optional: raises GitHub's API limit from 60 to 5,000 requests an hour.
+    github_token: str | None = None
+    # Where the local embedding model (64 MB) is downloaded once.
+    embedding_cache_dir: str = ".cache/fastembed"
 
 
 @lru_cache
