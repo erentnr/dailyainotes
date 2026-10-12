@@ -9,7 +9,7 @@ Started 2026-10-12; consolidated 2026-10-13 after M6 (Episodic entries up to the
 ## Working Memory
 
 - **[2026-10-13] All seven milestones' code is merged, and the live checks that needed only keys have run** (M2, M3, M5's model half): real models drafted two Formula 1 notes and an astronomy plan, the owner approved all three, and Langfuse receives traces. The owner's `.env` still sets `LLM_VERIFIER` to the old Nemotron fallback; the default changed.
-- **Still waiting:** the GitHub repository (CI, images; created only on the owner's yes, after deciding whether commits keep the Gmail author address), then the VPS (`deploy` user), DNS and the README's GitHub settings for M4 and M6.
+- **The repository is public at github.com/erentnr/dailyainotes** (first push 2026-10-13); CI's first run was green and pushed both images to GHCR, where new packages start private. **Still waiting for M4 and M6:** the VPS (`deploy` user), DNS, the README's GitHub settings (`DEPLOY_HOST`, the two deploy secrets), and either public GHCR packages or a read-only token on the server.
 - The astronomy topic's approved sources include The Guardian's feed; ingestion skips it, and removing the row is the owner's call.
 - ADR 0001 records the proof-of-concept scope.
 
@@ -18,6 +18,7 @@ Started 2026-10-12; consolidated 2026-10-13 after M6 (Episodic entries up to the
 (Consolidated on 2026-10-13; new entries go here.)
 
 - [2026-10-13] #event **The first live run with keys.** `dan llm probe`: the three Ollama models answered JSON-in-the-prompt in 0.5 to 1.3 s. `dan edition run formula-1 --no-collect` resumed the two stories from their checkpoints in 1 min 45 s: Norris (two publishers, 5 of 6 claims supported) and Antonelli (one readable publisher, 2 of 12). `dan topics plan astronomy-and-spaceflight` proposed 4 sources in 20 s, The Guardian's feed among them. `dan evals run --judge`: faithfulness 0.955. The night used 80 model calls and 58,330 tokens, all on free plans. The owner approved both notes and the plan.
+- [2026-10-13] #event **First push and first CI run.** The owner created github.com/erentnr/dailyainotes (public) and chose to push the history as it is. CI run 38322685023 passed: the gitleaks history scan, 168 tests, the site's checks, the 30-question eval at its baseline, the OpenAPI check, the site's build, and both images pushed to GHCR; deploy was skipped, as `DEPLOY_HOST` is not set. On the local site, Ask answered "what happened to norris" citing note-1 and said "not enough" to an off-catalog question.
 - [2026-10-13] #event **Seven fixes followed** (branch `live-check-fixes`): excluded publishers checked in the planner, the catalog, the fetcher and ingestion; providers' responses kept out of logs and `llm_calls`; swapped Langfuse keys named; one-publisher stories attributed (redrafted live: 14 of 15 supported, from 2 of 12); Ask answers the covered part (judged twice: 0.955 and 1.0); the verifier's fallback moved to OpenRouter's Gemma.
 
 ## Semantic Memory
@@ -159,6 +160,7 @@ Started 2026-10-12; consolidated 2026-10-13 after M6 (Episodic entries up to the
 - #decision **Frontend versions under the floor** (2026-10-13): pnpm 12.8.1, astro 7.3.5, @astrojs/node 11.1.6, @astrojs/react 7.0.0, react 19.3.0, TypeScript 6.0.3 (openapi-typescript 7.13.0 asks for TypeScript 5 as a peer but generates fine), vitest 5.0.2, actions/setup-node v7.0.0 (v7.1.0 was 5 days old), image `node:24.21.0-trixie-slim` (Node 24.21.0 released 2026-09-07).
 - #fact **Astro 7 has a stable Fonts API** (`fonts` with `fontProviders.google()`, `<Font>` from `astro:assets`): fonts are downloaded at build time and served from the site's origin. **The Node adapter turns on filesystem sessions unless `session: false`.** `astro:env` server variables with `access: "secret"` are read at run time; `public` ones are baked in at build.
 - #fact **pnpm 12** blocks dependencies' install scripts until approved (`pnpm approve-builds esbuild` writes `allowBuilds` to `pnpm-workspace.yaml`), and writes `pnpm-lock.yaml` as several YAML documents, so pre-commit's check-yaml runs with `--allow-multiple-documents`. Node 26 no longer ships corepack; Node 24 does, and CI and the image use it.
+- #fact **pnpm 12 installs a project's dependencies before `pnpm run` when they are missing,** so `make check` in CI's Python job runs the site's checks without a separate install (CI run 38322685023, 2026-10-13).
 - #fact **The site's image is 580 MB:** Astro's runtime dependencies include its build toolchain (170 MB of node_modules).
 - #insight **Headless Chrome will not lay out narrower than about 500 px,** so a `--window-size=390` screenshot is cut off. Phone layouts are checked through 390 px iframes in a wrapper page.
 - #insight **en-GB's `Intl` writes September as "Sept";** dates use en-US month names in DESIGN.md's order ("Wed 30 Sep 2026").
