@@ -1,4 +1,4 @@
-# Production on the VPS: Caddy, the API, the worker and Postgres; the web app joins at M6.
+# Production on the VPS: Caddy, the site, the API, the worker and Postgres.
 # It lives in /srv/dailyainotes next to the server's .env, which sets IMAGE, DOMAIN,
 # POSTGRES_PASSWORD and the app's settings (README, Deploy). deploy.sh sets TAG.
 name: dailyainotes-prod
@@ -39,8 +39,31 @@ services:
     depends_on:
       api:
         condition: service_healthy
+      web:
+        condition: service_healthy
     restart: unless-stopped
     mem_limit: 64m
+    logging: *logging
+
+  web:
+    image: ${IMAGE:?}-web:${TAG:?}
+    environment:
+      API_URL: http://api:8000
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:4321/').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 256m
     logging: *logging
 
   api:

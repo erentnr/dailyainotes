@@ -13,9 +13,8 @@
 		reverse_proxy api:8000
 	}
 
-	# The web app takes over here at M6.
 	handle {
-		respond "Daily AI Notes is on its way." 200
+		reverse_proxy web:4321
 	}
 
 	log {

@@ -56,9 +56,42 @@ jobs:
       # The 30-question eval, without a model; fails below evals/baseline.json.
       - run: uv run --frozen dan evals run
 
+      # The site's API types come from this schema: it must match the API.
+      - name: OpenAPI schema is current
+        run: |
+          uv run --frozen python -c "import json; from dailyainotes.api.app import create_app; from dailyainotes.settings import Settings; print(json.dumps(create_app(Settings(_env_file=None)).openapi(), indent=1))" > web/openapi.json
+          git diff --exit-code web/openapi.json
+
+  web:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # setup-node v7.0.0: the newest release at least two weeks old on 2026-10-13.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.21.0"
+
+      # pnpm at the version package.json names.
+      - run: corepack enable
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: API types are generated from the schema
+        run: |
+          pnpm run api-types
+          git diff --exit-code src/lib/api/schema.d.ts
+
+      - run: pnpm run check
+
+      - run: pnpm run build
+
   image:
     # Built on every run so a broken Dockerfile fails the pull request; pushed only from main.
-    needs: check
+    needs: [check, web]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -85,8 +118,16 @@ jobs:
           context: .
           push: ${{ env.PUSH == 'true' }}
           tags: ${{ env.IMAGE }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: web
+          push: ${{ env.PUSH == 'true' }}
+          tags: ${{ env.IMAGE }}-web:${{ github.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
 
   deploy:
     # Off until the repository variable DEPLOY_HOST names the server (README, Deploy).

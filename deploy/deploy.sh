@@ -13,7 +13,7 @@ compose=(docker compose -f compose.prod.yml)
 # One && chain: bash ignores `set -e` inside a function called from `if`.
 up() {
   export TAG=$1
-  "${compose[@]}" pull --quiet api worker &&
+  "${compose[@]}" pull --quiet api worker web &&
     "${compose[@]}" run --rm api dan db upgrade &&
     "${compose[@]}" up -d --wait --remove-orphans &&
     # As a visitor reaches it: DNS, the certificate, Caddy, the API and the database.
