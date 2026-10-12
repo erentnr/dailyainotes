@@ -8,8 +8,8 @@ Started 2026-10-12; no consolidation yet.
 
 ## Working Memory
 
-- **[2026-10-13] M0 to M4's code is merged into `main`; M5 (Ask the notes and evals) is next.** The work runs on the default catalog, as the owner asked to proceed on every decided default. CI is written but has never run: it needs the GitHub repository, created only when the owner asks. M4's live check needs the repository, VPS access (the `deploy` user), DNS records and the GitHub settings in the README.
-- **M2's and M3's live checks wait for keys in `.env`:** `OLLAMA_API_KEY`, `OPENROUTER_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`. Then: `dan llm probe`, `dan topics plan --all`, `dan edition run --all`, `dan review list`, and a trace in Langfuse. Without keys, model calls fail cleanly with `MissingKeyError`. Today's Formula 1 edition (2026-10-12 UTC) has two picked stories waiting in `drafting`; a rerun with keys resumes them.
+- **[2026-10-13] M0 to M5's code is merged into `main`; M6 (the web app and How it works) is next.** The work runs on the default catalog, as the owner asked to proceed on every decided default. CI is written but has never run: it needs the GitHub repository, created only when the owner asks. M4's live check needs the repository, VPS access (the `deploy` user), DNS records and the GitHub settings in the README.
+- **M2's, M3's and M5's live checks wait for keys in `.env`:** `OLLAMA_API_KEY`, `OPENROUTER_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`. Then: `dan llm probe`, `dan topics plan --all`, `dan edition run --all`, `dan review list`, `dan ask` on a published note, `dan evals run --judge`, and a trace in Langfuse. Without keys, model calls fail cleanly with `MissingKeyError`. Today's Formula 1 edition (2026-10-12 UTC) has two picked stories waiting in `drafting`; a rerun with keys resumes them.
 - ADR 0001 records the proof-of-concept scope.
 
 ## Episodic Memory
@@ -23,6 +23,8 @@ Started 2026-10-12; no consolidation yet.
 - [2026-10-13] #event **M3 The editorial graph was built; its model half waits for keys.** `dan edition run --all --no-collect` on the live Formula 1 data made 66 stories in the 36-hour window (60 single reports, 4 of 2, 1 of 3, 1 of 4) and picked the two best a model may read: "Norris concedes he 'let down' McLaren" (4 reports from 3 publishers) and the Antonelli penalty story (3 from 2). The Singapore Grand Prix result ranked third but only link-only publishers covered it, so it was not picked. Both story graphs stopped at the Researcher with `MissingKeyError`, and the edition was marked failed.
 
 - [2026-10-13] #event **M4 Deploy was rehearsed locally.** With a local registry standing in for GHCR and `DOMAIN=localhost`, `deploy.sh` deployed a good tag, rolled a broken one back to it, and the worker ran a deferred `daily_edition` job in its container (Success, 0.29 s). `backup.sh` wrote a dump and `restore-check.sh` restored it into a scratch database. Idle memory: worker 158 MiB, API 82 MiB, Postgres 79 MiB, Caddy 17 MiB (Docker Desktop, arm64). The rehearsal caught two bugs: `deploy.sh` reported success after a failed health check, and the worker built its Procrastinate app in `__main__`.
+
+- [2026-10-13] #event **M5 Ask the notes and the eval set were built.** With the real embedding model, `dan evals run` scored 1.0 on recall at 5, MRR and "not enough" for the 8 uncovered questions; lowering the strong-match threshold to 0.4 dropped "not enough" to 0.0 and the command failed against the baseline. `dan ask` on the development database, which has no published notes, answered "Not enough in the notes to answer that." without a model call.
 
 ## Semantic Memory
 
@@ -121,6 +123,18 @@ Started 2026-10-12; no consolidation yet.
 - #insight **`string_agg` with an order needs `aggregate_order_by`;** `within_group` renders `string_agg(…) WITHIN GROUP (…)`, which Postgres rejects (M3, 2026-10-13).
 - #insight **Integration tests truncate the `langgraph` checkpoint tables too,** because thread ids like `note:1` name rows whose ids restart at 1 in every test.
 
+### Ask and evals
+
+- #decision **Ask is search, then at most one model call.** A note is a strong match when full-text search finds it or its cosine similarity is at least 0.62; with none, Ask answers "Not enough in the notes to answer that." without a model. Calibration on the eval set (2026-10-13, bge-small): expected notes 0.70 to 0.91, the best note for an off-corpus question at most 0.54, unrelated notes next to a good match 0.50 to 0.68.
+- #decision **Ask streams server-sent events** (`sources`, `text`, `done` or `error`) from `POST /api/v1/ask`; `AnswerFilter` drops markers that point at no source while streaming and turns a model's `NOT_ENOUGH` into the standard reply. The router falls back only before the first piece of text.
+- #decision **Ask's chain is Ollama only** (`LLM_ASK=ollama:gpt-oss:120b`), so OpenRouter's 50 free requests stay with the pipeline; the judge is `ollama:gemma4:31b`.
+- #decision **Visitors' IPs are stored only as HMAC-SHA256 hashes** keyed by `IP_HASH_KEY`; without the key the API makes a random one at start, and the day's limits reset when it restarts. Uvicorn trusts `X-Forwarded-For` (`FORWARDED_ALLOW_IPS=*`) because only Caddy can reach the API.
+- #decision **The eval corpus is fictional** (40 notes in 8 catalog topics, 30 questions, 4 of them paraphrased): there were no published notes yet, and inventing news about real people or committing publishers' text would both break the rules. The model-free run in CI scores retrieval; the worker's 04:00 UTC run adds the Ask model and the judge (about 44 Ollama calls) and records `ask-judged` in `eval_runs`.
+- #insight **The first eval set was too easy:** every question named its note's subject, so every score was 1.0 whatever the threshold between 0.5 and 0.7. Four questions were rewritten as paraphrases; the scores stayed 1.0, but the set now separates the two sides more honestly.
+- #insight **pre-commit's mypy hook checks the whole `src` tree, untracked files included,** so a commit of part of a change fails when new untracked files depend on unstaged edits; commit such a step whole.
+- #insight **`httpx2.ASGITransport` does not run the app's lifespan;** API tests set `app.state.engine` themselves and override `ask_deps`.
+- #insight **`dan review approve` loads the real embedding model** to index the note; tests replace `dailyainotes.cli.LocalEmbeddings`, or CI, without the model cache, would hit the network guard.
+
 ### Design
 
 - #decision **DESIGN.md comes from the v2 page of the owner's Claude Design canvas** (2026-10-12). Admin, How it works, Archive and Topic are v1 screens marked "to revise", used as layout reference only.
@@ -161,6 +175,7 @@ Started 2026-10-12; no consolidation yet.
 - **Models and planning:** `uv run dan llm probe` tries every model in the configured chains. `uv run dan topics plan <slug>` (or `--all` for every draft topic) runs the Topic Planner until it waits; `uv run dan review list`, `show plan-<id>`, `approve plan-<id>` or `reject plan-<id> --comment "<why>"`.
 - **Editions and notes:** `uv run dan edition run <slug>` (or `--all`; `--no-collect` skips fetching) runs Scout and a story graph per picked story until each note waits; `uv run dan review show note-<id>` prints the note, its sources and each claim's verdict; `approve note-<id>` publishes it, `reject note-<id> --comment "<why>"` rejects it.
 - **Packages:** `uv add <package>` or `uv add --dev <package>`; the two-week floor applies automatically. On macOS, packages with ONNX Runtime need `MACOSX_DEPLOYMENT_TARGET=14.0 uv add ...` to resolve.
+- **Ask and evals:** `uv run dan ask "<question>" [--topic <slug>]`; `uv run dan evals run` (add `--judge` for the model and judge, `--record` to save into `eval_runs`, `--update-baseline` to rewrite `evals/baseline.json`, and say why in the commit).
 - **The worker:** `uv run dan-worker` runs the queue locally; on the server it is the `worker` service.
 - **Deploy:** README, Deploy. On the server, in `/srv/dailyainotes`: `./deploy.sh <sha>` deploys or rolls back; `TAG=$(cat .deployed) docker compose -f compose.prod.yml exec worker dan <command>` runs `dan`; `./backup.sh` and `./restore-check.sh`.
 - **Rehearse a deploy locally:** copy `deploy/` to a scratch folder with a dummy `.env` (`IMAGE=localhost:5000/dailyainotes`, `DOMAIN=localhost`, a throwaway `POSTGRES_PASSWORD`); run `registry:3` on `127.0.0.1:5000`; push the image there; after the first run, copy Caddy's root certificate out (`docker compose -f compose.prod.yml cp caddy:/data/caddy/pki/authorities/local/root.crt .`) and set `CURL_CA_BUNDLE` to it; afterwards `docker compose -f compose.prod.yml down -v`.
