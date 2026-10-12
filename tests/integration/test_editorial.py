@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import anyio
+import httpx2
 import pytest
 from langchain_core.embeddings import Embeddings
 from langgraph.types import Command
@@ -12,6 +13,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
 from typer.testing import CliRunner
 
+from dailyainotes.api.app import create_app
+from dailyainotes.api.deps import story_deps
 from dailyainotes.cli import app
 from dailyainotes.db import editorial as db
 from dailyainotes.db.checkpoints import checkpointer
@@ -32,6 +35,7 @@ from dailyainotes.graphs.story import (
 )
 from dailyainotes.ingestion.catalog import Catalog, sync_catalog
 from dailyainotes.llm.router import ModelsExhaustedError
+from dailyainotes.settings import Settings
 from dailyainotes.sources.urls import url_hash
 
 pytestmark = [pytest.mark.integration, pytest.mark.anyio]
@@ -411,3 +415,50 @@ async def test_the_owner_reads_and_approves_a_note_with_dan_review(
     assert "weak" in shown
     note = await note_row(engine, note_id)
     assert (note.status, note.published_version) == ("published", 3)
+
+
+async def test_the_owner_approves_a_note_at_admin_and_the_site_shows_it(
+    engine: AsyncEngine, database_url: str, embeddings: Embeddings
+) -> None:
+    topic_id = await seed(engine, embeddings)
+    story_id, note_id = await verstappen_note(engine, topic_id)
+    router = ScriptedRouter(
+        {
+            "researcher": [BRIEF],
+            "writer": [CORRECT],
+            "extractor": [CLAIMS],
+            "verifier": [verdicts([1, 2], [1, 2], [2, 3])],
+        }
+    )
+    deps = StoryDeps(engine, router, embeddings)
+    async with checkpointer(database_url) as saver:
+        await build_story_graph(deps, saver).ainvoke(
+            {"story_id": story_id, "note_id": note_id}, {"configurable": {"thread_id": "note:1"}}
+        )
+    settings = Settings(_env_file=None, database_url=database_url, admin_token="sesame")
+    site = create_app(settings)
+    site.state.engine = engine  # ASGITransport does not run the lifespan
+    site.dependency_overrides[story_deps] = lambda: deps
+    owner = {"Authorization": "Bearer sesame"}
+
+    transport = httpx2.ASGITransport(app=site)
+    async with httpx2.AsyncClient(transport=transport, base_url="http://test") as c:
+        anonymous = await c.get("/api/v1/admin/notes")
+        wrong = await c.get("/api/v1/admin/notes", headers={"Authorization": "Bearer guess"})
+        (waiting,) = (await c.get("/api/v1/admin/notes", headers=owner)).json()
+        decided = await c.post(
+            f"/api/v1/admin/notes/{note_id}/decision", json={"decision": "approve"}, headers=owner
+        )
+        again = await c.post(
+            f"/api/v1/admin/notes/{note_id}/decision", json={"decision": "approve"}, headers=owner
+        )
+        published = (await c.get("/api/v1/notes?date=2026-10-13")).json()
+
+    assert (anonymous.status_code, wrong.status_code) == (401, 401)
+    assert waiting["title"] == "Verstappen wins in Austin"
+    assert [c["verdict"] for c in waiting["claims"]] == ["supported"] * 3
+    assert decided.json() == {"status": "published"}
+    assert again.status_code == 409
+    (card,) = published["notes"]
+    assert (card["sources"], card["supported"], card["claims"]) == (3, 3, 3)
+    assert sorted(card["publishers"]) == ["Blog", "Fia", "Wire"]

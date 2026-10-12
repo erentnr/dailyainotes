@@ -10,10 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from dailyainotes.api.deps import ask_deps
 from dailyainotes.ask import AskDeps, RateLimitedError, ask, check_limits, hash_ip
-from dailyainotes.db.runs import DbLedger
-from dailyainotes.llm.embeddings import LocalEmbeddings
-from dailyainotes.llm.providers import build_router
 
 router = APIRouter()
 
@@ -22,17 +20,6 @@ class Question(BaseModel):
     question: str = Field(min_length=3, max_length=300)
     # Topic slugs the visitor follows; all topics when empty.
     topics: list[str] = Field(default_factory=list, max_length=20)
-
-
-def ask_deps(request: Request) -> AskDeps:
-    """Made on the first question, since loading the embedding model takes a second."""
-    state = request.app.state
-    if state.ask_deps is None:
-        embeddings = LocalEmbeddings(state.settings.embedding_cache_dir)
-        router = build_router(state.settings, DbLedger(state.engine))
-        state.ask_deps = AskDeps(state.engine, embeddings, router)
-    deps: AskDeps = state.ask_deps
-    return deps
 
 
 @router.post("/ask", responses={429: {"description": "Over the day's question limit"}})

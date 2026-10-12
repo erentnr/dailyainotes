@@ -224,6 +224,15 @@ async def picked_on(engine: AsyncEngine, day: date) -> int:
     return count
 
 
+async def note_for_id(engine: AsyncEngine, note_id: int) -> tuple[str, str] | None:
+    """The note's status and thread id."""
+    async with engine.connect() as connection:
+        row = (
+            await connection.execute(select(Note.status, Note.thread_id).where(Note.id == note_id))
+        ).one_or_none()
+    return (row[0], row[1]) if row else None
+
+
 async def note_for_story(engine: AsyncEngine, story_id: int) -> tuple[int, str] | None:
     """The story's note id and status, if it has a note."""
     async with engine.connect() as connection:

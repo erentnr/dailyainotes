@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from dailyainotes.api.app import create_app
-from dailyainotes.api.ask import ask_deps
+from dailyainotes.api.deps import ask_deps
 from dailyainotes.ask import AskDeps, ask, purge
 from dailyainotes.db.asks import count_request
 from dailyainotes.db.tables import AskRequest, Note, RateLimit

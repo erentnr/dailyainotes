@@ -7,7 +7,7 @@ from importlib.metadata import version
 
 from fastapi import FastAPI
 
-from dailyainotes.api import ask, health
+from dailyainotes.api import admin, ask, health, notes
 from dailyainotes.db.engine import create_engine
 from dailyainotes.logging import configure_logging
 from dailyainotes.settings import Settings, get_settings
@@ -26,9 +26,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Daily AI Notes", version=version("dailyainotes"), lifespan=lifespan)
     app.state.settings = settings
-    app.state.ask_deps = None
+    app.state.models = None
     key = settings.ip_hash_key
     app.state.ip_key = key.get_secret_value().encode() if key else secrets.token_bytes(32)
     app.include_router(health.router, prefix="/api/v1")
     app.include_router(ask.router, prefix="/api/v1")
+    app.include_router(notes.router, prefix="/api/v1")
+    app.include_router(admin.router, prefix="/api/v1/admin")
     return app

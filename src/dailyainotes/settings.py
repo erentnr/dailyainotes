@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # The nightly eval's judge, from another family than the models it judges.
     llm_judge: str = "ollama:gemma4:31b"
 
+    # The /admin page's bearer token (INTENT.md); admin is off while it is empty.
+    admin_token: SecretStr | None = None
+
     # Keys the hash of a visitor's IP address for Ask's rate limits. Without it, a random key
     # is made at start, and the limits reset whenever the API restarts.
     ip_hash_key: SecretStr | None = None

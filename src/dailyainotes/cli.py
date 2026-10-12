@@ -24,8 +24,14 @@ from dailyainotes.db.ingest import active_topic_slugs, purge_expired_content
 from dailyainotes.db.migrate import upgrade_to_head
 from dailyainotes.db.runs import DbLedger, finish_run, finish_waiting_runs, start_run
 from dailyainotes.evals import EVALS, baseline, regressions, run_eval
-from dailyainotes.graphs.edition import EditionReport, NoActiveTopicError, run_editions
-from dailyainotes.graphs.story import StoryDeps, build_story_graph
+from dailyainotes.graphs.edition import (
+    EditionReport,
+    NoActiveTopicError,
+    NotAwaitingApprovalError,
+    decide_note,
+    run_editions,
+)
+from dailyainotes.graphs.story import StoryDeps
 from dailyainotes.graphs.topic_planner import PlannerDeps, build_planner
 from dailyainotes.ingestion.catalog import CATALOG_PATH, load_catalog, sync_catalog
 from dailyainotes.ingestion.run import SourceReport, ingest_topic
@@ -396,15 +402,14 @@ async def _decide(item: str, decision: str, comment: str) -> None:
         return
     engine = create_engine(settings.database_url)
     try:
-        note = await _note(engine, number)
-        if note.status != "awaiting_approval":
-            raise typer.BadParameter(f"{item} is {note.status}, not awaiting approval")
-        router = build_router(settings, DbLedger(engine))
-        async with checkpointer(settings.database_url) as saver:
-            embeddings = LocalEmbeddings(settings.embedding_cache_dir)
-            graph = build_story_graph(StoryDeps(engine, router, embeddings), saver)
-            await graph.ainvoke(resume, {"configurable": {"thread_id": note.thread_id}})
-        await finish_waiting_runs(engine, note.thread_id, "done")
+        deps = StoryDeps(
+            engine,
+            build_router(settings, DbLedger(engine)),
+            LocalEmbeddings(settings.embedding_cache_dir),
+        )
+        await decide_note(deps, settings.database_url, number, decision, comment)
+    except NotAwaitingApprovalError as error:
+        raise typer.BadParameter(str(error)) from error
     finally:
         await engine.dispose()
 

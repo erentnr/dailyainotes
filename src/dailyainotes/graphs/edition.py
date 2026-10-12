@@ -12,13 +12,14 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import Command
 
 from dailyainotes.db import editorial as db
 from dailyainotes.db.checkpoints import checkpointer
 from dailyainotes.db.engine import AsyncEngine, create_engine
 from dailyainotes.db.ingest import active_topic_slugs, purge_expired_content
 from dailyainotes.db.planner import topic as find_topic
-from dailyainotes.db.runs import DbLedger, finish_run, start_run
+from dailyainotes.db.runs import DbLedger, finish_run, finish_waiting_runs, start_run
 from dailyainotes.domain.editorial import slugify
 from dailyainotes.graphs.scout import ScoutDeps, build_scout
 from dailyainotes.graphs.story import StoryDeps, StoryState, build_story_graph
@@ -35,6 +36,10 @@ STORIES_PER_DAY = 15
 
 
 class NoActiveTopicError(Exception):
+    pass
+
+
+class NotAwaitingApprovalError(Exception):
     pass
 
 
@@ -170,3 +175,21 @@ async def write_note(
         raise
     await finish_run(engine, run_id, "waiting")
     return note_id
+
+
+async def decide_note(
+    deps: StoryDeps, database_url: str, note_id: int, decision: str, comment: str
+) -> None:
+    """Resume the note's paused story graph with the owner's decision: `dan review` and
+    /admin both come here. Approving publishes the note and indexes it for Ask."""
+    found = await db.note_for_id(deps.engine, note_id)
+    if found is None or found[0] != "awaiting_approval":
+        status = found[0] if found else "missing"
+        raise NotAwaitingApprovalError(f"note-{note_id} is {status}, not awaiting approval")
+    thread_id = found[1]
+    async with checkpointer(database_url) as saver:
+        resume: Command[Any] = Command(resume={"decision": decision, "comment": comment})
+        await build_story_graph(deps, saver).ainvoke(
+            resume, {"configurable": {"thread_id": thread_id}}
+        )
+    await finish_waiting_runs(deps.engine, thread_id, "done")
