@@ -1,0 +1,12 @@
+---
+import AdminQueue from "../islands/AdminQueue";
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Review">
+  <header class="page-head">
+    <div class="label">Admin</div>
+    <h1 class="h1">Notes waiting for approval</h1>
+  </header>
+  <AdminQueue client:only="react" />
+</Base>

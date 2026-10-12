@@ -1,0 +1,4 @@
+allowBuilds:
+  esbuild: true
+# The two-week release-age floor (INTENT.md, Dependency Policies), in minutes.
+minimumReleaseAge: 20160

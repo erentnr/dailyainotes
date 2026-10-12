@@ -1,0 +1,24 @@
+---
+import { ErrorState } from "../components/ui/States";
+import TopicPicker from "../islands/TopicPicker";
+import Base from "../layouts/Base.astro";
+import { serverApi } from "../lib/api/server";
+
+const { data: topics } = await serverApi().GET("/api/v1/topics");
+---
+
+<Base title="Your topics">
+  <header class="page-head graph-paper">
+    <div class="label">Topics</div>
+    <h1 class="h1">What should we take notes on?</h1>
+  </header>
+  {topics ? <TopicPicker client:load topics={topics} /> : <ErrorState>The catalog could not be loaded.</ErrorState>}
+  {topics && (
+    <section class="section">
+      <div class="label">Every note on a topic</div>
+      <ul class="chips" style="list-style: none; padding: 0">
+        {topics.map((t) => <li><a class="topic-chip" href={`/topics/${t.slug}`}>{t.name}</a></li>)}
+      </ul>
+    </section>
+  )}
+</Base>

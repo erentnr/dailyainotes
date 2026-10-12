@@ -1,0 +1,55 @@
+---
+import { VerdictBadge } from "../../components/ui/VerdictBadge";
+import Base from "../../layouts/Base.astro";
+import type { NoteCard } from "../../lib/api/client";
+import { serverApi } from "../../lib/api/server";
+import { formatDay, formatMonth, plural } from "../../lib/format";
+
+const { data, response } = await serverApi().GET("/api/v1/topics/{slug}/notes", {
+  params: { path: { slug: Astro.params.slug ?? "" }, query: { limit: 100 } },
+});
+if (!data) {
+  if (response.status === 404) return Astro.rewrite("/404");
+  throw new Error(`The API answered ${response.status}`);
+}
+const months = new Map<string, NoteCard[]>();
+for (const note of data.notes) {
+  const month = formatMonth(note.edition_date);
+  months.set(month, [...(months.get(month) ?? []), note]);
+}
+---
+
+<Base title={data.topic.name} description={data.topic.description}>
+  <div class="measure">
+    <header class="page-head graph-paper">
+      <div class="label">Topic timeline</div>
+      <h1 class="h1">{data.topic.name}</h1>
+      <p class="muted">{data.topic.description} · {plural(data.topic.notes, "note")}</p>
+    </header>
+    {data.notes.length === 0 && <p class="muted">No notes on this topic yet.</p>}
+    {
+      [...months].map(([month, notes]) => (
+        <section>
+          <h2 class="month label">{month}</h2>
+          <ol class="timeline">
+            {notes.map((note) => (
+              <li class="timeline-item">
+                <span class="meta">{formatDay(note.edition_date)}</span>
+                <span class="stem">
+                  <span class="tag-square" style="background: var(--ink-3)" />
+                </span>
+                <span>
+                  <a href={`/notes/${note.slug}`}>{note.title}</a>
+                  <span class="chips" style="margin-top: var(--space-2); align-items: center">
+                    <span class="meta">{plural(note.sources, "source")}</span>
+                    <VerdictBadge {...note} />
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ))
+    }
+  </div>
+</Base>

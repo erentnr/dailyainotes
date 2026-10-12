@@ -1,0 +1,10 @@
+---
+import Base from "../layouts/Base.astro";
+import DailyFeed from "../islands/DailyFeed";
+---
+
+<Base title="Daily AI Notes">
+  <div class="measure">
+    <DailyFeed client:load />
+  </div>
+</Base>

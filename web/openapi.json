@@ -1,0 +1,1014 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "Daily AI Notes",
+  "version": "0.1.0"
+ },
+ "paths": {
+  "/api/v1/health": {
+   "get": {
+    "summary": "Health",
+    "operationId": "health_api_v1_health_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Health"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/ask": {
+   "post": {
+    "summary": "Ask The Notes",
+    "operationId": "ask_the_notes_api_v1_ask_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Question"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "429": {
+      "description": "Over the day's question limit"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/topics": {
+   "get": {
+    "summary": "Topics",
+    "operationId": "topics_api_v1_topics_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/Topic"
+         },
+         "type": "array",
+         "title": "Response Topics Api V1 Topics Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/notes": {
+   "get": {
+    "summary": "Notes Of Day",
+    "operationId": "notes_of_day_api_v1_notes_get",
+    "parameters": [
+     {
+      "name": "topic",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 20,
+       "default": [],
+       "title": "Topic"
+      }
+     },
+     {
+      "name": "date",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Date"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Day"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/notes/{slug}": {
+   "get": {
+    "summary": "Note",
+    "operationId": "note_api_v1_notes__slug__get",
+    "parameters": [
+     {
+      "name": "slug",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Slug"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/NoteDetail"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "No published note"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/topics/{slug}/notes": {
+   "get": {
+    "summary": "Timeline",
+    "operationId": "timeline_api_v1_topics__slug__notes_get",
+    "parameters": [
+     {
+      "name": "slug",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Slug"
+      }
+     },
+     {
+      "name": "before",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Before"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 100,
+       "minimum": 1,
+       "default": 30,
+       "title": "Limit"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Timeline"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "No active topic"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/stats": {
+   "get": {
+    "summary": "Stats",
+    "operationId": "stats_api_v1_stats_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Stats"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/notes": {
+   "get": {
+    "summary": "Waiting",
+    "operationId": "waiting_api_v1_admin_notes_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/Review"
+         },
+         "type": "array",
+         "title": "Response Waiting Api V1 Admin Notes Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/notes/{note_id}/decision": {
+   "post": {
+    "summary": "Decide",
+    "operationId": "decide_api_v1_admin_notes__note_id__decision_post",
+    "parameters": [
+     {
+      "name": "note_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Note Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Decision"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "string"
+         },
+         "title": "Response Decide Api V1 Admin Notes  Note Id  Decision Post"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Not waiting"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "Claim": {
+    "properties": {
+     "text": {
+      "type": "string",
+      "title": "Text"
+     },
+     "kind": {
+      "type": "string",
+      "title": "Kind"
+     },
+     "markers": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "title": "Markers"
+     },
+     "verdict": {
+      "type": "string",
+      "title": "Verdict"
+     },
+     "independent_origins": {
+      "type": "integer",
+      "title": "Independent Origins"
+     },
+     "rationale": {
+      "type": "string",
+      "title": "Rationale"
+     }
+    },
+    "type": "object",
+    "required": [
+     "text",
+     "kind",
+     "markers",
+     "verdict",
+     "independent_origins",
+     "rationale"
+    ],
+    "title": "Claim"
+   },
+   "Day": {
+    "properties": {
+     "date": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Date"
+     },
+     "notes": {
+      "items": {
+       "$ref": "#/components/schemas/NoteCard"
+      },
+      "type": "array",
+      "title": "Notes"
+     }
+    },
+    "type": "object",
+    "required": [
+     "date",
+     "notes"
+    ],
+    "title": "Day"
+   },
+   "DayStats": {
+    "properties": {
+     "date": {
+      "type": "string",
+      "format": "date",
+      "title": "Date"
+     },
+     "notes": {
+      "type": "integer",
+      "title": "Notes"
+     },
+     "model_calls": {
+      "type": "integer",
+      "title": "Model Calls"
+     },
+     "tokens": {
+      "type": "integer",
+      "title": "Tokens"
+     },
+     "cost_usd": {
+      "type": "number",
+      "title": "Cost Usd"
+     }
+    },
+    "type": "object",
+    "required": [
+     "date",
+     "notes",
+     "model_calls",
+     "tokens",
+     "cost_usd"
+    ],
+    "title": "DayStats"
+   },
+   "Decision": {
+    "properties": {
+     "decision": {
+      "type": "string",
+      "enum": [
+       "approve",
+       "reject"
+      ],
+      "title": "Decision"
+     },
+     "comment": {
+      "type": "string",
+      "title": "Comment",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "decision"
+    ],
+    "title": "Decision"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "Health": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "enum": [
+       "ok",
+       "degraded"
+      ],
+      "title": "Status"
+     },
+     "database": {
+      "type": "string",
+      "enum": [
+       "ok",
+       "unreachable"
+      ],
+      "title": "Database"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status",
+     "database"
+    ],
+    "title": "Health"
+   },
+   "NoteCard": {
+    "properties": {
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "topic": {
+      "type": "string",
+      "title": "Topic"
+     },
+     "topic_name": {
+      "type": "string",
+      "title": "Topic Name"
+     },
+     "edition_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Edition Date"
+     },
+     "published_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Published At"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "summary": {
+      "type": "string",
+      "title": "Summary"
+     },
+     "sources": {
+      "type": "integer",
+      "title": "Sources"
+     },
+     "publishers": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Publishers"
+     },
+     "claims": {
+      "type": "integer",
+      "title": "Claims"
+     },
+     "supported": {
+      "type": "integer",
+      "title": "Supported"
+     },
+     "weak": {
+      "type": "integer",
+      "title": "Weak"
+     },
+     "unsupported": {
+      "type": "integer",
+      "title": "Unsupported"
+     }
+    },
+    "type": "object",
+    "required": [
+     "slug",
+     "topic",
+     "topic_name",
+     "edition_date",
+     "published_at",
+     "title",
+     "summary",
+     "sources",
+     "publishers",
+     "claims",
+     "supported",
+     "weak",
+     "unsupported"
+    ],
+    "title": "NoteCard"
+   },
+   "NoteDetail": {
+    "properties": {
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "topic": {
+      "type": "string",
+      "title": "Topic"
+     },
+     "topic_name": {
+      "type": "string",
+      "title": "Topic Name"
+     },
+     "edition_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Edition Date"
+     },
+     "published_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Published At"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "summary": {
+      "type": "string",
+      "title": "Summary"
+     },
+     "sources": {
+      "type": "integer",
+      "title": "Sources"
+     },
+     "publishers": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Publishers"
+     },
+     "claims": {
+      "type": "integer",
+      "title": "Claims"
+     },
+     "supported": {
+      "type": "integer",
+      "title": "Supported"
+     },
+     "weak": {
+      "type": "integer",
+      "title": "Weak"
+     },
+     "unsupported": {
+      "type": "integer",
+      "title": "Unsupported"
+     },
+     "body": {
+      "type": "string",
+      "title": "Body"
+     },
+     "why_it_matters": {
+      "type": "string",
+      "title": "Why It Matters"
+     },
+     "reports": {
+      "type": "integer",
+      "title": "Reports"
+     },
+     "independent_publishers": {
+      "type": "integer",
+      "title": "Independent Publishers"
+     },
+     "citations": {
+      "items": {
+       "$ref": "#/components/schemas/dailyainotes__api__notes__Citation"
+      },
+      "type": "array",
+      "title": "Citations"
+     }
+    },
+    "type": "object",
+    "required": [
+     "slug",
+     "topic",
+     "topic_name",
+     "edition_date",
+     "published_at",
+     "title",
+     "summary",
+     "sources",
+     "publishers",
+     "claims",
+     "supported",
+     "weak",
+     "unsupported",
+     "body",
+     "why_it_matters",
+     "reports",
+     "independent_publishers",
+     "citations"
+    ],
+    "title": "NoteDetail"
+   },
+   "Question": {
+    "properties": {
+     "question": {
+      "type": "string",
+      "maxLength": 300,
+      "minLength": 3,
+      "title": "Question"
+     },
+     "topics": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 20,
+      "title": "Topics"
+     }
+    },
+    "type": "object",
+    "required": [
+     "question"
+    ],
+    "title": "Question"
+   },
+   "Review": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "topic": {
+      "type": "string",
+      "title": "Topic"
+     },
+     "edition_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Edition Date"
+     },
+     "version": {
+      "type": "integer",
+      "title": "Version"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "body": {
+      "type": "string",
+      "title": "Body"
+     },
+     "why_it_matters": {
+      "type": "string",
+      "title": "Why It Matters"
+     },
+     "citations": {
+      "items": {
+       "$ref": "#/components/schemas/dailyainotes__api__admin__Citation"
+      },
+      "type": "array",
+      "title": "Citations"
+     },
+     "claims": {
+      "items": {
+       "$ref": "#/components/schemas/Claim"
+      },
+      "type": "array",
+      "title": "Claims"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "topic",
+     "edition_date",
+     "version",
+     "title",
+     "body",
+     "why_it_matters",
+     "citations",
+     "claims"
+    ],
+    "title": "Review"
+   },
+   "Stats": {
+    "properties": {
+     "totals": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object",
+      "title": "Totals"
+     },
+     "days": {
+      "items": {
+       "$ref": "#/components/schemas/DayStats"
+      },
+      "type": "array",
+      "title": "Days"
+     },
+     "models": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object",
+      "title": "Models"
+     },
+     "eval": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Eval"
+     },
+     "eval_judged": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Eval Judged"
+     }
+    },
+    "type": "object",
+    "required": [
+     "totals",
+     "days",
+     "models",
+     "eval",
+     "eval_judged"
+    ],
+    "title": "Stats"
+   },
+   "Timeline": {
+    "properties": {
+     "topic": {
+      "$ref": "#/components/schemas/Topic"
+     },
+     "notes": {
+      "items": {
+       "$ref": "#/components/schemas/NoteCard"
+      },
+      "type": "array",
+      "title": "Notes"
+     }
+    },
+    "type": "object",
+    "required": [
+     "topic",
+     "notes"
+    ],
+    "title": "Timeline"
+   },
+   "Topic": {
+    "properties": {
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "description": {
+      "type": "string",
+      "title": "Description"
+     },
+     "notes": {
+      "type": "integer",
+      "title": "Notes"
+     }
+    },
+    "type": "object",
+    "required": [
+     "slug",
+     "name",
+     "description",
+     "notes"
+    ],
+    "title": "Topic"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   },
+   "dailyainotes__api__admin__Citation": {
+    "properties": {
+     "marker": {
+      "type": "integer",
+      "title": "Marker"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "url": {
+      "type": "string",
+      "title": "Url"
+     },
+     "publisher": {
+      "type": "string",
+      "title": "Publisher"
+     }
+    },
+    "type": "object",
+    "required": [
+     "marker",
+     "title",
+     "url",
+     "publisher"
+    ],
+    "title": "Citation"
+   },
+   "dailyainotes__api__notes__Citation": {
+    "properties": {
+     "marker": {
+      "type": "integer",
+      "title": "Marker"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "url": {
+      "type": "string",
+      "title": "Url"
+     },
+     "publisher": {
+      "type": "string",
+      "title": "Publisher"
+     },
+     "published_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Published At"
+     },
+     "quote": {
+      "type": "string",
+      "title": "Quote"
+     }
+    },
+    "type": "object",
+    "required": [
+     "marker",
+     "title",
+     "url",
+     "publisher",
+     "published_at",
+     "quote"
+    ],
+    "title": "Citation"
+   }
+  }
+ }
+}

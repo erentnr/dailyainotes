@@ -1,0 +1,61 @@
+---
+import { Font } from "astro:assets";
+
+import { Logo } from "../components/ui/Logo";
+import ThemeToggle from "../islands/ThemeToggle";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = "AI takes notes on what's happening, every day, on the things you care about." } =
+  Astro.props;
+const path = Astro.url.pathname;
+const nav = [
+  ["/", "Today"],
+  ["/topics", "Topics"],
+  ["/ask", "Ask"],
+  ["/how-it-works", "How it works"],
+];
+const current = (href: string) =>
+  (href === "/" ? path === "/" : path.startsWith(href)) ? "page" : undefined;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title === "Daily AI Notes" ? title : `${title} · Daily AI Notes`}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <Font cssVariable="--font-serif" preload />
+    <Font cssVariable="--font-sans" preload />
+    <Font cssVariable="--font-mono" />
+    <script is:inline>
+      // Before the first paint, so the dark theme never flashes light.
+      const saved = localStorage.getItem("dan.theme");
+      const dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.classList.toggle("dark", dark);
+    </script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="inner">
+        <Logo />
+        <nav class="top-nav" aria-label="Main">
+          {nav.map(([href, label]) => <a href={href} aria-current={current(href!)}>{label}</a>)}
+        </nav>
+        <span class="theme"><ThemeToggle client:load /></span>
+      </div>
+    </header>
+    <main class="page">
+      <slot />
+    </main>
+    <nav class="tab-bar" aria-label="Main">
+      {nav.slice(0, 3).map(([href, label]) => <a href={href} aria-current={current(href!)}>{label}</a>)}
+    </nav>
+  </body>
+</html>

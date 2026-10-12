@@ -1,0 +1,87 @@
+/* DESIGN.md's tokens. A change here changes DESIGN.md in the same commit. */
+:root {
+  --bg: #f5f5f1;
+  --surface: #fcfcfa;
+  --sunk: #ecece6;
+  --line: #ddddd5;
+  --line-2: #c6c6bc;
+  --ink: #16171a;
+  --ink-2: #42444a;
+  --ink-3: #5f6168;
+  --accent: #2346c8;
+  --accent-ink: #ffffff;
+  --accent-soft: #e7ebf8;
+  --ok: #2c6a39;
+  --ok-soft: #e2eee3;
+  --warn: #865400;
+  --warn-soft: #f5ead3;
+  --bad: #a12f1c;
+  --bad-soft: #f6e1db;
+  --grid: rgba(22, 23, 26, 0.07);
+  --t1: #eb6834;
+  --t2: #1baf7a;
+  --t3: #6250d6;
+  --t4: #eda100;
+  --t5: #e87ba4;
+  --t6: #008300;
+  --t7: #e34948;
+  --t8: #2a78d6;
+
+  --rounded-xs: 3px;
+  --rounded-sm: 6px;
+  --rounded-md: 10px;
+  --rounded-pill: 999px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+  --space-9: 64px;
+  --space-10: 96px;
+  --margin: 20px;
+  --rail: 300px;
+  --max-width: 1160px;
+  --measure: 680px;
+  color-scheme: light;
+}
+
+@media (min-width: 600px) {
+  :root {
+    --margin: 32px;
+  }
+}
+
+/* Dark · Carbon. An inline script in Base.astro sets the class from the saved choice or the
+   system setting before the first paint. */
+:root.dark {
+  --bg: #111214;
+  --surface: #17191c;
+  --sunk: #0c0d0f;
+  --line: #2a2d32;
+  --line-2: #3b3f46;
+  --ink: #ecece7;
+  --ink-2: #bdbfba;
+  --ink-3: #9a9c9f;
+  --accent: #91a8ff;
+  --accent-ink: #0e1430;
+  --accent-soft: #1b2340;
+  --ok: #82c691;
+  --ok-soft: #16261a;
+  --warn: #e3b566;
+  --warn-soft: #2a2213;
+  --bad: #f2907c;
+  --bad-soft: #2e1915;
+  --grid: rgba(236, 236, 231, 0.06);
+  --t1: #d95926;
+  --t2: #199e70;
+  --t3: #9085e9;
+  --t4: #c98500;
+  --t5: #d55181;
+  --t6: #008300;
+  --t7: #e66767;
+  --t8: #3987e5;
+  color-scheme: dark;
+}

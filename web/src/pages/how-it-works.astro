@@ -1,0 +1,127 @@
+---
+import { StatTile } from "../components/ui/StatTile";
+import Base from "../layouts/Base.astro";
+import { serverApi } from "../lib/api/server";
+import { formatDay } from "../lib/format";
+
+const { data: stats } = await serverApi().GET("/api/v1/stats");
+if (!stats) throw new Error("The API did not answer");
+const { totals, days } = stats;
+const calls = days.reduce((sum, d) => sum + d.model_calls, 0);
+const cost = days.reduce((sum, d) => sum + d.cost_usd, 0);
+const evals = [
+  ["Expected note among the sources (recall at 5)", "recall_at_5"],
+  ["Rank of the expected note (MRR)", "mrr"],
+  ['"Not enough" when no note covers the question', "not_enough_when_uncovered"],
+] as const;
+const score = (value: unknown) => (typeof value === "number" ? value.toFixed(2) : "–");
+const stages = [
+  ["Scout", "code", "Fetches each topic's feeds and APIs, keeps what their publishers allow, and groups reports of the same event into stories. Independent coverage ranks a story; at most two a topic are picked."],
+  ["Researcher", "model", "Reads the story's sources as data and lists the facts each one states."],
+  ["Writer", "model", "Writes a short note in which every sentence cites its sources: [1], [2]."],
+  ["Citation check", "code", "Every sentence must cite a source that exists, and every number and quote must appear in it. A failing draft goes back to the Writer, twice at most."],
+  ["Fact-checker", "model", "A model from another family than the Writer's checks each claim against the sources it cites. A factual claim needs two independent publishers, one trusted, or a primary source."],
+  ["Editor", "person", "Nothing is published until the editor approves it."],
+  ["Ask", "code + model", "Searches published notes by words and meaning. With no strong match it says so without a model; otherwise one model answers from the notes, and code drops any citation that points nowhere."],
+];
+---
+
+<Base title="How it works">
+  <header class="page-head graph-paper">
+    <div class="label">How it works</div>
+    <h1 class="h1">A notebook kept by agents, checked by code, approved by a person</h1>
+    <p class="muted measure">
+      Every night at 01:30 UTC, each topic goes through the same steps. Models are used only
+      where judging text matters; everything that can be counted is code.
+    </p>
+  </header>
+
+  <ol class="pipeline measure">
+    {
+      stages.map(([name, kind, text]) => (
+        <li>
+          <div>
+            <strong>{name}</strong> <span class="agent">{kind}</span>
+            <div class="muted">{text}</div>
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+
+  <section class="section">
+    <div class="label">The last 14 days</div>
+    <div class="stat-tiles" style="margin-top: var(--space-4)">
+      <StatTile label="Notes published" value={String(totals.notes_published ?? 0)} series={days.map((d) => d.notes)} />
+      <StatTile label="Topics" value={String(totals.topics_active ?? 0)} context={`${totals.sources ?? 0} sources`} />
+      <StatTile label="Reports read" value={String(totals.documents ?? 0)} context={`${totals.chunks ?? 0} searchable passages`} />
+      <StatTile label="Model calls" value={String(calls)} series={days.map((d) => d.model_calls)} />
+      <StatTile label="Cost per day" value={`$${(cost / days.length).toFixed(2)}`} context="Free plans only" />
+    </div>
+    <table class="table small" style="margin-top: var(--space-6)">
+      <thead>
+        <tr><th>Day</th><th class="num">Notes</th><th class="num">Model calls</th><th class="num">Tokens</th><th class="num">Cost</th></tr>
+      </thead>
+      <tbody>
+        {
+          [...days].reverse().map((d) => (
+            <tr>
+              <td class="meta">{formatDay(d.date)}</td>
+              <td class="num">{d.notes}</td>
+              <td class="num">{d.model_calls}</td>
+              <td class="num">{d.tokens.toLocaleString("en-GB")}</td>
+              <td class="num">${d.cost_usd.toFixed(2)}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section measure">
+    <div class="label">Eval scores</div>
+    <p class="small muted">
+      30 questions over 40 fictional notes, run on every change and nightly with a judge model.
+    </p>
+    {
+      stats.eval || stats.eval_judged ? (
+        <table class="table small">
+          <tbody>
+            {evals.map(([label, key]) => (
+              <tr>
+                <td>{label}</td>
+                <td class="num">{score(stats.eval?.[key] ?? stats.eval_judged?.[key])}</td>
+              </tr>
+            ))}
+            <tr>
+              <td>Answers that keep to their notes (judged)</td>
+              <td class="num">{score(stats.eval_judged?.faithfulness)}</td>
+            </tr>
+          </tbody>
+        </table>
+      ) : (
+        <p class="muted">No eval run is recorded yet.</p>
+      )
+    }
+  </section>
+
+  <section class="section measure">
+    <div class="label">Models</div>
+    <table class="table small">
+      <tbody>
+        {
+          Object.entries(stats.models).map(([role, chain]) => (
+            <tr>
+              <td>{role}</td>
+              <td class="meta">{chain.split(",").join(" → ")}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+    <p class="small muted">
+      Each role tries its models in order and moves on when one fails or runs out of its free
+      quota. The source is on GitHub under the Apache-2.0 license.
+    </p>
+  </section>
+</Base>

@@ -1,0 +1,13 @@
+---
+import AskChat from "../islands/AskChat";
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Ask your notes">
+  <header class="page-head graph-paper">
+    <div class="label">Ask</div>
+    <h1 class="h1">Ask your notes</h1>
+    <p class="muted">Questions are answered from published notes only, or not at all.</p>
+  </header>
+  <AskChat client:load />
+</Base>
