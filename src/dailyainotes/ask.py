@@ -15,6 +15,7 @@ from langchain_core.embeddings import Embeddings
 from dailyainotes.db import asks as db
 from dailyainotes.db.engine import AsyncEngine
 from dailyainotes.domain.answers import NOT_ENOUGH, NOT_ENOUGH_REPLY, AnswerFilter
+from dailyainotes.llm.router import describe
 from dailyainotes.retrieval.hybrid import NoteHit, search_notes
 
 log = structlog.get_logger(__name__)
@@ -140,7 +141,7 @@ async def ask(
                 done = event[1]
             yield event
     except Exception as error:  # no model answered, or the stream broke off
-        log.warning("ask_failed", error=repr(error))
+        log.warning("ask_failed", error=describe(error))
         yield "error", "Ask cannot reach a model right now. Try again later."
     if ip_hash is not None:
         cited = [sources[marker - 1].note_id for marker in done["cited"]]

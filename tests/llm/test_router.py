@@ -12,6 +12,7 @@ from dailyainotes.llm.router import (
     ModelRef,
     ModelsExhaustedError,
     Router,
+    describe,
     extract_json,
     parse_chain,
 )
@@ -206,3 +207,38 @@ async def test_a_stream_cut_off_midway_fails_instead_of_starting_over() -> None:
 
     assert pieces == ["The race was"]
     assert [(c.provider, c.ok) for c in ledger.calls] == [("ollama", False)]
+
+
+class ProviderError(Exception):
+    """Shaped like the OpenRouter SDK's errors: a message, a status and the whole response."""
+
+    def __init__(self) -> None:
+        self.message = "Provider returned error"
+        self.status_code = 429
+        self.body = '{"user_id": "user_3Kc8", "set-cookie": "__cf_bm=abc"}'
+        super().__init__(f"{self.message} {self.body}")
+
+
+class Refusing(FakeListChatModel):
+    async def ainvoke(self, *args: object, **kwargs: object) -> AIMessage:  # type: ignore[override]
+        raise ProviderError
+
+
+async def test_a_failure_is_recorded_without_the_providers_response() -> None:
+    ledger = MemoryLedger()
+    r = Router(
+        {"planner": [FALLBACK, PRIMARY]},
+        lambda ref: (
+            Refusing(responses=[""])
+            if ref == FALLBACK
+            else FakeListChatModel(responses=['{"value": 4}'])
+        ),
+        ledger,
+    )
+
+    await ask(r)
+
+    assert ledger.calls[0].error == "ProviderError 429: Provider returned error"
+    assert describe(ProviderError()) == "ProviderError 429: Provider returned error"
+    assert describe(TimeoutError()) == "TimeoutError"
+    assert describe(ValueError("bad\nsecond line")) == "ValueError: bad"

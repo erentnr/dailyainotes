@@ -72,6 +72,17 @@ class ModelsExhaustedError(Exception):
         self.attempts = attempts
 
 
+def describe(error: BaseException) -> str:
+    """What failed, in one short line: the type, the status and the message's first line.
+    Providers' errors carry the whole response, with cookies and the account's id; that stays
+    out of the logs and the ledger."""
+    status = getattr(error, "status_code", None)
+    message = str(getattr(error, "message", None) or error)
+    first_line = message.splitlines()[0] if message else ""
+    text = type(error).__name__ + (f" {status}" if status else "")
+    return (f"{text}: {first_line}" if first_line else text)[:300]
+
+
 def parse_chain(spec: str) -> list[ModelRef]:
     """`"ollama:gpt-oss:120b,openrouter:a/b:free"` → two refs; the model keeps its colons."""
     refs = []
@@ -161,8 +172,8 @@ class Router:
                         if chunk.text:
                             yield chunk.text
             except Exception as error:  # rate limit, quota, timeout, auth, missing key
-                await self._record(run_id, role, ref, reply, started, position > 0, repr(error))
-                log.warning("model_failed", role=role, model=str(ref), error=repr(error))
+                await self._record(run_id, role, ref, reply, started, position > 0, describe(error))
+                log.warning("model_failed", role=role, model=str(ref), error=describe(error))
                 if reply is not None and reply.text:
                     raise  # part of the answer is out; the next model cannot continue it
                 attempts.append(f"{ref}: {type(error).__name__}")
@@ -186,7 +197,7 @@ class Router:
         try:
             model = self._make_model(ref)
         except Exception as error:  # a missing key or an unknown provider
-            await self._record(run_id, role, ref, None, started, fell_back, repr(error))
+            await self._record(run_id, role, ref, None, started, fell_back, describe(error))
             return f"{type(error).__name__}"
         for _ in range(2):  # the first answer, then one repair
             started = time.monotonic()
@@ -196,8 +207,8 @@ class Router:
                         conversation, config=self._config(role, ref, run_id)
                     )
             except Exception as error:  # rate limit, quota, timeout, auth: try the next model
-                await self._record(run_id, role, ref, None, started, fell_back, repr(error))
-                log.warning("model_failed", role=role, model=str(ref), error=repr(error))
+                await self._record(run_id, role, ref, None, started, fell_back, describe(error))
+                log.warning("model_failed", role=role, model=str(ref), error=describe(error))
                 return f"{type(error).__name__}"
             try:
                 value = schema.model_validate_json(extract_json(reply.text))
