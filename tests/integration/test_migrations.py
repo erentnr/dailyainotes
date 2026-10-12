@@ -1,10 +1,12 @@
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
 from typer.testing import CliRunner
 
 from dailyainotes.cli import app
+from dailyainotes.db.migrate import alembic_config
 from dailyainotes.db.tables import Base
 
 pytestmark = pytest.mark.integration
@@ -43,4 +45,5 @@ def test_dan_db_upgrade_is_safe_to_rerun(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0001"
+    head = ScriptDirectory.from_config(alembic_config(database_url)).get_current_head()
+    assert revision == head

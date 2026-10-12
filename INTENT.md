@@ -151,7 +151,8 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
   and the web checks (`pnpm check`, M6). Integration tests need Postgres up (`make up`, M0).
 - **Unit tests never touch the network.** A conftest guard fails any socket connection.
 - **Integration tests use a real Postgres test database** and no outside network. Connectors are
-  tested against recorded responses in `tests/fixtures/<source>/` (M1) with respx.
+  tested against recorded responses in `tests/fixtures/<source>/`, served by httpx2's
+  `MockTransport`.
 - **No live model calls in tests.** Graphs are tested with LangChain's fake chat models. Only the
   nightly eval calls a model.
 - **Tests are named after behaviour,** and every bug fix starts with a failing test.

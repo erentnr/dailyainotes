@@ -1,0 +1,128 @@
+# The fixed topic catalog (ADR 0001). `dan catalog sync` loads it into the database; it adds
+# and updates, never deletes. Topics listed with sources here are active; the others wait for
+# the Topic Planner (M2) to propose their sources.
+#
+# Publisher kinds set the starting trust (src/dailyainotes/domain/trust.py). Publishers with
+# the same owner_group are not independent of each other.
+
+[[publishers]]
+domain = "formula1.com"
+name = "Formula 1"
+kind = "primary"
+
+[[publishers]]
+domain = "autosport.com"
+name = "Autosport"
+kind = "editorial"
+owner_group = "motorsport-network"
+
+[[publishers]]
+domain = "motorsport.com"
+name = "Motorsport.com"
+kind = "editorial"
+owner_group = "motorsport-network"
+
+[[publishers]]
+domain = "racefans.net"
+name = "RaceFans"
+kind = "specialist"
+
+[[publishers]]
+domain = "the-race.com"
+name = "The Race"
+kind = "specialist"
+
+[[publishers]]
+domain = "bbc.co.uk"
+name = "BBC"
+kind = "editorial"
+owner_group = "bbc"
+
+[[publishers]]
+domain = "huggingface.co"
+name = "Hugging Face"
+kind = "primary"
+
+[[publishers]]
+domain = "arxiv.org"
+name = "arXiv"
+kind = "specialist"
+
+[[publishers]]
+domain = "github.com/vllm-project"
+name = "vLLM"
+kind = "primary"
+
+[[topics]]
+slug = "formula-1"
+name = "Formula 1"
+description = "Races, teams, rule changes"
+sources = [
+  { type = "rss", url = "https://www.formula1.com/en/latest/all.xml" },
+  { type = "rss", url = "https://www.autosport.com/rss/f1/news/" },
+  { type = "rss", url = "https://www.motorsport.com/rss/f1/news/" },
+  { type = "rss", url = "https://www.racefans.net/feed/" },
+  { type = "rss", url = "https://www.the-race.com/feed/" },
+  { type = "rss", url = "https://feeds.bbci.co.uk/sport/formula1/rss.xml", publisher = "bbc.co.uk" },
+]
+
+[[topics]]
+slug = "open-weight-ai-models"
+name = "Open-weight AI models"
+description = "Releases with downloadable weights: licences, training recipes, evaluations"
+sources = [
+  { type = "rss", url = "https://huggingface.co/blog/feed.xml" },
+  { type = "arxiv", query = 'abs:"open-weight" OR abs:"open weights"' },
+  { type = "github_releases", repo = "vllm-project/vllm" },
+  { type = "hackernews", query = "open weights", min_points = 50 },
+]
+
+[[topics]]
+slug = "premier-league"
+name = "Premier League"
+description = "Results, transfers, injuries"
+
+[[topics]]
+slug = "tennis"
+name = "Tennis"
+description = "Tour results, Grand Slams"
+
+[[topics]]
+slug = "climate-tech"
+name = "Climate tech"
+description = "Batteries, grids, carbon removal"
+
+[[topics]]
+slug = "astronomy-and-spaceflight"
+name = "Astronomy and spaceflight"
+description = "Sky events, missions, launches, discoveries"
+
+[[topics]]
+slug = "cybersecurity"
+name = "Cybersecurity"
+description = "Breaches, fixes, advisories"
+
+[[topics]]
+slug = "electric-vehicles"
+name = "Electric vehicles"
+description = "Cars, charging, batteries"
+
+[[topics]]
+slug = "central-banks-and-markets"
+name = "Central banks and markets"
+description = "Rates, inflation, earnings"
+
+[[topics]]
+slug = "health-research"
+name = "Health research"
+description = "Trials, approvals, public health"
+
+[[topics]]
+slug = "video-games"
+name = "Video games"
+description = "Releases, studios, updates"
+
+[[topics]]
+slug = "film-and-tv"
+name = "Film and TV"
+description = "Releases, festivals, awards"

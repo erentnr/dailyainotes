@@ -10,7 +10,7 @@ SOURCE = Path(__file__).parents[2] / "src" / PACKAGE
 # Highest layer first. A package may import its own layer or the ones below it.
 LAYERS: list[set[str]] = [
     {"api", "worker", "cli", "mcp"},  # interfaces
-    {"graphs", "ask", "stats", "evals"},  # graphs and services
+    {"graphs", "ingestion", "ask", "stats", "evals"},  # graphs and services
     {"db", "sources", "llm", "retrieval"},  # adapters
     {"domain"},
 ]

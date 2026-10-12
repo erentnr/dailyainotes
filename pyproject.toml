@@ -9,10 +9,12 @@ requires-python = ">=3.14,<3.15"
 dependencies = [
     "alembic>=1.20.0",
     "fastapi>=0.141.1",
+    "pgvector>=0.5.0",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings",
     "sqlalchemy[asyncio]>=2.1.1",
     "structlog",
+    "tldextract>=5.3.2",
     "typer",
     "uvicorn>=0.54.0",
 ]
@@ -26,6 +28,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "anyio>=4.15.1",
     "httpx2>=2.13.1",
     "mypy",
     "pre-commit>=4.6.2",

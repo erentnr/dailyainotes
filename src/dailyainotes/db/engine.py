@@ -3,7 +3,10 @@
 import structlog
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+
+# Re-exported: services pass the engine around without importing SQLAlchemy themselves.
+from sqlalchemy.ext.asyncio import AsyncEngine as AsyncEngine
+from sqlalchemy.ext.asyncio import create_async_engine
 
 log = structlog.get_logger(__name__)
 

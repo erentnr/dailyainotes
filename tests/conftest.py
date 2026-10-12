@@ -13,6 +13,12 @@ import pytest
 LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost"}
 
 
+@pytest.fixture
+def anyio_backend() -> str:
+    """Async tests run on asyncio, the loop uvicorn and the worker use."""
+    return "asyncio"
+
+
 @pytest.fixture(autouse=True)
 def network_guard(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     allow_local = request.node.get_closest_marker("integration") is not None
