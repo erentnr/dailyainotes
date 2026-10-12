@@ -26,6 +26,7 @@ SEAMS = {
     "httpx2": "sources",
     "feedparser": "sources",
     "tldextract": "sources",
+    "trafilatura": "sources",
 }
 
 
