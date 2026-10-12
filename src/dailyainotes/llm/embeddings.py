@@ -5,6 +5,12 @@ so this is a small adapter on LangChain's `Embeddings` interface. Its async meth
 model in a thread.
 """
 
+import os
+
+# ONNX Runtime 1.30's Linux build ships Microsoft's telemetry client, which uploads over HTTPS
+# (MEMORY.md, 2026-10-13). This switch, read when the runtime starts, turns it off.
+os.environ.setdefault("ORT_DISABLE_TELEMETRY", "1")
+
 from fastembed import TextEmbedding
 from langchain_core.embeddings import Embeddings
 
