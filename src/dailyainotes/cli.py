@@ -13,6 +13,7 @@ import typer
 from langgraph.types import Command
 from pydantic import BaseModel
 
+from dailyainotes.db import editorial as editorial_db
 from dailyainotes.db import planner as planner_db
 from dailyainotes.db.catalog import SyncCounts
 from dailyainotes.db.checkpoints import checkpointer
@@ -20,6 +21,9 @@ from dailyainotes.db.engine import AsyncEngine, create_engine
 from dailyainotes.db.ingest import active_topic_slugs, purge_expired_content
 from dailyainotes.db.migrate import upgrade_to_head
 from dailyainotes.db.runs import DbLedger, finish_run, finish_waiting_runs, start_run
+from dailyainotes.graphs.edition import EditionReport, run_edition
+from dailyainotes.graphs.scout import ScoutDeps
+from dailyainotes.graphs.story import StoryDeps, build_story_graph
 from dailyainotes.graphs.topic_planner import PlannerDeps, build_planner
 from dailyainotes.ingestion.catalog import CATALOG_PATH, load_catalog, sync_catalog
 from dailyainotes.ingestion.run import SourceReport, ingest_topic
@@ -36,11 +40,13 @@ app = typer.Typer(no_args_is_help=True, help="Daily AI Notes command line.")
 db_app = typer.Typer(no_args_is_help=True, help="Database commands.")
 catalog_app = typer.Typer(no_args_is_help=True, help="The topic catalog.")
 topics_app = typer.Typer(no_args_is_help=True, help="Topic planning.")
+edition_app = typer.Typer(no_args_is_help=True, help="Daily editions.")
 review_app = typer.Typer(no_args_is_help=True, help="Approve or reject what waits for you.")
 llm_app = typer.Typer(no_args_is_help=True, help="Model providers.")
 app.add_typer(db_app, name="db")
 app.add_typer(catalog_app, name="catalog")
 app.add_typer(topics_app, name="topics")
+app.add_typer(edition_app, name="edition")
 app.add_typer(review_app, name="review")
 app.add_typer(llm_app, name="llm")
 
@@ -233,25 +239,152 @@ def print_proposal(proposal: planner_db.Proposal) -> None:
         typer.echo(f"    {source['type']:<15} {source['locator'][:60]:<60} {stats}")
 
 
+@edition_app.command("run")
+def edition_run(
+    slug: Annotated[str | None, typer.Argument(help="A topic slug.")] = None,
+    all_active: Annotated[bool, typer.Option("--all", help="Every active topic.")] = False,
+    collect: Annotated[bool, typer.Option(help="Fetch new items first.")] = True,
+) -> None:
+    """Write today's notes: Scout picks the stories, and each note waits for `dan review`."""
+    if not slug and not all_active:
+        raise typer.BadParameter("give a topic slug or --all")
+    for report in asyncio.run(_edition(slug, collect)):
+        if report.status == "skipped":
+            typer.echo(f"{report.slug}: today's edition is already done")
+            continue
+        typer.echo(
+            f"{report.slug}: {report.collected} new items, {report.stories} stories, "
+            f"{len(report.waiting)} notes wait for review"
+        )
+        for note_id in report.waiting:
+            typer.echo(f"  note-{note_id}")
+        for error in report.errors:
+            typer.echo(f"  failed: {error}")
+
+
+async def _edition(slug: str | None, collect: bool) -> list[EditionReport]:
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    now = datetime.now(UTC)
+    try:
+        active = await active_topic_slugs(engine)
+        if slug and slug not in active:
+            raise typer.BadParameter(f"no active topic {slug!r}; active: {', '.join(active)}")
+        if collect:
+            await purge_expired_content(engine, now=now)
+        router = build_router(settings, DbLedger(engine))
+        embeddings = LocalEmbeddings(settings.embedding_cache_dir)
+        reports = []
+        async with create_http() as http, checkpointer(settings.database_url) as saver:
+            scout = ScoutDeps(engine, http, embeddings, now, collect, settings.github_token)
+            for each in [slug] if slug else active:
+                topic = await planner_db.topic(engine, each)
+                if topic is None:
+                    raise typer.BadParameter(f"no topic {each!r}")
+                reports.append(
+                    await run_edition(
+                        scout,
+                        StoryDeps(engine, router),
+                        saver,
+                        topic_id=topic.id,
+                        slug=each,
+                        day=now.date(),
+                    )
+                )
+        return reports
+    finally:
+        flush_tracing(settings)
+        await engine.dispose()
+
+
 @review_app.command("list")
 def review_list() -> None:
     """Everything waiting for your decision."""
-    pending = asyncio.run(_proposals("proposed"))
-    if not pending:
+    proposals, notes = asyncio.run(_pending())
+    if not proposals and not notes:
         typer.echo("Nothing waits for review.")
-    for proposal in pending:
+    for proposal in proposals:
         item = f"plan-{proposal.id}"
         sources = f"{len(proposal.profile['sources'])} sources"
         created = proposal.created_at.date().isoformat()
         typer.echo(f"{item:<10} {proposal.slug:<28} v{proposal.version}  {sources}  {created}")
+    for note in notes:
+        item = f"note-{note.id}"
+        checks = f"{note.supported}/{note.claims} claims supported"
+        typer.echo(f"{item:<10} {note.topic:<28} v{note.version}  {checks}  {note.edition_date}")
+        typer.echo(f"{'':<10} {note.title}")
+
+
+async def _pending() -> tuple[list[planner_db.Proposal], list[editorial_db.NoteSummary]]:
+    engine = create_engine(get_settings().database_url)
+    try:
+        return (
+            await planner_db.proposals(engine, status="proposed"),
+            await editorial_db.notes(engine, status="awaiting_approval"),
+        )
+    finally:
+        await engine.dispose()
 
 
 @review_app.command("show")
 def review_show(item: str) -> None:
-    """One item in full, e.g. `plan-3`."""
-    proposal = asyncio.run(_proposal(item))
-    typer.echo(f"plan-{proposal.id} · {proposal.slug} v{proposal.version} · {proposal.status}")
-    print_proposal(proposal)
+    """One item in full, e.g. `plan-3` or `note-12`."""
+    kind, number = parse_item(item)
+    if kind == "plan":
+        proposal = asyncio.run(_proposal(number))
+        typer.echo(f"{item} · {proposal.slug} v{proposal.version} · {proposal.status}")
+        print_proposal(proposal)
+        return
+    note, (version, citations, claims) = asyncio.run(_note_detail(number))
+    typer.echo(f"{item} · {note.topic} · {note.edition_date} · {note.status} · v{note.version}")
+    typer.echo(f"\n{version.title}\n\n{version.body}\n\nWhy it matters: {version.why_it_matters}")
+    typer.echo("\nSources:")
+    for citation in citations:
+        date = citation.published_at.date().isoformat() if citation.published_at else "undated"
+        typer.echo(f"  [{citation.marker}] {citation.publisher} · {date} · {citation.url}")
+    typer.echo(f"\nClaims ({note.supported}/{note.claims} supported):")
+    for claim in claims:
+        cites = "".join(f"[{m}]" for m in claim.markers)
+        origins = (
+            f"{claim.independent_origins} origin{'s' if claim.independent_origins != 1 else ''}"
+        )
+        typer.echo(f"  {claim.verdict:<12} {origins:<10} {claim.text} {cites}")
+        if claim.verdict != "supported":
+            typer.echo(f"  {'':<23} {claim.rationale}")
+
+
+def parse_item(item: str) -> tuple[str, int]:
+    kind, _, number = item.partition("-")
+    if kind not in ("plan", "note") or not number.isdigit():
+        raise typer.BadParameter(f"{item!r} is not a review item like plan-3 or note-12")
+    return kind, int(number)
+
+
+async def _proposal(proposal_id: int) -> planner_db.Proposal:
+    engine = create_engine(get_settings().database_url)
+    try:
+        for proposal in await planner_db.proposals(engine):
+            if proposal.id == proposal_id:
+                return proposal
+    finally:
+        await engine.dispose()
+    raise typer.BadParameter(f"no plan-{proposal_id}")
+
+
+async def _note(engine: AsyncEngine, note_id: int) -> editorial_db.NoteSummary:
+    for note in await editorial_db.notes(engine):
+        if note.id == note_id:
+            return note
+    raise typer.BadParameter(f"no note-{note_id}")
+
+
+async def _note_detail(note_id: int) -> tuple[editorial_db.NoteSummary, Any]:
+    engine = create_engine(get_settings().database_url)
+    try:
+        note = await _note(engine, note_id)
+        return note, await editorial_db.version_detail(engine, note.id, note.version)
+    finally:
+        await engine.dispose()
 
 
 @review_app.command("approve")
@@ -272,33 +405,31 @@ def review_reject(
     typer.echo(f"{item} rejected.")
 
 
-async def _proposals(status: str | None) -> list[planner_db.Proposal]:
-    engine = create_engine(get_settings().database_url)
+async def _decide(item: str, decision: str, comment: str) -> None:
+    kind, number = parse_item(item)
+    resume: Command[Any] = Command(resume={"decision": decision, "comment": comment})
+    settings = get_settings()
+    if kind == "plan":
+        proposal = await _proposal(number)
+        if proposal.status != "proposed":
+            raise typer.BadParameter(f"{item} is already {proposal.status}")
+        async with planner_graph(settings) as (engine, graph):
+            config = {"configurable": {"thread_id": proposal.thread_id}}
+            await graph.ainvoke(resume, config)
+            await finish_waiting_runs(engine, proposal.thread_id, "done")
+        return
+    engine = create_engine(settings.database_url)
     try:
-        return await planner_db.proposals(engine, status=status)
+        note = await _note(engine, number)
+        if note.status != "awaiting_approval":
+            raise typer.BadParameter(f"{item} is {note.status}, not awaiting approval")
+        router = build_router(settings, DbLedger(engine))
+        async with checkpointer(settings.database_url) as saver:
+            graph = build_story_graph(StoryDeps(engine, router), saver)
+            await graph.ainvoke(resume, {"configurable": {"thread_id": note.thread_id}})
+        await finish_waiting_runs(engine, note.thread_id, "done")
     finally:
         await engine.dispose()
-
-
-async def _proposal(item: str) -> planner_db.Proposal:
-    kind, _, number = item.partition("-")
-    if kind != "plan" or not number.isdigit():
-        raise typer.BadParameter(f"{item!r} is not a review item like plan-3")
-    for proposal in await _proposals(None):
-        if proposal.id == int(number):
-            return proposal
-    raise typer.BadParameter(f"no {item}")
-
-
-async def _decide(item: str, decision: str, comment: str) -> None:
-    proposal = await _proposal(item)
-    if proposal.status != "proposed":
-        raise typer.BadParameter(f"{item} is already {proposal.status}")
-    settings = get_settings()
-    async with planner_graph(settings) as (engine, graph):
-        config = {"configurable": {"thread_id": proposal.thread_id}}
-        await graph.ainvoke(Command(resume={"decision": decision, "comment": comment}), config)
-        await finish_waiting_runs(engine, proposal.thread_id, "done")
 
 
 class ProbeAnswer(BaseModel):
@@ -315,7 +446,14 @@ async def _probe() -> None:
     settings = get_settings()
     engine = create_engine(settings.database_url)
     make_model = model_factory(settings)
-    refs = dict.fromkeys(parse_chain(settings.llm_planner))
+    chains = [
+        settings.llm_planner,
+        settings.llm_researcher,
+        settings.llm_writer,
+        settings.llm_extractor,
+        settings.llm_verifier,
+    ]
+    refs = dict.fromkeys(ref for chain in chains for ref in parse_chain(chain))
     try:
         for ref in refs:
             router = Router({"probe": [ref]}, make_model, DbLedger(engine))

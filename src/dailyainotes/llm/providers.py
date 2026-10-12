@@ -50,7 +50,13 @@ def model_factory(settings: Settings) -> Callable[[ModelRef], BaseChatModel]:
 
 def build_router(settings: Settings, ledger: Ledger) -> Router:
     return Router(
-        {"planner": parse_chain(settings.llm_planner)},
+        {
+            "planner": parse_chain(settings.llm_planner),
+            "researcher": parse_chain(settings.llm_researcher),
+            "writer": parse_chain(settings.llm_writer),
+            "extractor": parse_chain(settings.llm_extractor),
+            "verifier": parse_chain(settings.llm_verifier),
+        },
         model_factory(settings),
         ledger,
         limits={

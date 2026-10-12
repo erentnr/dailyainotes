@@ -42,6 +42,14 @@ async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
     tables = ", ".join(table.name for table in Base.metadata.sorted_tables)
     async with engine.begin() as connection:
         await connection.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+        # Checkpoints too: thread ids like note:1 name rows whose ids restart at 1.
+        if (await connection.execute(text("SELECT to_regclass('langgraph.checkpoints')"))).scalar():
+            await connection.execute(
+                text(
+                    "TRUNCATE langgraph.checkpoints, langgraph.checkpoint_blobs, "
+                    "langgraph.checkpoint_writes"
+                )
+            )
     yield engine
     await engine.dispose()
 

@@ -31,6 +31,11 @@ class Settings(BaseSettings):
 
     # One chain per role: provider:model pairs, tried in order.
     llm_planner: str = "ollama:gpt-oss:120b,openrouter:google/gemma-4-31b-it:free"
+    llm_researcher: str = "ollama:gpt-oss:120b,openrouter:google/gemma-4-31b-it:free"
+    llm_writer: str = "ollama:gpt-oss:120b,openrouter:google/gemma-4-31b-it:free"
+    llm_extractor: str = "ollama:gpt-oss:20b,openrouter:google/gemma-4-31b-it:free"
+    # From another model family than the Writer's, so it does not share the Writer's mistakes.
+    llm_verifier: str = "ollama:gemma4:31b,openrouter:nvidia/nemotron-3-super-120b-a12b:free"
 
     # Langfuse Cloud tracing; off when the keys are empty. cloud.langfuse.com is the EU region.
     langfuse_public_key: str | None = None
