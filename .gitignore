@@ -7,5 +7,12 @@
 .private/
 CLAUDE.local.md
 
+# Python
+.venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
 # macOS
 .DS_Store

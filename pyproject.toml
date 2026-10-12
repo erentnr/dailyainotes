@@ -1,0 +1,51 @@
+[project]
+name = "dailyainotes"
+version = "0.1.0"
+description = "AI takes notes on what's happening, every day, on the things you care about."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "pydantic-settings",
+    "structlog",
+    "typer",
+]
+
+[project.scripts]
+dan = "dailyainotes.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.12.20,<0.14"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy",
+    "pytest",
+    "ruff",
+]
+
+[tool.uv]
+# INTENT.md, Dependency Policies: never resolve a release younger than two weeks.
+exclude-newer = "2 weeks"
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF", "ASYNC", "S", "PT", "T20"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+files = ["src"]
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
