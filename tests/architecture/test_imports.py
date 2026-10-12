@@ -28,6 +28,9 @@ SEAMS = {
     "tldextract": "sources",
     "trafilatura": "sources",
     "fastembed": "llm",
+    "langfuse": "llm",
+    "langchain_ollama": "llm",
+    "langchain_openrouter": "llm",
 }
 
 

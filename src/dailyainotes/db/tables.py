@@ -155,3 +155,65 @@ class Chunk(Base):
     tsv: Mapped[str] = mapped_column(
         TSVECTOR, Computed("to_tsvector('english', text)", persisted=True)
     )
+
+
+class TopicProfile(Base):
+    """A Topic Planner proposal: keywords, entities and sources, waiting for approval."""
+
+    __tablename__ = "topic_profiles"
+    __table_args__ = (
+        UniqueConstraint("topic_id", "version"),
+        CheckConstraint("status IN ('proposed', 'approved', 'rejected')", name="status"),
+    )
+
+    id: Mapped[int] = mapped_column(Identity(), primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("topics.id", ondelete="CASCADE"))
+    version: Mapped[int]
+    status: Mapped[str] = mapped_column(String(16), server_default="proposed")
+    profile: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    # The LangGraph thread that is paused, waiting for the decision.
+    thread_id: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decision_comment: Mapped[str] = mapped_column(Text, server_default="")
+
+
+class AgentRun(Base):
+    __tablename__ = "agent_runs"
+    __table_args__ = (
+        CheckConstraint("kind IN ('plan', 'edition', 'story', 'ask', 'eval')", name="kind"),
+        CheckConstraint("status IN ('running', 'waiting', 'done', 'failed')", name="status"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    thread_id: Mapped[str | None] = mapped_column(Text)
+    topic_id: Mapped[int | None] = mapped_column(ForeignKey("topics.id", ondelete="SET NULL"))
+    status: Mapped[str] = mapped_column(String(16), server_default="running")
+    error: Mapped[str] = mapped_column(Text, server_default="")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class LlmCall(Base):
+    """One request to a model: the usage ledger behind budgets and cost per run, topic and day."""
+
+    __tablename__ = "llm_calls"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    run_id: Mapped[int | None] = mapped_column(ForeignKey("agent_runs.id", ondelete="SET NULL"))
+    role: Mapped[str] = mapped_column(String(32))
+    provider: Mapped[str] = mapped_column(String(32))
+    model: Mapped[str] = mapped_column(Text)
+    input_tokens: Mapped[int] = mapped_column(server_default=text("0"))
+    output_tokens: Mapped[int] = mapped_column(server_default=text("0"))
+    # Free plans cost nothing; the column is there for the day a paid model is approved.
+    cost_usd: Mapped[float] = mapped_column(Float, server_default=text("0"))
+    latency_ms: Mapped[int] = mapped_column(server_default=text("0"))
+    ok: Mapped[bool]
+    # True when an earlier model in the role's chain failed first.
+    fell_back: Mapped[bool] = mapped_column(server_default=false())
+    error: Mapped[str] = mapped_column(Text, server_default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
