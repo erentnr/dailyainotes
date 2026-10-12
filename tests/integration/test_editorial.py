@@ -462,3 +462,28 @@ async def test_the_owner_approves_a_note_at_admin_and_the_site_shows_it(
     (card,) = published["notes"]
     assert (card["sources"], card["supported"], card["claims"]) == (3, 3, 3)
     assert sorted(card["publishers"]) == ["Blog", "Fia", "Wire"]
+
+
+async def test_a_story_from_one_publisher_asks_the_writer_to_attribute_every_fact(
+    engine: AsyncEngine, database_url: str, embeddings: Embeddings
+) -> None:
+    topic_id = await seed(engine, embeddings)
+    async with engine.connect() as connection:
+        pirelli = (
+            await connection.execute(
+                select(Document.id).where(Document.title.startswith("Pirelli"))
+            )
+        ).scalar_one()
+    edition_id, _ = await db.start_edition(engine, topic_id, NOW.date())
+    (story_id,) = await db.save_stories(
+        engine, edition_id, [db.NewStory("Pirelli", [pirelli], 1, 1.0, [], picked=True)]
+    )
+    note_id = await db.create_note(engine, story_id, topic_id, NOW.date(), "pirelli", "note:1")
+    router = ScriptedRouter(ANY_STORY)
+    async with checkpointer(database_url) as saver:
+        graph = build_story_graph(StoryDeps(engine, router, embeddings), saver)
+        await graph.ainvoke(
+            {"story_id": story_id, "note_id": note_id}, {"configurable": {"thread_id": "note:1"}}
+        )
+
+    assert "All the evidence comes from one publisher, Blog." in router.prompts["writer"][0]

@@ -10,6 +10,7 @@ from dailyainotes.domain.editorial import (
     next_step,
     rank_story,
     slugify,
+    sole_publisher,
 )
 
 NOW = datetime(2026, 10, 13, 12, tzinfo=UTC)
@@ -110,3 +111,20 @@ def test_a_quote_is_at_most_twenty_five_words() -> None:
     assert first_words(" ".join(["word"] * 30)).split()[-1] == "word…"
     assert len(first_words(" ".join(["word"] * 30)).split()) == 25
     assert first_words("short quote") == "short quote"
+
+
+def test_evidence_from_one_owner_group_names_its_publisher() -> None:
+    assert sole_publisher([("The Race", "the-race.com", 0.6)]) == "The Race"
+    assert (
+        sole_publisher([("Autosport", "motorsport", 0.75), ("Motorsport.com", "motorsport", 0.75)])
+        == "Autosport"
+    )
+
+
+def test_a_second_owner_group_or_a_primary_source_needs_no_attribution() -> None:
+    assert (
+        sole_publisher([("The Race", "the-race.com", 0.6), ("RaceFans", "racefans.net", 0.6)])
+        is None
+    )
+    assert sole_publisher([("Formula 1", "formula1.com", 0.85)]) is None
+    assert sole_publisher([]) is None

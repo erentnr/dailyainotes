@@ -33,6 +33,7 @@ from dailyainotes.domain.editorial import (
     first_words,
     next_step,
     search_text,
+    sole_publisher,
 )
 from dailyainotes.graphs.topic_planner import StructuredModel
 
@@ -56,14 +57,18 @@ Rules:
 - title: a plain headline of at most 90 characters, no clickbait.
 - body: 3 to 6 sentences, at most 150 words. End every sentence with the numbers of the
   evidence that states it, before the full stop: "The pilot runs for two years [1][3]."
-- why_it_matters: one or two sentences, cited the same way.
+- why_it_matters: one or two sentences on a consequence the evidence itself states (what
+  changes next, and for whom), cited the same way. No general commentary.
 - Use only facts the cited evidence states, and copy numbers exactly.
+- A fact that only one publisher reports is attributed to it: "The Race reports that ...".
 - Attribute what a source says about itself or disputes: "The team says ...".
 - When sources disagree, give each version with its source.
 - No predictions, no opinions, no quotation longer than 25 words."""
 EXTRACT_PROMPT = """Split the note into its checkable claims: one fact per claim, each with the
-evidence numbers its sentence cites. kind is numeric when the claim contains a number,
-attributed when it reports what someone says, context for background, factual otherwise."""
+evidence numbers its sentence cites. Keep the attribution: when a sentence says who states
+something ("The Race reports that ...", "Mercedes says ..."), every claim taken from it keeps
+those words, and its kind is attributed. Otherwise kind is numeric when the claim contains a
+number, context for background, factual for the rest."""
 VERIFY_PROMPT = f"""You check claims against the evidence they cite.
 {DATA_ONLY}
 For each claim, read only its cited evidence and decide: supported (the evidence states it),
@@ -189,12 +194,21 @@ def build_story_graph(
 
     async def write(state: StoryState) -> StoryState:
         notes = feedback(state)
+        sole = sole_publisher(
+            [(e["publisher"], e["owner_group"], e["trust"]) for e in state["evidence"]]
+        )
         draft = await deps.router.structured(
             "writer",
             Draft,
             system=WRITE_PROMPT,
             user=(
                 f"{format_evidence(state['evidence'])}\n\nBrief:\n{state['brief']}"
+                + (
+                    f"\n\nAll the evidence comes from one publisher, {sole}. Attribute every "
+                    f'fact to it, in every sentence: "{sole} reports that ...".'
+                    if sole
+                    else ""
+                )
                 + (f"\n\nYour last draft had these problems; fix them:\n{notes}" if notes else "")
             ),
             run_id=state.get("run_id"),

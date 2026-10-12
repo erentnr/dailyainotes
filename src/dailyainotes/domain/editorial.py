@@ -100,6 +100,16 @@ def final_verdict(
     return ("supported" if independent >= 2 and trusted else "weak"), independent
 
 
+def sole_publisher(evidence: list[tuple[str, str, float]]) -> str | None:
+    """Given (publisher, owner group, trust) for each piece of evidence: the publisher, when
+    all of it comes from one owner group and none is a primary source. Then no factual claim
+    can find a second origin, so every fact must be attributed (INTENT.md, Fact-check rules)."""
+    groups = {group for _, group, _ in evidence}
+    if len(groups) != 1 or any(trust >= PRIMARY for _, _, trust in evidence):
+        return None
+    return evidence[0][0]
+
+
 def next_step(problems: list[str], verdicts: list[Verdict], rewrites: int) -> str:
     """`write` for another attempt, `review` when the draft is clean or out of attempts."""
     clean = not problems and all(v == "supported" for v in verdicts)
