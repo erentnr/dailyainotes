@@ -8,14 +8,17 @@ Started 2026-10-12; consolidated 2026-10-13 after M6 (Episodic entries up to the
 
 ## Working Memory
 
-- **[2026-10-13] All seven milestones' code (M0 to M6) is merged into `main`; none has had its live check.** The work ran on the default catalog, as the owner asked to proceed on every decided default.
-- **What each live check waits for:** keys in `.env` (`OLLAMA_API_KEY`, `OPENROUTER_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`) for M2, M3 and M5: `dan llm probe`, `dan topics plan --all`, `dan edition run --all`, `dan review`, `dan ask`, `dan evals run --judge`, a Langfuse trace. The GitHub repository, created only when the owner says yes, for CI (M0) and images. The VPS (`deploy` user), DNS for dailyainotes.com and the README's GitHub settings for M4 and M6.
-- The Formula 1 edition of 2026-10-12 (UTC) has two picked stories in `drafting`; a rerun with keys resumes them.
+- **[2026-10-13] All seven milestones' code is merged, and the live checks that needed only keys have run** (M2, M3, M5's model half): real models drafted two Formula 1 notes and an astronomy plan, the owner approved all three, and Langfuse receives traces. The owner's `.env` still sets `LLM_VERIFIER` to the old Nemotron fallback; the default changed.
+- **Still waiting:** the GitHub repository (CI, images; created only on the owner's yes, after deciding whether commits keep the Gmail author address), then the VPS (`deploy` user), DNS and the README's GitHub settings for M4 and M6.
+- The astronomy topic's approved sources include The Guardian's feed; ingestion skips it, and removing the row is the owner's call.
 - ADR 0001 records the proof-of-concept scope.
 
 ## Episodic Memory
 
 (Consolidated on 2026-10-13; new entries go here.)
+
+- [2026-10-13] #event **The first live run with keys.** `dan llm probe`: the three Ollama models answered JSON-in-the-prompt in 0.5 to 1.3 s. `dan edition run formula-1 --no-collect` resumed the two stories from their checkpoints in 1 min 45 s: Norris (two publishers, 5 of 6 claims supported) and Antonelli (one readable publisher, 2 of 12). `dan topics plan astronomy-and-spaceflight` proposed 4 sources in 20 s, The Guardian's feed among them. `dan evals run --judge`: faithfulness 0.955. The night used 80 model calls and 58,330 tokens, all on free plans. The owner approved both notes and the plan.
+- [2026-10-13] #event **Seven fixes followed** (branch `live-check-fixes`): excluded publishers checked in the planner, the catalog, the fetcher and ingestion; providers' responses kept out of logs and `llm_calls`; swapped Langfuse keys named; one-publisher stories attributed (redrafted live: 14 of 15 supported, from 2 of 12); Ask answers the covered part (judged twice: 0.955 and 1.0); the verifier's fallback moved to OpenRouter's Gemma.
 
 ## Semantic Memory
 
@@ -94,7 +97,7 @@ Started 2026-10-12; consolidated 2026-10-13 after M6 (Episodic entries up to the
 - #insight **The development database needs `uv run dan db upgrade` after every new migration;** the test database migrates itself on each run (2026-10-13).
 - #fact **Ollama Cloud's model list** (`https://ollama.com/api/tags`, 2026-10-13): deepseek-v4-pro, deepseek-v4.1-flash, gemma4:31b, glm-5.2, glm-5.3, glm-5.3-flash, gpt-oss:120b, gpt-oss:20b, kimi-k2.6, kimi-k2.7-code, kimi-k3, minimax-m2.7, minimax-m3, mistral-large-3:675b, mistral-large-4, nemotron-3-nano:30b, nemotron-3-super, nemotron-3-ultra. Which of them the free plan's "starter models" include is not published.
 - #fact **OpenRouter's free models** (`/api/v1/models`, 2026-10-13) still number 15, among them google/gemma-4-31b-it, google/gemma-4-26b-a4b-it, nvidia/nemotron-3-super-120b-a12b and nvidia/nemotron-3-ultra-550b-a55b. The public endpoints API does not show each provider's data policy, so whether a model works with `data_collection: deny` shows only in `dan llm probe` with a key.
-- #decision **Default chains per role** (M3, 2026-10-13): Researcher and Writer `ollama:gpt-oss:120b`, then `openrouter:google/gemma-4-31b-it:free`; the claim extractor `ollama:gpt-oss:20b`, then the same Gemma; the verifier `ollama:gemma4:31b`, then `openrouter:nvidia/nemotron-3-super-120b-a12b:free`, another family than the Writer's. To be confirmed with `dan llm probe` once keys exist.
+- #decision **Default chains per role** (M3, confirmed live 2026-10-13): Researcher and Writer `ollama:gpt-oss:120b`, then `openrouter:google/gemma-4-31b-it:free`; the claim extractor `ollama:gpt-oss:20b`, then the same Gemma; the verifier `ollama:gemma4:31b`, then the same Gemma (Nemotron, the first fallback, fails OpenRouter's data policy). The verifier is another family than the Writer's except when both fall back to Gemma.
 
 ### Data sources and publisher policy
 
@@ -123,6 +126,18 @@ Started 2026-10-12; consolidated 2026-10-13 after M6 (Episodic entries up to the
 - #insight **On a Core connection, `select(Model)` returns column rows, not objects,** so `.scalar_one()` gives the id. Select explicit columns into dataclasses instead (M3, 2026-10-13).
 - #insight **`string_agg` with an order needs `aggregate_order_by`;** `within_group` renders `string_agg(…) WITHIN GROUP (…)`, which Postgres rejects (M3, 2026-10-13).
 - #insight **Integration tests truncate the `langgraph` checkpoint tables too,** because thread ids like `note:1` name rows whose ids restart at 1 in every test.
+
+### Live behaviour
+
+- #fact **Ollama Cloud on the free plan** (2026-10-13): `gpt-oss:120b`, `gpt-oss:20b` and `gemma4:31b` all answer with JSON requested in the prompt, in 0.5 to 1.3 s; their native JSON-schema mode fails (`OutputParserException`), as Ollama's docs say. No call failed validation on the first live night.
+- #fact **OpenRouter's free models** (2026-10-13): `google/gemma-4-31b-it:free` answered 429 "temporarily rate-limited upstream" (Google AI Studio's shared pool) at 23:00 UTC; `nvidia/nemotron-3-super-120b-a12b:free` is refused under `data_collection: deny` with 404 "No endpoints found matching your data policy (Free model training)". The public models API does not show this; only a call does.
+- #fact **Langfuse's legacy `GET /api/public/traces` answers 410 for organisations created on or after 2026-09-16;** read observations through `GET /api/public/v2/observations?fromStartTime=&toStartTime=`. A traced call shows up within 10 s (2026-10-13).
+- #insight **Swapped Langfuse keys fail as a bare 401 on export** ("Failed to export spans batch code: 401"); the region was right. Settings now refuse them by prefix (`pk-lf-`, `sk-lf-`) and hide input values in every settings error.
+- #insight **`dan llm probe` is not traced:** it builds a router without the Langfuse callback, so it cannot show whether tracing works. Check with a call through `build_router`.
+- #insight **A rule in the prompt did not make `gpt-oss:120b` attribute single-source facts;** a sentence the code adds when all evidence comes from one owner group did (2026-10-13). Rules that code can decide are computed, not left to the prompt.
+- #insight **"Why it matters" still gets a speculative tail** ("could affect future driver conduct") despite the prompt; the verifier marks it weak, and the editor sees it.
+- #insight **The judge varies by about one question between runs** (faithfulness 0.955, 1.0 and 0.909 on near-identical answers), so read a single judged run as plus or minus 0.05.
+- #insight **OpenRouter's SDK errors carry the whole response** (Cloudflare cookies, the account's user id); `describe()` in the router keeps the type, status and first message line.
 
 ### Ask and evals
 
@@ -195,4 +210,6 @@ Started 2026-10-12; consolidated 2026-10-13 after M6 (Episodic entries up to the
 - **Deploy:** README, Deploy. On the server, in `/srv/dailyainotes`: `./deploy.sh <sha>` deploys or rolls back; `TAG=$(cat .deployed) docker compose -f compose.prod.yml exec worker dan <command>` runs `dan`; `./backup.sh` and `./restore-check.sh`.
 - **Rehearse a deploy locally:** copy `deploy/` to a scratch folder with a dummy `.env` (`IMAGE=localhost:5000/dailyainotes`, `DOMAIN=localhost`, a throwaway `POSTGRES_PASSWORD`); run `registry:3` on `127.0.0.1:5000`; push the image there; after the first run, copy Caddy's root certificate out (`docker compose -f compose.prod.yml cp caddy:/data/caddy/pki/authorities/local/root.crt .`) and set `CURL_CA_BUNDLE` to it; afterwards `docker compose -f compose.prod.yml down -v`.
 - **Lint the workflow and scripts:** `docker run --rm -v "$PWD:/repo:ro" --workdir /repo rhysd/actionlint:1.7.12` and `docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.11.0 /mnt/*.sh`.
+- **Read Langfuse from code:** basic auth with the two keys against `GET {LANGFUSE_BASE_URL}/api/public/v2/observations?fromStartTime=<iso>&toStartTime=<iso>`; print counts and names, never the keys.
+- **Redraft a story without touching the real note:** `docker compose exec -T db createdb -U dan <scratch>`, pipe `pg_dump -U dan dailyainotes` into `psql -U dan <scratch>`, delete the note and its `langgraph` checkpoints (`thread_id = 'note:<story id>'`) in the copy, run `write_note` with `DATABASE_URL` pointing at the copy, then `dropdb` it.
 - **Secrets scan of the history:** `docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo --redact --verbose`.

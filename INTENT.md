@@ -218,16 +218,16 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 
 - [ ] M0 Foundations: uv project, settings, logging, Compose with Postgres, Alembic baseline and drift test, `/api/v1/health`, `dan`, pre-commit, CI on 3.14, license, README stub → check: `make up && make check`; `curl localhost:8000/api/v1/health`; CI green on the first pull request
 - [x] M1 Ingestion and hybrid search (2026-10-13): catalog, RSS/Atom, arXiv, GitHub releases, HN, policy-gated fetcher, local embeddings, fused search → check: `dan ingest --topic formula-1`; `dan search "safety car" --explain`; a fixture test per connector and policy signal
-- [ ] M2 LLM router and Topic Planner (code merged 2026-10-13; the live check waits for API keys in `.env`): fallback chains, structured-output probe, budget guard, usage ledger, Langfuse; planner graph with approval → check: `dan llm probe`; `dan topics plan astronomy`, then `dan review approve <id>`; the trace in Langfuse
-- [ ] M3 Editorial graph (code merged 2026-10-13; the live check waits for API keys in `.env`; the daily schedule moved to M4's worker): Scout graph, story graph (Researcher, Writer, Fact-checker loop, approval, publish) → check: `dan edition run climate-tech`; a planted wrong number loops back to the Writer; `dan review approve note-<id>` publishes
+- [x] M2 LLM router and Topic Planner (2026-10-13; probed, planned and approved live, traced in Langfuse): fallback chains, structured-output probe, budget guard, usage ledger, Langfuse; planner graph with approval → check: `dan llm probe`; `dan topics plan astronomy`, then `dan review approve <id>`; the trace in Langfuse
+- [x] M3 Editorial graph (2026-10-13; run live on formula-1, since climate-tech has no approved sources yet; the daily schedule moved to M4's worker): Scout graph, story graph (Researcher, Writer, Fact-checker loop, approval, publish) → check: `dan edition run climate-tech`; a planted wrong number loops back to the Writer; `dan review approve note-<id>` publishes
 - [ ] M4 Deploy (code merged 2026-10-13 and rehearsed locally; the live check waits for the GitHub repository, VPS access and DNS): Dockerfiles, `compose.prod.yml`, Caddyfile, `deploy.sh`, GHCR and SSH workflow, nightly `backup.sh`, the worker with the daily schedule, README setup → check: `https://dailyainotes.com/api/v1/health`; the nightly run drafts notes on the VPS; last night's dump restores into a scratch database
-- [ ] M5 Ask the notes and evals (code merged 2026-10-13; the cited answer waits for API keys and the CI gate for the GitHub repository): search over notes, citation validation, "not enough", per-IP limits, streaming; 30-question eval → check: a cited answer from the Ask endpoint; "Not enough in the notes" for an off-catalog question; the eval gate in CI
+- [ ] M5 Ask the notes and evals (code merged and judged live 2026-10-13; the CI gate waits for the GitHub repository): search over notes, citation validation, "not enough", per-IP limits, streaming; 30-question eval → check: a cited answer from the Ask endpoint; "Not enough in the notes" for an off-catalog question; the eval gate in CI
 - [ ] M6 Web app and How it works (code merged 2026-10-13 and rehearsed locally behind Caddy; the live check waits for the deploy): Astro from DESIGN.md, topic picker, daily page, note, timeline, Ask, How it works, minimal /admin; README and docs/design.md → check: on dailyainotes.com, pick topics, read, ask, approve at /admin; `pnpm check` in CI
 
 ### Medium
 
 - [ ] Before M1: the owner confirms or edits the 12 catalog topics (the default list is in MEMORY.md).
-- [ ] At M2: choose models with `dan llm probe` (Writer and fact-checker from different families) and record them in MEMORY.md.
+- [x] At M2: choose models with `dan llm probe` (Writer and fact-checker from different families) and record them in MEMORY.md (2026-10-13).
 - [ ] Before M4: confirm the VPS disk size and the DNS records for dailyainotes.com.
 - [ ] After 2026-10-15: move the Postgres image to `pgvector/pgvector:0.8.7-pg18-trixie`.
 - [ ] After 2026-10-28: move to Node 26 LTS.
