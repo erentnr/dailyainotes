@@ -1,0 +1,24 @@
+# Local development. Production uses deploy/compose.prod.yml (M4).
+name: dailyainotes
+
+services:
+  db:
+    # pgvector 0.8.7 is under two weeks old on 2026-10-12; MEMORY.md has the reason.
+    image: pgvector/pgvector:0.8.6-pg18-trixie
+    environment:
+      POSTGRES_USER: dan
+      POSTGRES_PASSWORD: dan # local development only
+      POSTGRES_DB: dailyainotes
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # Postgres 18 images keep data under /var/lib/postgresql/18/docker.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dan -d dailyainotes"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:

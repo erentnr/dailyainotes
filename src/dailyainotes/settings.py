@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     log_level: LogLevel = "INFO"
+    database_url: str = "postgresql+psycopg://dan:dan@localhost:5432/dailyainotes"
 
 
 @lru_cache

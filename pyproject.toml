@@ -7,7 +7,10 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.14,<3.15"
 dependencies = [
+    "alembic>=1.20.0",
+    "psycopg[binary]>=3.3.6",
     "pydantic-settings",
+    "sqlalchemy>=2.1.1",
     "structlog",
     "typer",
 ]
@@ -49,3 +52,4 @@ plugins = ["pydantic.mypy"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+markers = ["integration: needs Postgres from `make up`"]

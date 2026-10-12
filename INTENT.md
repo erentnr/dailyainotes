@@ -228,6 +228,7 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - [ ] Before M1: the owner confirms or edits the 12 catalog topics (the default list is in MEMORY.md).
 - [ ] At M2: choose models with `dan llm probe` (Writer and fact-checker from different families) and record them in MEMORY.md.
 - [ ] Before M4: confirm the VPS disk size and the DNS records for dailyainotes.com.
+- [ ] After 2026-10-15: move the Postgres image to `pgvector/pgvector:0.8.7-pg18-trixie`.
 - [ ] After 2026-10-28: move to Node 26 LTS.
 - [ ] Revise DESIGN.md when the v1 screens (Admin, How it works, Archive, Topic) are redesigned; until then they are layout reference only.
 - [ ] Keep the README's Next steps in line with ADR 0001.
