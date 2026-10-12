@@ -8,8 +8,8 @@ Started 2026-10-12; no consolidation yet.
 
 ## Working Memory
 
-- **[2026-10-13] M0 and M1 are merged into `main`; M2 (LLM router and Topic Planner) is next,** on the default catalog, as the owner asked to proceed on every decided default. CI is written but has never run: it needs the GitHub repository, created only when the owner asks.
-- M2's live check needs Ollama Cloud, OpenRouter and Langfuse Cloud keys in `.env`; the code and tests run without them. Before M4: VPS access and DNS records.
+- **[2026-10-13] M0, M1 and M2's code are merged into `main`; M3 (the editorial graph) is next,** on the default catalog, as the owner asked to proceed on every decided default. CI is written but has never run: it needs the GitHub repository, created only when the owner asks.
+- **M2's live check waits for keys in `.env`:** `OLLAMA_API_KEY`, `OPENROUTER_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`. Then: `dan llm probe`, `dan topics plan --all`, `dan review list`, and a trace in Langfuse. Without keys every command fails cleanly with `MissingKeyError`. Before M4: VPS access and DNS records.
 - ADR 0001 records the proof-of-concept scope.
 
 ## Episodic Memory
@@ -77,6 +77,15 @@ Started 2026-10-12; no consolidation yet.
 - #fact **fastembed's small multilingual option** is `paraphrase-multilingual-MiniLM-L12-v2` (384 dimensions, 0.22 GB); `multilingual-e5-small` is not supported (fastembed supported-models page, 2026-10-12).
 - #decision **Langfuse Cloud, Hobby plan:** 50k units a month, 30 days of history, 2 users, hard cap. Self-hosting is sized at 4 cores and 16 GiB with ClickHouse, Redis and S3. SDK v4 uses `propagate_attributes()`; `LANGFUSE_BASE_URL` replaces `LANGFUSE_HOST` (langfuse.com, 2026-10-12).
 
+- #decision **The router is its own loop over a role's chain, not LangChain's `with_fallbacks`,** because invalid output and spent daily budgets must also move it to the next model (M2, 2026-10-13). Every provider gets the JSON request in the prompt, checked with Pydantic, with one repair attempt; `dan llm probe` reports whether native JSON-schema output also works per model.
+- #decision **Every OpenRouter request sends `openrouter_provider={"data_collection": "deny"}`.** OpenRouter documents `deny` as "use only providers which do not collect user data" (docs, 2026-10-13); with no such provider the request fails and the router moves on.
+- #decision **No `model_prices` table** (M2, 2026-10-13): on free plans every call costs $0. `llm_calls` records tokens, latency and outcome, and keeps a `cost_usd` column for a paid model the owner might approve later.
+- #decision **LangGraph state holds plain JSON** (dicts and lists), so checkpoints never deserialize our classes. The checkpointer lives in the `langgraph` schema, which the drift test does not compare.
+- #fact **Versions the floor picked for M2** (2026-10-13): langchain 1.4.3, langchain-core 1.6.5, langgraph 1.2.12, langgraph-checkpoint-postgres 3.1.2, langchain-ollama 1.1.0, langchain-openrouter 0.2.9, langfuse 4.15.6. `init_chat_model` splits `provider:model` at the first colon, so `ollama:gpt-oss:120b` works; `StateGraph.add_sequence` exists.
+- #insight **langchain-core warns "Core Pydantic V1 functionality isn't compatible with Python 3.14" at import.** Both pytest (`filterwarnings`) and the package `__init__` ignore exactly that message (2026-10-13).
+- #insight **`FakeListChatModel` restarts its replies in every new instance,** which exposed that the router rebuilt the model for its repair attempt; it now builds each model once per provider (2026-10-13).
+- #insight **The development database needs `uv run dan db upgrade` after every new migration;** the test database migrates itself on each run (2026-10-13).
+
 ### Data sources and publisher policy
 
 - #decision **Phase 1 sources:** RSS/Atom with autodiscovery, the arXiv API, GitHub releases through the REST API, Hacker News (Firebase and Algolia). Exa's free monthly credit, when a key is set, helps the Topic Planner discover sources; its results are used for URLs only.
@@ -121,5 +130,6 @@ Started 2026-10-12; no consolidation yet.
 - **The API:** `make api`, then `curl localhost:8000/api/v1/health`.
 - **Migrations:** `uv run dan db upgrade` applies them. For a schema change, add the models in `src/dailyainotes/db/tables.py`, write `src/dailyainotes/db/migrations/versions/NNNN_<slug>.py` by hand with revision `"NNNN"`, and keep the drift test green.
 - **Catalog and ingestion:** `uv run dan catalog sync` loads `config/catalog.toml`; `uv run dan ingest [--topic <slug>]` fetches the active topics' sources (the first run downloads the embedding model); `uv run dan search "<query>" --explain [--topic <slug>]`.
+- **Models and planning:** `uv run dan llm probe` tries every model in the configured chains. `uv run dan topics plan <slug>` (or `--all` for every draft topic) runs the Topic Planner until it waits; `uv run dan review list`, `show plan-<id>`, `approve plan-<id>` or `reject plan-<id> --comment "<why>"`.
 - **Packages:** `uv add <package>` or `uv add --dev <package>`; the two-week floor applies automatically. On macOS, packages with ONNX Runtime need `MACOSX_DEPLOYMENT_TARGET=14.0 uv add ...` to resolve.
 - **Secrets scan of the history:** `docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo --redact --verbose`.
