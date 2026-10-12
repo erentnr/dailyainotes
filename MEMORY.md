@@ -4,29 +4,30 @@ Persistent memory for AI agents working on Daily AI Notes, modeled on agentmemor
 
 **Convention:** read this file at session start (AGENTS.md sends every agent here; Claude Code loads it through AGENTS.md's import); the Semantic and Procedural tiers are ground truth. This file is public. Its private counterpart, `.private/MEMORY.md`, is gitignored and holds what INTENT.md's Project Memory section lists as private. At session end: append dated observations to Episodic, promote durable knowledge into Semantic/Procedural, and keep Working Memory to the 3–5 lines that describe now. One line per memory, prefixed `[YYYY-MM-DD]`, tagged `#decision` `#insight` `#bug` `#preference` `#fact` `#event`. At each consolidation, every Episodic entry is promoted or deleted; the full pre-consolidation log lives in git. Rules belong in INTENT.md, not here.
 
-Started 2026-10-12; no consolidation yet.
+Started 2026-10-12; consolidated 2026-10-13 after M6 (Episodic entries up to then are in the Milestone results section, and in git).
 
 ## Working Memory
 
-- **[2026-10-13] M0 to M5's code is merged into `main`; M6 (the web app and How it works) is next.** The work runs on the default catalog, as the owner asked to proceed on every decided default. CI is written but has never run: it needs the GitHub repository, created only when the owner asks. M4's live check needs the repository, VPS access (the `deploy` user), DNS records and the GitHub settings in the README.
-- **M2's, M3's and M5's live checks wait for keys in `.env`:** `OLLAMA_API_KEY`, `OPENROUTER_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`. Then: `dan llm probe`, `dan topics plan --all`, `dan edition run --all`, `dan review list`, `dan ask` on a published note, `dan evals run --judge`, and a trace in Langfuse. Without keys, model calls fail cleanly with `MissingKeyError`. Today's Formula 1 edition (2026-10-12 UTC) has two picked stories waiting in `drafting`; a rerun with keys resumes them.
+- **[2026-10-13] All seven milestones' code (M0 to M6) is merged into `main`; none has had its live check.** The work ran on the default catalog, as the owner asked to proceed on every decided default.
+- **What each live check waits for:** keys in `.env` (`OLLAMA_API_KEY`, `OPENROUTER_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`) for M2, M3 and M5: `dan llm probe`, `dan topics plan --all`, `dan edition run --all`, `dan review`, `dan ask`, `dan evals run --judge`, a Langfuse trace. The GitHub repository, created only when the owner says yes, for CI (M0) and images. The VPS (`deploy` user), DNS for dailyainotes.com and the README's GitHub settings for M4 and M6.
+- The Formula 1 edition of 2026-10-12 (UTC) has two picked stories in `drafting`; a rerun with keys resumes them.
 - ADR 0001 records the proof-of-concept scope.
 
 ## Episodic Memory
 
-- [2026-10-12] #event **The project was planned and approved.** The brief asked for a production-grade multi-agent RAG application. A first plan of 12 milestones was replaced the same day by a proof-of-concept scope (ADR 0001): 7 milestones, no accounts, local embeddings, approval by CLI or a minimal page. Later the same day: OpenRouter's free models replaced Groq as the fallback, and memory was split into a public and a private file.
-
-- [2026-10-12] #event **M0 Foundations was built** in five commits: the Python project and gate, Postgres with Alembic and the drift test, the API with `/api/v1/health`, the architecture and no-network guards, pre-commit and CI. Each guard was broken once and its test failed. The gitleaks history scan found no leaks, and the hook blocked a fake token.
-
-- [2026-10-13] #event **M1 Ingestion and hybrid search was built and demoed live.** `dan ingest --topic formula-1` saved 112 documents from 6 feeds in 105 s (90 s of it CPU, mostly local embedding, on the owner's Mac): formula1.com, RaceFans and The Race mostly `full`; Autosport, Motorsport.com and BBC all `link_only`. `dan search "safety car" --explain` returned relevant RaceFans, The Race and formula1.com chunks, with full-text and vector ranks shown.
-
-- [2026-10-13] #event **M3 The editorial graph was built; its model half waits for keys.** `dan edition run --all --no-collect` on the live Formula 1 data made 66 stories in the 36-hour window (60 single reports, 4 of 2, 1 of 3, 1 of 4) and picked the two best a model may read: "Norris concedes he 'let down' McLaren" (4 reports from 3 publishers) and the Antonelli penalty story (3 from 2). The Singapore Grand Prix result ranked third but only link-only publishers covered it, so it was not picked. Both story graphs stopped at the Researcher with `MissingKeyError`, and the edition was marked failed.
-
-- [2026-10-13] #event **M4 Deploy was rehearsed locally.** With a local registry standing in for GHCR and `DOMAIN=localhost`, `deploy.sh` deployed a good tag, rolled a broken one back to it, and the worker ran a deferred `daily_edition` job in its container (Success, 0.29 s). `backup.sh` wrote a dump and `restore-check.sh` restored it into a scratch database. Idle memory: worker 158 MiB, API 82 MiB, Postgres 79 MiB, Caddy 17 MiB (Docker Desktop, arm64). The rehearsal caught two bugs: `deploy.sh` reported success after a failed health check, and the worker built its Procrastinate app in `__main__`.
-
-- [2026-10-13] #event **M5 Ask the notes and the eval set were built.** With the real embedding model, `dan evals run` scored 1.0 on recall at 5, MRR and "not enough" for the 8 uncovered questions; lowering the strong-match threshold to 0.4 dropped "not enough" to 0.0 and the command failed against the baseline. `dan ask` on the development database, which has no published notes, answered "Not enough in the notes to answer that." without a model call.
+(Consolidated on 2026-10-13; new entries go here.)
 
 ## Semantic Memory
+
+### Milestone results
+
+- #fact **The plan** (2026-10-12): 12 milestones were replaced the same day by the proof-of-concept scope of ADR 0001 (7 milestones); OpenRouter's free models replaced Groq; memory was split into public and private files.
+- #fact **M0** (2026-10-12): each guard (architecture, no network, drift) was broken once and its test failed; the gitleaks history scan found nothing and the hook blocked a fake token.
+- #fact **M1 live ingest** (2026-10-13): `dan ingest --topic formula-1` saved 112 documents from 6 feeds in 105 s, 90 s of it CPU, mostly local embedding, on the owner's Mac.
+- #fact **M3 on live data** (2026-10-13): 75 Formula 1 documents in the 36-hour window made 66 stories (60 single reports, 4 of 2, 1 of 3, 1 of 4); the two best a model may read were picked; the Singapore Grand Prix result ranked third but was link-only. Plain-Python clustering gave the same stories as the numpy version in 0.05 s.
+- #fact **M4 rehearsal** (2026-10-13): a good tag deployed, a broken tag rolled back, a deferred job ran in the worker, a dump restored into a scratch database. Idle memory: worker 158 MiB, API 82 MiB, Postgres 79 MiB, Caddy 17 MiB.
+- #fact **M5** (2026-10-13): the eval scored 1.0 on all three retrieval scores; at a 0.4 threshold "not enough" fell to 0.0 and the gate failed.
+- #fact **M6 rehearsal** (2026-10-13): behind Caddy with `DOMAIN=localhost`, every page answered 200, unknown notes and topics 404, Ask's events streamed uncompressed, admin answered 401 without the token. Memory after use: API 302 MiB (the embedding model loaded), worker 167 MiB, site 56 MiB, Postgres 81 MiB, Caddy 18 MiB.
 
 ### Product and plan
 
@@ -135,6 +136,19 @@ Started 2026-10-12; no consolidation yet.
 - #insight **`httpx2.ASGITransport` does not run the app's lifespan;** API tests set `app.state.engine` themselves and override `ask_deps`.
 - #insight **`dan review approve` loads the real embedding model** to index the note; tests replace `dailyainotes.cli.LocalEmbeddings`, or CI, without the model cache, would hit the network guard.
 
+### The site
+
+- #decision **Astro renders on the server; React islands do the interactive parts** (topic picker, daily feed, citation chips, Ask, /admin). UI components (`web/src/components/ui/`) are React, take props and never fetch, so pages and islands share them.
+- #decision **The client is generated from FastAPI's OpenAPI schema;** `web/openapi.json` is committed, and CI fails when the schema or the generated types drift.
+- #decision **Approving at /admin resumes the story graph inside the API** (`decide_note`, shared with `dan review`), not through the worker as the plan page said: the resume is one transaction and one embedding, and the API already holds the model for Ask.
+- #decision **Frontend versions under the floor** (2026-10-13): pnpm 12.8.1, astro 7.3.5, @astrojs/node 11.1.6, @astrojs/react 7.0.0, react 19.3.0, TypeScript 6.0.3 (openapi-typescript 7.13.0 asks for TypeScript 5 as a peer but generates fine), vitest 5.0.2, actions/setup-node v7.0.0 (v7.1.0 was 5 days old), image `node:24.21.0-trixie-slim` (Node 24.21.0 released 2026-09-07).
+- #fact **Astro 7 has a stable Fonts API** (`fonts` with `fontProviders.google()`, `<Font>` from `astro:assets`): fonts are downloaded at build time and served from the site's origin. **The Node adapter turns on filesystem sessions unless `session: false`.** `astro:env` server variables with `access: "secret"` are read at run time; `public` ones are baked in at build.
+- #fact **pnpm 12** blocks dependencies' install scripts until approved (`pnpm approve-builds esbuild` writes `allowBuilds` to `pnpm-workspace.yaml`), and writes `pnpm-lock.yaml` as several YAML documents, so pre-commit's check-yaml runs with `--allow-multiple-documents`. Node 26 no longer ships corepack; Node 24 does, and CI and the image use it.
+- #fact **The site's image is 580 MB:** Astro's runtime dependencies include its build toolchain (170 MB of node_modules).
+- #insight **Headless Chrome will not lay out narrower than about 500 px,** so a `--window-size=390` screenshot is cut off. Phone layouts are checked through 390 px iframes in a wrapper page.
+- #insight **en-GB's `Intl` writes September as "Sept";** dates use en-US month names in DESIGN.md's order ("Wed 30 Sep 2026").
+- #insight **zsh traps in one-off commands:** `path` is tied to `PATH`, `$name:l` applies the lowercase modifier, and `[slug]` in a file name is a glob. Use other names, braces and quotes.
+
 ### Design
 
 - #decision **DESIGN.md comes from the v2 page of the owner's Claude Design canvas** (2026-10-12). Admin, How it works, Archive and Topic are v1 screens marked "to revise", used as layout reference only.
@@ -175,6 +189,7 @@ Started 2026-10-12; no consolidation yet.
 - **Models and planning:** `uv run dan llm probe` tries every model in the configured chains. `uv run dan topics plan <slug>` (or `--all` for every draft topic) runs the Topic Planner until it waits; `uv run dan review list`, `show plan-<id>`, `approve plan-<id>` or `reject plan-<id> --comment "<why>"`.
 - **Editions and notes:** `uv run dan edition run <slug>` (or `--all`; `--no-collect` skips fetching) runs Scout and a story graph per picked story until each note waits; `uv run dan review show note-<id>` prints the note, its sources and each claim's verdict; `approve note-<id>` publishes it, `reject note-<id> --comment "<why>"` rejects it.
 - **Packages:** `uv add <package>` or `uv add --dev <package>`; the two-week floor applies automatically. On macOS, packages with ONNX Runtime need `MACOSX_DEPLOYMENT_TARGET=14.0 uv add ...` to resolve.
+- **The site:** `cd web && npx --yes pnpm@12.8.1 install`, then `npx --yes pnpm@12.8.1 dev` (port 4321, `/api` proxied to `make api`); `make web-check`; `make api-types` after an API change. To look at it with data, load `evals/corpus.jsonl` into a throwaway database with `load_corpus` (never the development database), point `make api` at it, and screenshot with headless Chrome through 390 px iframes.
 - **Ask and evals:** `uv run dan ask "<question>" [--topic <slug>]`; `uv run dan evals run` (add `--judge` for the model and judge, `--record` to save into `eval_runs`, `--update-baseline` to rewrite `evals/baseline.json`, and say why in the commit).
 - **The worker:** `uv run dan-worker` runs the queue locally; on the server it is the `worker` service.
 - **Deploy:** README, Deploy. On the server, in `/srv/dailyainotes`: `./deploy.sh <sha>` deploys or rolls back; `TAG=$(cat .deployed) docker compose -f compose.prod.yml exec worker dan <command>` runs `dan`; `./backup.sh` and `./restore-check.sh`.

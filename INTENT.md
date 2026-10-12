@@ -5,7 +5,7 @@ before starting any task. When a rule here changes, update this file in the same
 change, and say why.
 
 Rules live here. What we have learned (the current state, what happened, facts, lessons,
-procedures) lives in `MEMORY.md`. Design rationale lives in `docs/design.md` (planned, M6) and in
+procedures) lives in `MEMORY.md`. Design rationale lives in `docs/design.md` and in
 `docs/adr/`. Commands and paths marked (Mn) are created by that milestone.
 
 ## Project
@@ -222,7 +222,7 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - [ ] M3 Editorial graph (code merged 2026-10-13; the live check waits for API keys in `.env`; the daily schedule moved to M4's worker): Scout graph, story graph (Researcher, Writer, Fact-checker loop, approval, publish) → check: `dan edition run climate-tech`; a planted wrong number loops back to the Writer; `dan review approve note-<id>` publishes
 - [ ] M4 Deploy (code merged 2026-10-13 and rehearsed locally; the live check waits for the GitHub repository, VPS access and DNS): Dockerfiles, `compose.prod.yml`, Caddyfile, `deploy.sh`, GHCR and SSH workflow, nightly `backup.sh`, the worker with the daily schedule, README setup → check: `https://dailyainotes.com/api/v1/health`; the nightly run drafts notes on the VPS; last night's dump restores into a scratch database
 - [ ] M5 Ask the notes and evals (code merged 2026-10-13; the cited answer waits for API keys and the CI gate for the GitHub repository): search over notes, citation validation, "not enough", per-IP limits, streaming; 30-question eval → check: a cited answer from the Ask endpoint; "Not enough in the notes" for an off-catalog question; the eval gate in CI
-- [ ] M6 Web app and How it works: Astro from DESIGN.md, topic picker, daily page, note, timeline, Ask, How it works, minimal /admin; README and docs/design.md → check: on dailyainotes.com, pick topics, read, ask, approve at /admin; `pnpm check` in CI
+- [ ] M6 Web app and How it works (code merged 2026-10-13 and rehearsed locally behind Caddy; the live check waits for the deploy): Astro from DESIGN.md, topic picker, daily page, note, timeline, Ask, How it works, minimal /admin; README and docs/design.md → check: on dailyainotes.com, pick topics, read, ask, approve at /admin; `pnpm check` in CI
 
 ### Medium
 
