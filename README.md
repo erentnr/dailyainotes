@@ -2,22 +2,68 @@
 
 AI takes notes on what's happening, every day, on the things you care about.
 
-Every day, LangGraph agents collect coverage for each topic in a fixed catalog, cluster duplicate reports into stories, research them, write short notes with inline citations, fact-check every claim and wait for a human approval before publishing. Visitors read the notes for the topics they pick and ask questions answered only from the notes, with citations.
+Every night, LangGraph agents collect coverage for each topic in a fixed catalog, group reports of the same event into stories, research them, write short notes in which every sentence cites its sources, and fact-check every claim. A person approves each note before it is published. Visitors pick topics, read the day's notes and ask questions answered only from the notes, with citations, or told plainly that the notes don't cover it.
 
-**Status:** proof of concept, under construction ([ADR 0001](docs/adr/0001-proof-of-concept-scope.md)). The milestones are listed in [INTENT.md](INTENT.md).
+**Status:** a proof of concept ([ADR 0001](docs/adr/0001-proof-of-concept-scope.md)); the milestones and what each one waits for are in [INTENT.md](INTENT.md). The design and its trade-offs are in [docs/design.md](docs/design.md).
+
+## How it works
+
+```mermaid
+flowchart LR
+    subgraph nightly["Worker, 01:30 UTC, per topic"]
+        direction LR
+        scout["Scout (code)<br/>collect · policy gate<br/>cluster · rank"] --> research["Researcher<br/>(model)"]
+        research --> writer["Writer<br/>(model)"]
+        writer --> cite{"Citation check<br/>(code)"}
+        cite -- "a number or quote<br/>not in its source" --> writer
+        cite --> verify["Claim extraction and<br/>fact-checker (models)"]
+        verify -- "weak claims,<br/>twice at most" --> writer
+        verify --> review(["Editor approves<br/>dan review · /admin"])
+    end
+    sources[("RSS · arXiv<br/>GitHub · HN")] --> scout
+    review --> pg[("Postgres 18 + pgvector<br/>notes · vectors · queue<br/>checkpoints")]
+    pg --> site["Astro site<br/>daily page · notes<br/>timelines · How it works"]
+    pg --> ask["Ask<br/>hybrid search, then one model<br/>or not enough"]
+    router["LLM router<br/>Ollama Cloud → OpenRouter free"] -.-> research & writer & verify & ask
+```
+
+- **Scout is code, not a model:** it fetches the topic's sources, keeps only what each publisher allows (full text, a summary, or a link), groups reports of one event by their vectors, and ranks stories by independent coverage.
+- **Each picked story is its own LangGraph thread** with a Postgres checkpointer, so a note can wait for approval for days, and a run that stops resumes where it stopped.
+- **Code checks before models check:** every sentence must cite a source that exists, and every number and quote must appear in it. Then a model from another family than the Writer's checks each claim; a factual claim needs two independent publishers, one of them trusted, or a primary source.
+- **Ask is a pipeline, not an agent:** full-text and vector search over published notes, merged by reciprocal rank fusion. With no strong match it answers "Not enough in the notes" without calling a model.
+
+## Eval results
+
+The 30-question set in [`evals/`](evals/README.md) (40 fictional notes; 22 questions a note answers, 8 none does) runs on every pull request without a model:
+
+| Score | Value |
+| --- | --- |
+| Expected note among Ask's sources (recall at 5) | 1.00 |
+| Mean reciprocal rank of the expected note | 1.00 |
+| "Not enough", with no model call, when no note covers the question | 1.00 |
+
+The worker also runs it nightly with the Ask model and a judge from another model family; the How it works page shows the latest scores.
+
+## Cost per day
+
+$0. Models run on Ollama Cloud's free plan with OpenRouter's free models as the fallback, embeddings run locally (fastembed, `BAAI/bge-small-en-v1.5`), tracing uses Langfuse Cloud's free plan, and the router stops each provider at its daily limit. Every model call is recorded with its tokens in `llm_calls`; How it works shows calls, tokens and cost for the last 14 days.
 
 ## Development
 
-Requires [uv](https://docs.astral.sh/uv/), Python 3.14 and Docker.
+Requires [uv](https://docs.astral.sh/uv/), Python 3.14, Node 24 or newer, and Docker.
 
 ```sh
 uv sync
 cp .env.example .env
 uv run pre-commit install
+(cd web && npx --yes pnpm@12.8.1 install)
 make up      # Postgres 18 with pgvector, in Docker
-make check   # format, lint, types, tests (integration tests need `make up`)
+make check   # format, lint, types, tests, and the site's checks (integration tests need `make up`)
 make api     # the API on http://localhost:8000; try /api/v1/health
+(cd web && npx --yes pnpm@12.8.1 dev)   # the site on http://localhost:4321, using `make api`
 ```
+
+Every setting is listed, with what it does, in [`.env.example`](.env.example). After a change to the API, `make api-types` regenerates the site's typed client.
 
 ## Running the pipeline
 
@@ -34,7 +80,7 @@ The model steps need `OLLAMA_API_KEY` or `OPENROUTER_API_KEY` in `.env`; `uv run
 
 ## Deploy
 
-One VPS (Ubuntu 24.04, x86_64; 2 vCPU and 4 GB of memory are enough) runs everything with Docker Compose: Caddy, the API, the worker and Postgres. Each merge to `main` that passes CI builds the image, pushes it to GHCR and runs [`deploy/deploy.sh`](deploy/deploy.sh) on the server over SSH. That script pulls the image, migrates the database, starts the stack, checks `/api/v1/health` over HTTPS, and redeploys the previous image if any step fails.
+One VPS (Ubuntu 24.04, x86_64; 2 vCPU and 4 GB of memory are enough) runs everything with Docker Compose: Caddy, the site, the API, the worker and Postgres. Each merge to `main` that passes CI builds the two images, pushes them to GHCR and runs [`deploy/deploy.sh`](deploy/deploy.sh) on the server over SSH. That script pulls the image, migrates the database, starts the stack, checks `/api/v1/health` over HTTPS, and redeploys the previous image if any step fails.
 
 ### Server setup, once
 
@@ -84,6 +130,8 @@ Then, as `deploy`, write `/srv/dailyainotes/.env` (mode 600). It takes every set
 IMAGE=ghcr.io/<owner>/dailyainotes   # lower case
 DOMAIN=dailyainotes.com
 POSTGRES_PASSWORD=                   # openssl rand -hex 32
+ADMIN_TOKEN=                         # openssl rand -hex 32; the /admin page asks for it
+IP_HASH_KEY=                         # openssl rand -hex 32
 ```
 
 Point the domain's A record (and AAAA, if the server has IPv6) at the server; Caddy obtains the certificate on the first request.
@@ -93,7 +141,7 @@ Point the domain's A record (and AAAA, if the server has IPv6) at the server; Ca
 - Variable `DEPLOY_HOST`: the server's address. Until it is set, CI builds and pushes images but does not deploy.
 - Secret `DEPLOY_SSH_KEY`: a private key made only for deploys (`ssh-keygen -t ed25519 -f deploy_key -N ""`), whose public half is in `deploy`'s `authorized_keys`.
 - Secret `DEPLOY_KNOWN_HOSTS`: the output of `ssh-keyscan -t ed25519 <server>`.
-- After the first push, make the `dailyainotes` package public in its GHCR settings, so the server pulls without a token. Otherwise, run `docker login ghcr.io` as `deploy` with a token that can only read packages.
+- After the first push, make the `dailyainotes` and `dailyainotes-web` packages public in their GHCR settings, so the server pulls without a token. Otherwise, run `docker login ghcr.io` as `deploy` with a token that can only read packages.
 
 ### First run on the server
 
@@ -127,6 +175,16 @@ docker compose -f compose.prod.yml start api worker
 ```
 
 To go back to an earlier release, run `./deploy.sh <commit sha>`. Logs: `TAG=$(cat .deployed) docker compose -f compose.prod.yml logs -f worker`.
+
+## Next steps
+
+Deferred by [ADR 0001](docs/adr/0001-proof-of-concept-scope.md), in rough order:
+
+- Custom topics, beyond the fixed catalog.
+- Accounts, with a per-reader preference memory fed by "more like this" and "less like this".
+- A full review UI: request a rewrite, edit a draft, review topic plans in the browser.
+- An MCP server with `search_notes`, `get_note` and `list_topics`.
+- Offsite backups, uptime monitoring and alerts.
 
 ## How this repository is run
 

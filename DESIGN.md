@@ -298,7 +298,7 @@ The `dark-` tokens, `t1` to `t8`, and `line`, `line-2`, `ink-2`, `ink-3` and `gr
 
 ## Typography
 
-Three families, loaded from Google Fonts: **Newsreader** (optical sizes 6 to 72, weights 400, 500, 600 and italic 400), **Hanken Grotesk** (400, 500, 600) and **IBM Plex Mono** (400, 500).
+Three families from Google Fonts, downloaded when the site is built and served from its own origin, so a visit sends nothing to Google: **Newsreader** (optical sizes 6 to 72, weights 400, 500, 600 and italic 400), **Hanken Grotesk** (400, 500, 600) and **IBM Plex Mono** (400, 500).
 
 - **Newsreader, for reading and display:** dates, titles, note bodies, and quoted excerpts in italic.
 - **Hanken Grotesk, for the interface:** summaries, buttons, inputs, chat answers, topic names.
@@ -341,7 +341,7 @@ Focus is a 2 px `accent` outline with a 2 px offset. Every tap target is at leas
 - **Note card:** a borderless article between hairlines, 20 px above and below. Top row: the topic (tag square and name, 13 px, weight 500) and the time in `meta`. Then the title in `title`, a two-line summary in `ui` at `ink-2`, and a footer with overlapping publisher favicons, a source count and a verdict badge.
 - **Citation chip:** the number in `badge` on `accent-soft`, inline in the text, 22 px tall. Pressed, it turns `citation-chip-active` and opens the expanded citation below the paragraph: a `surface` panel with a 1 px `line-2` border and `sm` corners, holding the publisher and date, the source title, the quoted passage in italic Newsreader with the cited words highlighted in `accent-soft`, the location in the source and "Open source ↗".
 - **Verdict badges:** a 14 px stroke icon and a word: Verified, Partially verified, Unsupported.
-- **Publisher favicons:** 20 px circles that overlap by 5 px, ringed in `bg`. When there is no favicon, the publisher's initial in mono on `sunk`.
+- **Publisher favicons:** 20 px circles that overlap by 5 px, ringed in `bg`. Phase 1 shows the publisher's initial in mono on `sunk`, since fetching favicons would send each visit to other sites.
 - **Topic chips:** a catalog chip (`topic-chip`, 1 px `line-2` border), a selected chip (`topic-chip-selected`, with a check mark) and an "add" chip with a dashed border. Custom topics are not part of phase 1.
 - **Topic tabs:** "All" plus one tab per topic, each with a count in mono. A selected topic tab takes its tag color at 14% with a 1 px border in the tag color.
 - **Catalog tile:** a name in Hanken 15/600, one line of what it covers, and the expected volume ("~2 notes / day") in mono. Selected, it gets a 2 px `ink` border and a filled check.
