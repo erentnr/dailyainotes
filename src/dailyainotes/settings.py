@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     llm_writer: str = "ollama:gpt-oss:120b,openrouter:google/gemma-4-31b-it:free"
     llm_extractor: str = "ollama:gpt-oss:20b,openrouter:google/gemma-4-31b-it:free"
     # From another model family than the Writer's, so it does not share the Writer's mistakes.
-    llm_verifier: str = "ollama:gemma4:31b,openrouter:nvidia/nemotron-3-super-120b-a12b:free"
+    llm_verifier: str = "ollama:gemma4:31b,openrouter:google/gemma-4-31b-it:free"
     # Ollama only: OpenRouter's 50 free requests a day go to the pipeline (INTENT.md).
     llm_ask: str = "ollama:gpt-oss:120b"
     # The nightly eval's judge, from another family than the models it judges.
