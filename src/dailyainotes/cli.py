@@ -16,6 +16,7 @@ from dailyainotes.ingestion.catalog import CATALOG_PATH, load_catalog, sync_cata
 from dailyainotes.ingestion.run import SourceReport, ingest_topic
 from dailyainotes.llm.embeddings import LocalEmbeddings
 from dailyainotes.logging import configure_logging
+from dailyainotes.retrieval.hybrid import SearchHit, hybrid_search
 from dailyainotes.settings import get_settings
 from dailyainotes.sources.http import create_http
 
@@ -105,5 +106,39 @@ async def _ingest(topic: str | None) -> dict[str, list[SourceReport]]:
                 )
                 for slug in ([topic] if topic else active)
             }
+    finally:
+        await engine.dispose()
+
+
+@app.command()
+def search(
+    query: str,
+    topic: Annotated[list[str] | None, typer.Option(help="Limit to a topic slug.")] = None,
+    limit: Annotated[int, typer.Option(help="How many results.")] = 8,
+    explain: Annotated[bool, typer.Option(help="Show each method's rank.")] = False,
+) -> None:
+    """Hybrid search over ingested sources: full text and vectors, fused."""
+    hits = asyncio.run(_search(query, topic, limit))
+    if not hits:
+        typer.echo("No results.")
+    for position, hit in enumerate(hits, start=1):
+        chunk = hit.chunk
+        date = chunk.published_at.date().isoformat() if chunk.published_at else "undated"
+        typer.echo(f"{position}. {chunk.title}")
+        typer.echo(
+            f"   {chunk.publisher or 'unknown'} · {date} · {chunk.text_policy} · {chunk.url}"
+        )
+        if explain:
+            ranks = f"full text #{hit.full_text_rank or '-'} · vector #{hit.vector_rank or '-'}"
+            typer.echo(f"   fused {hit.score:.4f} = {ranks} · chunk {chunk.ordinal}")
+            typer.echo(f"   {' '.join(chunk.text.split())[:160]}")
+
+
+async def _search(query: str, topics: list[str] | None, limit: int) -> list[SearchHit]:
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    try:
+        embeddings = LocalEmbeddings(settings.embedding_cache_dir)
+        return await hybrid_search(engine, embeddings, query, topic_slugs=topics, limit=limit)
     finally:
         await engine.dispose()
