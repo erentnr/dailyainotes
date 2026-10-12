@@ -8,7 +8,7 @@ Started 2026-10-12; no consolidation yet.
 
 ## Working Memory
 
-- **[2026-10-13] M0 to M3's code is merged into `main`; M4 (deploy) is next** and needs VPS access and DNS records. The work runs on the default catalog, as the owner asked to proceed on every decided default. CI is written but has never run: it needs the GitHub repository, created only when the owner asks.
+- **[2026-10-13] M0 to M4's code is merged into `main`; M5 (Ask the notes and evals) is next.** The work runs on the default catalog, as the owner asked to proceed on every decided default. CI is written but has never run: it needs the GitHub repository, created only when the owner asks. M4's live check needs the repository, VPS access (the `deploy` user), DNS records and the GitHub settings in the README.
 - **M2's and M3's live checks wait for keys in `.env`:** `OLLAMA_API_KEY`, `OPENROUTER_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`. Then: `dan llm probe`, `dan topics plan --all`, `dan edition run --all`, `dan review list`, and a trace in Langfuse. Without keys, model calls fail cleanly with `MissingKeyError`. Today's Formula 1 edition (2026-10-12 UTC) has two picked stories waiting in `drafting`; a rerun with keys resumes them.
 - ADR 0001 records the proof-of-concept scope.
 
@@ -21,6 +21,8 @@ Started 2026-10-12; no consolidation yet.
 - [2026-10-13] #event **M1 Ingestion and hybrid search was built and demoed live.** `dan ingest --topic formula-1` saved 112 documents from 6 feeds in 105 s (90 s of it CPU, mostly local embedding, on the owner's Mac): formula1.com, RaceFans and The Race mostly `full`; Autosport, Motorsport.com and BBC all `link_only`. `dan search "safety car" --explain` returned relevant RaceFans, The Race and formula1.com chunks, with full-text and vector ranks shown.
 
 - [2026-10-13] #event **M3 The editorial graph was built; its model half waits for keys.** `dan edition run --all --no-collect` on the live Formula 1 data made 66 stories in the 36-hour window (60 single reports, 4 of 2, 1 of 3, 1 of 4) and picked the two best a model may read: "Norris concedes he 'let down' McLaren" (4 reports from 3 publishers) and the Antonelli penalty story (3 from 2). The Singapore Grand Prix result ranked third but only link-only publishers covered it, so it was not picked. Both story graphs stopped at the Researcher with `MissingKeyError`, and the edition was marked failed.
+
+- [2026-10-13] #event **M4 Deploy was rehearsed locally.** With a local registry standing in for GHCR and `DOMAIN=localhost`, `deploy.sh` deployed a good tag, rolled a broken one back to it, and the worker ran a deferred `daily_edition` job in its container (Success, 0.29 s). `backup.sh` wrote a dump and `restore-check.sh` restored it into a scratch database. Idle memory: worker 158 MiB, API 82 MiB, Postgres 79 MiB, Caddy 17 MiB (Docker Desktop, arm64). The rehearsal caught two bugs: `deploy.sh` reported success after a failed health check, and the worker built its Procrastinate app in `__main__`.
 
 ## Semantic Memory
 
@@ -130,6 +132,14 @@ Started 2026-10-12; no consolidation yet.
 
 - #decision **One Compose stack on one VPS behind Caddy;** images in GHCR; `deploy.sh <sha>` over SSH (pull, migrate, `up -d --wait`, health check, redeploy the previous SHA on failure); nightly `pg_dump` with 7 copies; a README setup section instead of a provisioning script (ADR 0001).
 - #decision **Starting memory limits:** caddy 64 MB, web 256 MB, api 640 MB, worker 1 GB, db 1.25 GB with `shared_buffers` 512 MB; to be measured with `docker stats` at M4.
+- #decision **One image for the API, the worker and `dan`** (`Dockerfile`), with the embedding model downloaded at build time into `/app/models`, so the server never fetches it. It runs as uid 10001 and is 933 MB, mostly ONNX Runtime and the LangChain stack (2026-10-13).
+- #decision **The production Compose project is `dailyainotes-prod`,** not the development `dailyainotes`, so running it on a development machine cannot take over the development database's container and volume.
+- #decision **Procrastinate's tables live in a `procrastinate` schema** (migration 0005 creates the schema, the worker creates the tables on its first start), outside the drift test, like LangGraph's. Upgrading Procrastinate means applying its own SQL migrations by hand.
+- #decision **CI deploys only when the repository variable `DEPLOY_HOST` is set;** until then it builds and pushes images. Pull requests build the image without pushing it.
+- #insight **bash ignores `set -e` inside a function called from `if`,** so `deploy.sh` once reported "deployed" after a failed health check; its steps are now one `&&` chain (M4 rehearsal, 2026-10-13).
+- #insight **`python -m dailyainotes.worker` builds a second Procrastinate app in `__main__`,** which cannot find tasks registered on the module's app (Procrastinate warns "App is instantiated in the main Python module"). The worker starts through the `dan-worker` console script instead.
+- #fact **onnxruntime 1.30's Linux build ships Microsoft's telemetry client** (1DS, HTTPS uploads; the library's strings include "telemetry HTTPS uploads"). `ORT_DISABLE_TELEMETRY=1` turns it off; `llm/embeddings.py` sets it before fastembed loads (checked in the image, 2026-10-13).
+- #fact **Deploy-side versions on 2026-10-13:** docker/login-action v4.6.0 (2026-07-29), docker/build-push-action v7.4.0 (2026-09-15), docker/setup-buildx-action v4.4.1 (2026-09-16), all pinned by SHA; images `caddy:2.11.7-alpine`, `python:3.14.8-slim-trixie`, `ghcr.io/astral-sh/uv:0.12.20`. actionlint 1.7.12 and shellcheck 0.11.0 lint the workflow and scripts (run in Docker). Docker's Ubuntu install now writes a deb822 `docker.sources` file (docs.docker.com, 2026-10-13).
 
 ### Meta-lessons
 
@@ -151,4 +161,8 @@ Started 2026-10-12; no consolidation yet.
 - **Models and planning:** `uv run dan llm probe` tries every model in the configured chains. `uv run dan topics plan <slug>` (or `--all` for every draft topic) runs the Topic Planner until it waits; `uv run dan review list`, `show plan-<id>`, `approve plan-<id>` or `reject plan-<id> --comment "<why>"`.
 - **Editions and notes:** `uv run dan edition run <slug>` (or `--all`; `--no-collect` skips fetching) runs Scout and a story graph per picked story until each note waits; `uv run dan review show note-<id>` prints the note, its sources and each claim's verdict; `approve note-<id>` publishes it, `reject note-<id> --comment "<why>"` rejects it.
 - **Packages:** `uv add <package>` or `uv add --dev <package>`; the two-week floor applies automatically. On macOS, packages with ONNX Runtime need `MACOSX_DEPLOYMENT_TARGET=14.0 uv add ...` to resolve.
+- **The worker:** `uv run dan-worker` runs the queue locally; on the server it is the `worker` service.
+- **Deploy:** README, Deploy. On the server, in `/srv/dailyainotes`: `./deploy.sh <sha>` deploys or rolls back; `TAG=$(cat .deployed) docker compose -f compose.prod.yml exec worker dan <command>` runs `dan`; `./backup.sh` and `./restore-check.sh`.
+- **Rehearse a deploy locally:** copy `deploy/` to a scratch folder with a dummy `.env` (`IMAGE=localhost:5000/dailyainotes`, `DOMAIN=localhost`, a throwaway `POSTGRES_PASSWORD`); run `registry:3` on `127.0.0.1:5000`; push the image there; after the first run, copy Caddy's root certificate out (`docker compose -f compose.prod.yml cp caddy:/data/caddy/pki/authorities/local/root.crt .`) and set `CURL_CA_BUNDLE` to it; afterwards `docker compose -f compose.prod.yml down -v`.
+- **Lint the workflow and scripts:** `docker run --rm -v "$PWD:/repo:ro" --workdir /repo rhysd/actionlint:1.7.12` and `docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.11.0 /mnt/*.sh`.
 - **Secrets scan of the history:** `docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo --redact --verbose`.
