@@ -20,6 +20,7 @@ dependencies = [
     "langgraph>=1.2.12",
     "langgraph-checkpoint-postgres>=3.1.2",
     "pgvector>=0.5.0",
+    "procrastinate>=3.10.0",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings",
     "sqlalchemy[asyncio]>=2.1.1",
@@ -32,6 +33,7 @@ dependencies = [
 
 [project.scripts]
 dan = "dailyainotes.cli:app"
+dan-worker = "dailyainotes.worker:main"
 
 [build-system]
 requires = ["uv_build>=0.12.20,<0.14"]

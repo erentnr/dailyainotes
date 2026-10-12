@@ -21,8 +21,7 @@ from dailyainotes.db.engine import AsyncEngine, create_engine
 from dailyainotes.db.ingest import active_topic_slugs, purge_expired_content
 from dailyainotes.db.migrate import upgrade_to_head
 from dailyainotes.db.runs import DbLedger, finish_run, finish_waiting_runs, start_run
-from dailyainotes.graphs.edition import EditionReport, run_edition
-from dailyainotes.graphs.scout import ScoutDeps
+from dailyainotes.graphs.edition import EditionReport, NoActiveTopicError, run_editions
 from dailyainotes.graphs.story import StoryDeps, build_story_graph
 from dailyainotes.graphs.topic_planner import PlannerDeps, build_planner
 from dailyainotes.ingestion.catalog import CATALOG_PATH, load_catalog, sync_catalog
@@ -263,38 +262,10 @@ def edition_run(
 
 
 async def _edition(slug: str | None, collect: bool) -> list[EditionReport]:
-    settings = get_settings()
-    engine = create_engine(settings.database_url)
-    now = datetime.now(UTC)
     try:
-        active = await active_topic_slugs(engine)
-        if slug and slug not in active:
-            raise typer.BadParameter(f"no active topic {slug!r}; active: {', '.join(active)}")
-        if collect:
-            await purge_expired_content(engine, now=now)
-        router = build_router(settings, DbLedger(engine))
-        embeddings = LocalEmbeddings(settings.embedding_cache_dir)
-        reports = []
-        async with create_http() as http, checkpointer(settings.database_url) as saver:
-            scout = ScoutDeps(engine, http, embeddings, now, collect, settings.github_token)
-            for each in [slug] if slug else active:
-                topic = await planner_db.topic(engine, each)
-                if topic is None:
-                    raise typer.BadParameter(f"no topic {each!r}")
-                reports.append(
-                    await run_edition(
-                        scout,
-                        StoryDeps(engine, router),
-                        saver,
-                        topic_id=topic.id,
-                        slug=each,
-                        day=now.date(),
-                    )
-                )
-        return reports
-    finally:
-        flush_tracing(settings)
-        await engine.dispose()
+        return await run_editions(get_settings(), slug, collect=collect)
+    except NoActiveTopicError as error:
+        raise typer.BadParameter(str(error)) from error
 
 
 @review_app.command("list")

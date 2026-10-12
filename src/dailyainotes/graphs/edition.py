@@ -6,7 +6,7 @@ edition, and a story graph that stopped part-way resumes from its last checkpoin
 """
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig
@@ -14,16 +14,28 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
 
 from dailyainotes.db import editorial as db
-from dailyainotes.db.engine import AsyncEngine
-from dailyainotes.db.runs import finish_run, start_run
+from dailyainotes.db.checkpoints import checkpointer
+from dailyainotes.db.engine import AsyncEngine, create_engine
+from dailyainotes.db.ingest import active_topic_slugs, purge_expired_content
+from dailyainotes.db.planner import topic as find_topic
+from dailyainotes.db.runs import DbLedger, finish_run, start_run
 from dailyainotes.domain.editorial import slugify
 from dailyainotes.graphs.scout import ScoutDeps, build_scout
 from dailyainotes.graphs.story import StoryDeps, StoryState, build_story_graph
+from dailyainotes.llm.embeddings import LocalEmbeddings
+from dailyainotes.llm.providers import build_router
 from dailyainotes.llm.router import ModelsExhaustedError
+from dailyainotes.llm.tracing import flush_tracing
+from dailyainotes.settings import Settings
+from dailyainotes.sources.http import create_http
 
 # INTENT.md, Performance and Cost: at most 2 notes per topic and 15 a day.
 STORIES_PER_TOPIC = 2
 STORIES_PER_DAY = 15
+
+
+class NoActiveTopicError(Exception):
+    pass
 
 
 @dataclass
@@ -35,6 +47,39 @@ class EditionReport:
     stories: int = 0
     waiting: list[int] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+
+
+async def run_editions(
+    settings: Settings, slug: str | None, *, collect: bool
+) -> list[EditionReport]:
+    """Today's edition (by UTC) of one active topic, or of each active topic in slug order.
+    `dan edition run` and the worker's daily task both start here."""
+    engine = create_engine(settings.database_url)
+    now = datetime.now(UTC)
+    try:
+        active = await active_topic_slugs(engine)
+        if slug and slug not in active:
+            raise NoActiveTopicError(f"no active topic {slug!r}; active: {', '.join(active)}")
+        if collect:
+            await purge_expired_content(engine, now=now)
+        story = StoryDeps(engine, build_router(settings, DbLedger(engine)))
+        reports = []
+        async with create_http() as http, checkpointer(settings.database_url) as saver:
+            embeddings = LocalEmbeddings(settings.embedding_cache_dir)
+            scout = ScoutDeps(engine, http, embeddings, now, collect, settings.github_token)
+            for each in [slug] if slug else active:
+                topic = await find_topic(engine, each)
+                if topic is None:
+                    raise NoActiveTopicError(f"no topic {each!r}")
+                reports.append(
+                    await run_edition(
+                        scout, story, saver, topic_id=topic.id, slug=each, day=now.date()
+                    )
+                )
+        return reports
+    finally:
+        flush_tracing(settings)
+        await engine.dispose()
 
 
 async def run_edition(

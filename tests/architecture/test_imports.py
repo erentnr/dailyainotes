@@ -31,6 +31,7 @@ SEAMS = {
     "langfuse": "llm",
     "langchain_ollama": "llm",
     "langchain_openrouter": "llm",
+    "procrastinate": "worker",
 }
 
 
