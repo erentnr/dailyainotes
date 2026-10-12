@@ -8,8 +8,8 @@ Started 2026-10-12; no consolidation yet.
 
 ## Working Memory
 
-- **[2026-10-13] M0, M1 and M2's code are merged into `main`; M3 (the editorial graph) is next,** on the default catalog, as the owner asked to proceed on every decided default. CI is written but has never run: it needs the GitHub repository, created only when the owner asks.
-- **M2's live check waits for keys in `.env`:** `OLLAMA_API_KEY`, `OPENROUTER_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`. Then: `dan llm probe`, `dan topics plan --all`, `dan review list`, and a trace in Langfuse. Without keys every command fails cleanly with `MissingKeyError`. Before M4: VPS access and DNS records.
+- **[2026-10-13] M0 to M3's code is merged into `main`; M4 (deploy) is next** and needs VPS access and DNS records. The work runs on the default catalog, as the owner asked to proceed on every decided default. CI is written but has never run: it needs the GitHub repository, created only when the owner asks.
+- **M2's and M3's live checks wait for keys in `.env`:** `OLLAMA_API_KEY`, `OPENROUTER_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`. Then: `dan llm probe`, `dan topics plan --all`, `dan edition run --all`, `dan review list`, and a trace in Langfuse. Without keys, model calls fail cleanly with `MissingKeyError`. Today's Formula 1 edition (2026-10-12 UTC) has two picked stories waiting in `drafting`; a rerun with keys resumes them.
 - ADR 0001 records the proof-of-concept scope.
 
 ## Episodic Memory
@@ -20,13 +20,15 @@ Started 2026-10-12; no consolidation yet.
 
 - [2026-10-13] #event **M1 Ingestion and hybrid search was built and demoed live.** `dan ingest --topic formula-1` saved 112 documents from 6 feeds in 105 s (90 s of it CPU, mostly local embedding, on the owner's Mac): formula1.com, RaceFans and The Race mostly `full`; Autosport, Motorsport.com and BBC all `link_only`. `dan search "safety car" --explain` returned relevant RaceFans, The Race and formula1.com chunks, with full-text and vector ranks shown.
 
+- [2026-10-13] #event **M3 The editorial graph was built; its model half waits for keys.** `dan edition run --all --no-collect` on the live Formula 1 data made 66 stories in the 36-hour window (60 single reports, 4 of 2, 1 of 3, 1 of 4) and picked the two best a model may read: "Norris concedes he 'let down' McLaren" (4 reports from 3 publishers) and the Antonelli penalty story (3 from 2). The Singapore Grand Prix result ranked third but only link-only publishers covered it, so it was not picked. Both story graphs stopped at the Researcher with `MissingKeyError`, and the edition was marked failed.
+
 ## Semantic Memory
 
 ### Product and plan
 
 - #decision **Proof of concept first** (owner, 2026-10-12, ADR 0001). Kept: the LangGraph editorial graphs, hybrid RAG with Ask the notes, a free-provider LLM router, local embeddings, a 30-question eval in CI, Langfuse Cloud, FastAPI with Astro, Compose deploy through GitHub Actions, the How it works page. Deferred: custom topics, accounts and preference memory, a full admin UI, the MCP server.
 - #decision **Seven milestones, M0 to M6; production at M4,** right after the editorial graph works, so approved notes accumulate while Ask and the web app are built.
-- #decision **Scout is a graph node that runs code:** collect, cluster, rank. A model is called only for borderline clusters. Reason: hundreds of documents per topic a day must be handled repeatably, testably and without spending free quota.
+- #decision **Scout is a graph that runs code:** collect, cluster, rank. Reason: hundreds of documents per topic a day must be handled repeatably, testably and without spending free quota. The planned model check for borderline clusters was cut at M3 (2026-10-13), as the plan's scope-cut list allowed; the calibrated threshold does the job.
 - #decision **Three graphs:** the Topic Planner (per topic, with approval), the edition graph (Scout, per topic per day) and one story graph per picked story (Researcher, Writer, Fact-checker loop of at most 2 rewrites, approval, publish). Each story graph is its own thread with the Postgres checkpointer, so a draft can wait for approval without holding up the run.
 - #decision **Approval is approve or reject** in phase 1; "request a rewrite" went with the full review UI.
 - #decision **English notes; the catalog uses English-language sources,** to match the English embedding model.
@@ -85,6 +87,9 @@ Started 2026-10-12; no consolidation yet.
 - #insight **langchain-core warns "Core Pydantic V1 functionality isn't compatible with Python 3.14" at import.** Both pytest (`filterwarnings`) and the package `__init__` ignore exactly that message (2026-10-13).
 - #insight **`FakeListChatModel` restarts its replies in every new instance,** which exposed that the router rebuilt the model for its repair attempt; it now builds each model once per provider (2026-10-13).
 - #insight **The development database needs `uv run dan db upgrade` after every new migration;** the test database migrates itself on each run (2026-10-13).
+- #fact **Ollama Cloud's model list** (`https://ollama.com/api/tags`, 2026-10-13): deepseek-v4-pro, deepseek-v4.1-flash, gemma4:31b, glm-5.2, glm-5.3, glm-5.3-flash, gpt-oss:120b, gpt-oss:20b, kimi-k2.6, kimi-k2.7-code, kimi-k3, minimax-m2.7, minimax-m3, mistral-large-3:675b, mistral-large-4, nemotron-3-nano:30b, nemotron-3-super, nemotron-3-ultra. Which of them the free plan's "starter models" include is not published.
+- #fact **OpenRouter's free models** (`/api/v1/models`, 2026-10-13) still number 15, among them google/gemma-4-31b-it, google/gemma-4-26b-a4b-it, nvidia/nemotron-3-super-120b-a12b and nvidia/nemotron-3-ultra-550b-a55b. The public endpoints API does not show each provider's data policy, so whether a model works with `data_collection: deny` shows only in `dan llm probe` with a key.
+- #decision **Default chains per role** (M3, 2026-10-13): Researcher and Writer `ollama:gpt-oss:120b`, then `openrouter:google/gemma-4-31b-it:free`; the claim extractor `ollama:gpt-oss:20b`, then the same Gemma; the verifier `ollama:gemma4:31b`, then `openrouter:nvidia/nemotron-3-super-120b-a12b:free`, another family than the Writer's. To be confirmed with `dan llm probe` once keys exist.
 
 ### Data sources and publisher policy
 
@@ -100,6 +105,19 @@ Started 2026-10-12; no consolidation yet.
 - #insight **A test that compares outcomes can miss wasted work.** The first deduplication test passed with deduplication broken, because the unique key still stopped duplicates; it now asserts that a second run requests no article page (M1, 2026-10-13).
 - #insight **SQLAlchemy 2.1 types `select(Chunk.id)` as `Select[int]`** (a TypeVarTuple), not 2.0's `Select[tuple[int]]` (mypy, 2026-10-13).
 - #fact **fastembed downloads the model from Hugging Face on first use** (64 MB into `EMBEDDING_CACHE_DIR`) and warns about unauthenticated requests; harmless. Unit tests use a word-hash stand-in instead, so no test downloads the model (2026-10-13).
+
+### Editorial graph
+
+- #decision **Clustering threshold 0.92** (cosine to a story's centroid, `domain/clustering.py`), calibrated on the live Formula 1 data with bge-small (M3, 2026-10-13): at 0.88 different events merged; at 0.92 same-event reports stay together, and only the sprint pole and the Grand Prix pole still blur.
+- #decision **A story needs at least one document a model may read.** Stories only link-only publishers covered are saved with the reason "only link-only reports" and never picked; their documents never reach a model (M3, 2026-10-13).
+- #decision **Code checks before model checks.** `check_citations` finds a sentence without a marker, a marker that points nowhere, a number or a quote missing from the cited evidence; a draft with problems goes back to the Writer without a model check. The extractor and verifier run only on a draft that passes.
+- #decision **The independence rule runs after the verifier.** When it downgrades a claim the model called supported, the rationale says why ("Only 1 independent origin supports it…"), for both the Writer's rewrite and the owner's review.
+- #decision **The edition runner is a function, not a graph** (`graphs/edition.py`): Scout's thread is `edition:<slug>:<date>`, each story's is `note:<story id>`. A rerun skips a done edition, reuses Scout's picks, and resumes a story graph from its last checkpoint with `ainvoke(None, config)`, under the same run.
+- #decision **The daily schedule moved from M3 to M4's worker** (Procrastinate), because M3 has nowhere to run it; `dan edition run --all` does the day's work by hand.
+- #fact **Editions are dated by the UTC day,** like the free plans' daily limits.
+- #insight **On a Core connection, `select(Model)` returns column rows, not objects,** so `.scalar_one()` gives the id. Select explicit columns into dataclasses instead (M3, 2026-10-13).
+- #insight **`string_agg` with an order needs `aggregate_order_by`;** `within_group` renders `string_agg(…) WITHIN GROUP (…)`, which Postgres rejects (M3, 2026-10-13).
+- #insight **Integration tests truncate the `langgraph` checkpoint tables too,** because thread ids like `note:1` name rows whose ids restart at 1 in every test.
 
 ### Design
 
@@ -131,5 +149,6 @@ Started 2026-10-12; no consolidation yet.
 - **Migrations:** `uv run dan db upgrade` applies them. For a schema change, add the models in `src/dailyainotes/db/tables.py`, write `src/dailyainotes/db/migrations/versions/NNNN_<slug>.py` by hand with revision `"NNNN"`, and keep the drift test green.
 - **Catalog and ingestion:** `uv run dan catalog sync` loads `config/catalog.toml`; `uv run dan ingest [--topic <slug>]` fetches the active topics' sources (the first run downloads the embedding model); `uv run dan search "<query>" --explain [--topic <slug>]`.
 - **Models and planning:** `uv run dan llm probe` tries every model in the configured chains. `uv run dan topics plan <slug>` (or `--all` for every draft topic) runs the Topic Planner until it waits; `uv run dan review list`, `show plan-<id>`, `approve plan-<id>` or `reject plan-<id> --comment "<why>"`.
+- **Editions and notes:** `uv run dan edition run <slug>` (or `--all`; `--no-collect` skips fetching) runs Scout and a story graph per picked story until each note waits; `uv run dan review show note-<id>` prints the note, its sources and each claim's verdict; `approve note-<id>` publishes it, `reject note-<id> --comment "<why>"` rejects it.
 - **Packages:** `uv add <package>` or `uv add --dev <package>`; the two-week floor applies automatically. On macOS, packages with ONNX Runtime need `MACOSX_DEPLOYMENT_TARGET=14.0 uv add ...` to resolve.
 - **Secrets scan of the history:** `docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo --redact --verbose`.
