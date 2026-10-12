@@ -1,0 +1,84 @@
+# Production on the VPS: Caddy, the API, the worker and Postgres; the web app joins at M6.
+# It lives in /srv/dailyainotes next to the server's .env, which sets IMAGE, DOMAIN,
+# POSTGRES_PASSWORD and the app's settings (README, Deploy). deploy.sh sets TAG.
+name: dailyainotes-prod
+
+x-logging: &logging
+  # Docker's default json-file driver never rotates; `local` does (5 files of 20 MB).
+  driver: local
+
+x-app: &app
+  image: ${IMAGE:?}:${TAG:?}
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql+psycopg://dan:${POSTGRES_PASSWORD:?}@db:5432/dailyainotes
+  depends_on:
+    db:
+      condition: service_healthy
+  restart: unless-stopped
+  logging: *logging
+
+services:
+  caddy:
+    image: caddy:2.11.7-alpine
+    # The only published ports (INTENT.md, Security).
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 64m
+    logging: *logging
+
+  api:
+    <<: *app
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    mem_limit: 640m
+
+  worker:
+    <<: *app
+    command: ["dan-worker"]
+    mem_limit: 1g
+
+  db:
+    image: pgvector/pgvector:0.8.6-pg18-trixie
+    environment:
+      POSTGRES_USER: dan
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: dailyainotes
+    command: ["postgres", "-c", "shared_buffers=512MB"]
+    volumes:
+      # Postgres 18 images keep data under /var/lib/postgresql/18/docker.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dan -d dailyainotes"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    mem_limit: 1280m
+    shm_size: 256m
+    logging: *logging
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,25 @@
+# HTTPS for DOMAIN (the server's .env), with certificates Caddy obtains and renews itself.
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# The web app takes over here at M6.
+	handle {
+		respond "Daily AI Notes is on its way." 200
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
