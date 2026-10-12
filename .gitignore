@@ -1,0 +1,11 @@
+# Secrets: only .env.example is committed
+.env
+.env.*
+!.env.example
+
+# Private memory and local Claude Code instructions (INTENT.md, Project Memory)
+.private/
+CLAUDE.local.md
+
+# macOS
+.DS_Store
