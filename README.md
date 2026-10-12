@@ -8,12 +8,15 @@ Every day, LangGraph agents collect coverage for each topic in a fixed catalog, 
 
 ## Development
 
-Requires [uv](https://docs.astral.sh/uv/) and Python 3.14.
+Requires [uv](https://docs.astral.sh/uv/), Python 3.14 and Docker.
 
 ```sh
 uv sync
 cp .env.example .env
-make check   # format, lint, types, tests
+uv run pre-commit install
+make up      # Postgres 18 with pgvector, in Docker
+make check   # format, lint, types, tests (integration tests need `make up`)
+make api     # the API on http://localhost:8000; try /api/v1/health
 ```
 
 ## How this repository is run

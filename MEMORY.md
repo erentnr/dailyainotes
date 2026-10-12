@@ -8,13 +8,15 @@ Started 2026-10-12; no consolidation yet.
 
 ## Working Memory
 
-- **[2026-10-12] Planned and approved; nothing is built yet.** Next is M0 Foundations, done when `make up && make check` pass, `curl localhost:8000/api/v1/health` answers and CI is green on the first pull request.
-- Before M1, the owner confirms the 12 catalog topics. Before M2, `.env` needs Ollama Cloud, OpenRouter and Langfuse Cloud keys. Before M4: VPS access, DNS records and a GitHub repository, created only when the owner asks.
+- **[2026-10-12] M0 is built on branch `m0-foundations` and waits for the owner's review.** `make up && make check` pass (20 tests) and `/api/v1/health` answers 200, or 503 with the database down. CI is written but has never run: it needs the GitHub repository, created only when the owner asks.
+- Next is M1, ingestion and hybrid search. Before it starts, the owner confirms the 12 catalog topics. Before M2, `.env` needs Ollama Cloud, OpenRouter and Langfuse Cloud keys. Before M4: VPS access and DNS records.
 - ADR 0001 records the proof-of-concept scope.
 
 ## Episodic Memory
 
 - [2026-10-12] #event **The project was planned and approved.** The brief asked for a production-grade multi-agent RAG application. A first plan of 12 milestones was replaced the same day by a proof-of-concept scope (ADR 0001): 7 milestones, no accounts, local embeddings, approval by CLI or a minimal page. Later the same day: OpenRouter's free models replaced Groq as the fallback, and memory was split into a public and a private file.
+
+- [2026-10-12] #event **M0 Foundations was built** in five commits: the Python project and gate, Postgres with Alembic and the drift test, the API with `/api/v1/health`, the architecture and no-network guards, pre-commit and CI. Each guard was broken once and its test failed. The gitleaks history scan found no leaks, and the hook blocked a fake token.
 
 ## Semantic Memory
 
@@ -46,6 +48,8 @@ Started 2026-10-12; no consolidation yet.
 - #fact **The two-week floor in practice** (M0, 2026-10-12): uv writes `exclude-newer-span = "P2W"` to `uv.lock`, and `uv lock --check` passes with it. It picked pydantic 2.13.5, SQLAlchemy 2.1.1, typer 0.27.2, mypy 2.3.1 and ruff 0.16.9 over newer releases.
 - #insight **Starlette 1.7.0 deprecates `httpx` in its TestClient** ("install `httpx2` instead"), so the dev group uses httpx2 2.13.1 and pytest runs with `filterwarnings = ["error"]` to catch such deprecations. Earlier research found that respx cannot mock httpx2; decide at M1 which client the connectors use and how their recorded fixtures are served (2026-10-12).
 - #insight **Uvicorn logs its first lines before the app's lifespan runs,** so `create_app` configures logging itself; then every line uvicorn writes is JSON (checked with a live run, 2026-10-12).
+- #insight **gitleaks' pre-commit hook scans only staged changes** (`gitleaks git --pre-commit --staged`), so CI scans the whole history with the pinned `zricethezav/gitleaks:v8.30.1` image and skips the hook (2026-10-12).
+- #decision **CI pins uv 0.12.20 and astral-sh/setup-uv v10.2.0,** the newest releases at least two weeks old on 2026-10-12. uv 0.12.20 reads the lockfile uv 0.13.0 writes, including `exclude-newer-span` (checked with `uv lock --check` and `uv sync --locked`).
 - #fact **Caddy 2.11.7** (2026-10-03); 2.11.6 cut streamed responses after 60 s.
 - #fact **Docker Engine 29.9.0, Compose v5.6.0.** Published ports bypass UFW; the default `json-file` log driver never rotates, the `local` driver does (Docker docs, 2026-10-12).
 - #fact **Frontend on 2026-10-12** (npm): astro 7.3.8 (needs Node 22.12+), @astrojs/node 11.1.7, @astrojs/react 7.0.1, react 19.3.0, next 16.4.0, pnpm 12.11.2, openapi-typescript 7.13.0, openapi-fetch 0.17.0, vitest 5.0.4. TypeScript 7.0.2 is npm's latest, but @astrojs/check 0.9.10 accepts only 5 or 6, so use 6.0.3. Node 24.21.0 is LTS (maintenance from 2026-10-20); Node 26 becomes LTS on 2026-10-28.
@@ -101,4 +105,10 @@ Started 2026-10-12; no consolidation yet.
 
 ## Procedural Memory
 
-- Filled as the project gains commands; M0 creates `make up` and `make check`.
+- **First setup:** `uv sync`, `cp .env.example .env`, `uv run pre-commit install`.
+- **Postgres:** `make up` starts it in Docker and waits until it is healthy; `make down` stops it.
+- **The gate:** `make check` runs ruff format (check), ruff, mypy and pytest. Integration tests need `make up`; without it they error rather than skip.
+- **The API:** `make api`, then `curl localhost:8000/api/v1/health`.
+- **Migrations:** `uv run dan db upgrade` applies them. For a schema change, add the models in `src/dailyainotes/db/tables.py`, write `src/dailyainotes/db/migrations/versions/NNNN_<slug>.py` by hand with revision `"NNNN"`, and keep the drift test green.
+- **Packages:** `uv add <package>` or `uv add --dev <package>`; the two-week floor applies automatically.
+- **Secrets scan of the history:** `docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo --redact --verbose`.

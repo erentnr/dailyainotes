@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    services:
+      db:
+        # Same image as docker-compose.yml.
+        image: pgvector/pgvector:0.8.6-pg18-trixie
+        env:
+          POSTGRES_USER: dan
+          POSTGRES_PASSWORD: dan
+          POSTGRES_DB: dailyainotes
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dan -d dailyainotes"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgresql+psycopg://dan:dan@localhost:5432/dailyainotes
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # gitleaks scans the whole history
+
+      - name: Scan the history for secrets
+        run: >-
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1
+          git /repo --redact --verbose
+
+      # uv 0.12.20 and setup-uv v10.2.0: the newest releases at least two weeks old on 2026-10-12.
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.20"
+          enable-cache: true
+
+      - run: uv sync --locked
+
+      - name: pre-commit hooks
+        run: uv run --frozen pre-commit run --all-files --show-diff-on-failure
+        env:
+          SKIP: gitleaks # the history scan above covers it
+
+      - run: make check
