@@ -217,7 +217,7 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 ### High: phase 1 (proof of concept)
 
 - [ ] M0 Foundations: uv project, settings, logging, Compose with Postgres, Alembic baseline and drift test, `/api/v1/health`, `dan`, pre-commit, CI on 3.14, license, README stub → check: `make up && make check`; `curl localhost:8000/api/v1/health`; CI green on the first pull request
-- [ ] M1 Ingestion and hybrid search: catalog, RSS/Atom, arXiv, GitHub releases, HN, policy-gated fetcher, local embeddings, fused search → check: `dan ingest --topic formula-1`; `dan search "safety car" --explain`; a fixture test per connector and policy signal
+- [x] M1 Ingestion and hybrid search (2026-10-13): catalog, RSS/Atom, arXiv, GitHub releases, HN, policy-gated fetcher, local embeddings, fused search → check: `dan ingest --topic formula-1`; `dan search "safety car" --explain`; a fixture test per connector and policy signal
 - [ ] M2 LLM router and Topic Planner: fallback chains, structured-output probe, budget guard, usage ledger, Langfuse; planner graph with approval → check: `dan llm probe`; `dan topics plan astronomy`, then `dan review approve <id>`; the trace in Langfuse
 - [ ] M3 Editorial graph: Scout node, story graph (Researcher, Writer, Fact-checker loop, approval, publish), daily schedule → check: `dan edition run --topic climate-tech`; a planted wrong number loops back to the Writer; `dan review approve <id>` publishes
 - [ ] M4 Deploy: Dockerfiles, `compose.prod.yml`, Caddyfile, `deploy.sh`, GHCR and SSH workflow, nightly `backup.sh`, README setup → check: `https://dailyainotes.com/api/v1/health`; the nightly run drafts notes on the VPS; last night's dump restores into a scratch database

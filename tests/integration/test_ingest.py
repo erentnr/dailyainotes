@@ -69,6 +69,10 @@ async def test_items_are_saved_with_their_text_policy_and_chunks(
     ]
     assert len(arxiv.saved) == 3
     assert {d.text_policy for d in arxiv.saved} == {"summary"}
+    assert (
+        feed.saved[0].url
+        == "https://news.example.com/2026/10/12/late-safety-car-decides-a-wet-race/"
+    )
     async with engine.connect() as connection:
         rows = (
             await connection.execute(

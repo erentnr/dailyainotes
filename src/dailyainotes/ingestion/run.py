@@ -14,7 +14,7 @@ from dailyainotes.sources.connectors import SourceSpec, fetch_source
 from dailyainotes.sources.fetcher import ArticleFetcher, PageDecision
 from dailyainotes.sources.http import Http
 from dailyainotes.sources.items import RawItem
-from dailyainotes.sources.urls import registrable_domain, url_hash
+from dailyainotes.sources.urls import canonical_url, registrable_domain, url_hash
 
 log = structlog.get_logger(__name__)
 
@@ -115,7 +115,8 @@ async def save_item(
     document_id = await db.save_document(
         engine,
         db.NewDocument(
-            url=item.url,
+            # Without tracking parameters: this is the link readers will see.
+            url=canonical_url(item.url),
             canonical_url_hash=url_hash(item.url),
             source_id=source.id,
             publisher_id=publisher_id,
@@ -131,4 +132,4 @@ async def save_item(
     )
     if document_id is None:
         return None
-    return SavedDocument(item.title, item.url, decision.text_policy, decision.reason)
+    return SavedDocument(item.title, canonical_url(item.url), decision.text_policy, decision.reason)

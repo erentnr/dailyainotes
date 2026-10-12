@@ -8,8 +8,8 @@ Started 2026-10-12; no consolidation yet.
 
 ## Working Memory
 
-- **[2026-10-12] M0 is built on branch `m0-foundations` and waits for the owner's review.** `make up && make check` pass (20 tests) and `/api/v1/health` answers 200, or 503 with the database down. CI is written but has never run: it needs the GitHub repository, created only when the owner asks.
-- Next is M1, ingestion and hybrid search. Before it starts, the owner confirms the 12 catalog topics. Before M2, `.env` needs Ollama Cloud, OpenRouter and Langfuse Cloud keys. Before M4: VPS access and DNS records.
+- **[2026-10-13] M0 and M1 are merged into `main`; M2 (LLM router and Topic Planner) is next,** on the default catalog, as the owner asked to proceed on every decided default. CI is written but has never run: it needs the GitHub repository, created only when the owner asks.
+- M2's live check needs Ollama Cloud, OpenRouter and Langfuse Cloud keys in `.env`; the code and tests run without them. Before M4: VPS access and DNS records.
 - ADR 0001 records the proof-of-concept scope.
 
 ## Episodic Memory
@@ -17,6 +17,8 @@ Started 2026-10-12; no consolidation yet.
 - [2026-10-12] #event **The project was planned and approved.** The brief asked for a production-grade multi-agent RAG application. A first plan of 12 milestones was replaced the same day by a proof-of-concept scope (ADR 0001): 7 milestones, no accounts, local embeddings, approval by CLI or a minimal page. Later the same day: OpenRouter's free models replaced Groq as the fallback, and memory was split into a public and a private file.
 
 - [2026-10-12] #event **M0 Foundations was built** in five commits: the Python project and gate, Postgres with Alembic and the drift test, the API with `/api/v1/health`, the architecture and no-network guards, pre-commit and CI. Each guard was broken once and its test failed. The gitleaks history scan found no leaks, and the hook blocked a fake token.
+
+- [2026-10-13] #event **M1 Ingestion and hybrid search was built and demoed live.** `dan ingest --topic formula-1` saved 112 documents from 6 feeds in 105 s (90 s of it CPU, mostly local embedding, on the owner's Mac): formula1.com, RaceFans and The Race mostly `full`; Autosport, Motorsport.com and BBC all `link_only`. `dan search "safety car" --explain` returned relevant RaceFans, The Race and formula1.com chunks, with full-text and vector ranks shown.
 
 ## Semantic Memory
 
@@ -85,6 +87,11 @@ Started 2026-10-12; no consolidation yet.
 - #fact **Excluded by their terms:** the Guardian Open Platform (§3(g) bans AI and ML use), NYT (bans grounding and RAG), Google News RSS (personal, non-commercial use only), NewsAPI.org's free plan (development only). Google Custom Search is closed to new customers; Bing Search was retired on 2025-08-11 (2026-10-12).
 - #fact **Opt-out signals to honour:** robots.txt per RFC 9309 (5xx means disallow all, 4xx means allow, cache 24 h at most); IETF aipref vocab-08, a draft, with `ai-use`; Cloudflare Content Signals `ai-input=no`, plus a new `use=` field whose managed default is `use=reference` (treat `reference` and `immediate` as link-only); TDMRep; `noai`; `nosnippet`; schema.org `isAccessibleForFree: false` (2026-10-12).
 
+- #fact **How the starter sources answer us** (live ingest, 2026-10-13): autosport.com and motorsport.com return 403 to our User-Agent, so their items are link-only. bbc.co.uk's robots.txt blocks ten AI crawlers, so BBC items are link-only. formula1.com marks some pages `isAccessibleForFree: false`. formula1.com's feed items carry no publication date. racefans.net and the-race.com pages extract in full.
+- #insight **A test that compares outcomes can miss wasted work.** The first deduplication test passed with deduplication broken, because the unique key still stopped duplicates; it now asserts that a second run requests no article page (M1, 2026-10-13).
+- #insight **SQLAlchemy 2.1 types `select(Chunk.id)` as `Select[int]`** (a TypeVarTuple), not 2.0's `Select[tuple[int]]` (mypy, 2026-10-13).
+- #fact **fastembed downloads the model from Hugging Face on first use** (64 MB into `EMBEDDING_CACHE_DIR`) and warns about unauthenticated requests; harmless. Unit tests use a word-hash stand-in instead, so no test downloads the model (2026-10-13).
+
 ### Design
 
 - #decision **DESIGN.md comes from the v2 page of the owner's Claude Design canvas** (2026-10-12). Admin, How it works, Archive and Topic are v1 screens marked "to revise", used as layout reference only.
@@ -113,5 +120,6 @@ Started 2026-10-12; no consolidation yet.
 - **The gate:** `make check` runs ruff format (check), ruff, mypy and pytest. Integration tests need `make up`; without it they error rather than skip.
 - **The API:** `make api`, then `curl localhost:8000/api/v1/health`.
 - **Migrations:** `uv run dan db upgrade` applies them. For a schema change, add the models in `src/dailyainotes/db/tables.py`, write `src/dailyainotes/db/migrations/versions/NNNN_<slug>.py` by hand with revision `"NNNN"`, and keep the drift test green.
-- **Packages:** `uv add <package>` or `uv add --dev <package>`; the two-week floor applies automatically.
+- **Catalog and ingestion:** `uv run dan catalog sync` loads `config/catalog.toml`; `uv run dan ingest [--topic <slug>]` fetches the active topics' sources (the first run downloads the embedding model); `uv run dan search "<query>" --explain [--topic <slug>]`.
+- **Packages:** `uv add <package>` or `uv add --dev <package>`; the two-week floor applies automatically. On macOS, packages with ONNX Runtime need `MACOSX_DEPLOYMENT_TARGET=14.0 uv add ...` to resolve.
 - **Secrets scan of the history:** `docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo --redact --verbose`.
