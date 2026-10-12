@@ -62,10 +62,10 @@ async def run_editions(
             raise NoActiveTopicError(f"no active topic {slug!r}; active: {', '.join(active)}")
         if collect:
             await purge_expired_content(engine, now=now)
-        story = StoryDeps(engine, build_router(settings, DbLedger(engine)))
+        embeddings = LocalEmbeddings(settings.embedding_cache_dir)
+        story = StoryDeps(engine, build_router(settings, DbLedger(engine)), embeddings)
         reports = []
         async with create_http() as http, checkpointer(settings.database_url) as saver:
-            embeddings = LocalEmbeddings(settings.embedding_cache_dir)
             scout = ScoutDeps(engine, http, embeddings, now, collect, settings.github_token)
             for each in [slug] if slug else active:
                 topic = await find_topic(engine, each)

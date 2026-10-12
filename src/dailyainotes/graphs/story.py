@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal, TypedDict
 
+from langchain_core.embeddings import Embeddings
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -31,6 +32,7 @@ from dailyainotes.domain.editorial import (
     final_verdict,
     first_words,
     next_step,
+    search_text,
 )
 from dailyainotes.graphs.topic_planner import StructuredModel
 
@@ -131,6 +133,8 @@ class StoryState(TypedDict, total=False):
 class StoryDeps:
     engine: AsyncEngine
     router: StructuredModel
+    # Indexes a published note for Ask.
+    embeddings: Embeddings
 
 
 def format_evidence(evidence: list[dict[str, Any]]) -> str:
@@ -318,6 +322,11 @@ def build_story_graph(
             decision["decision"],
             decision["comment"],
         )
+        if decision["decision"] == "approve":
+            draft = state["draft"]
+            text = search_text(draft["title"], draft["body"], draft["why_it_matters"])
+            (vector,) = await deps.embeddings.aembed_documents([text])
+            await db.index_note(deps.engine, state["note_id"], text, vector)
         return {}
 
     graph = StateGraph(StoryState)

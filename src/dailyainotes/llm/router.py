@@ -11,14 +11,20 @@ import asyncio
 import json
 import re
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
 import structlog
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import (
+    AIMessage,
+    AIMessageChunk,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+)
 from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, ValidationError
 
@@ -130,6 +136,39 @@ class Router:
                 attempts.append(f"{ref}: {result}")
                 continue
             return result
+        raise ModelsExhaustedError(role, attempts)
+
+    async def stream(
+        self, role: str, *, system: str, user: str, run_id: int | None = None
+    ) -> AsyncIterator[str]:
+        """Plain text as the model writes it. It falls back to the next model only before
+        the first piece arrives; after that the text is already on the reader's screen."""
+        messages: list[BaseMessage] = [SystemMessage(system), HumanMessage(user)]
+        attempts: list[str] = []
+        for position, ref in enumerate(self.chains[role]):
+            limit = self._limits.get(ref.provider)
+            if limit and not limit.allows(await self._ledger.usage_today(ref.provider)):
+                attempts.append(f"{ref}: daily budget used")
+                continue
+            started = time.monotonic()
+            reply: AIMessageChunk | None = None
+            try:
+                model = self._make_model(ref)
+                async with self._gates.get(ref.provider, asyncio.Semaphore(1)):
+                    config = self._config(role, ref, run_id)
+                    async for chunk in model.astream(messages, config=config):
+                        reply = chunk if reply is None else reply + chunk
+                        if chunk.text:
+                            yield chunk.text
+            except Exception as error:  # rate limit, quota, timeout, auth, missing key
+                await self._record(run_id, role, ref, reply, started, position > 0, repr(error))
+                log.warning("model_failed", role=role, model=str(ref), error=repr(error))
+                if reply is not None and reply.text:
+                    raise  # part of the answer is out; the next model cannot continue it
+                attempts.append(f"{ref}: {type(error).__name__}")
+                continue
+            await self._record(run_id, role, ref, reply, started, position > 0, "")
+            return
         raise ModelsExhaustedError(role, attempts)
 
     async def _try_model[T: BaseModel](

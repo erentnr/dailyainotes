@@ -271,6 +271,13 @@ class Note(Base):
         CheckConstraint(
             "status IN ('drafting', 'awaiting_approval', 'published', 'rejected')", name="status"
         ),
+        Index("ix_notes_tsv", "tsv", postgresql_using="gin"),
+        Index(
+            "ix_notes_embedding",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
@@ -283,6 +290,12 @@ class Note(Base):
     published_version: Mapped[int | None]
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Set when the note is published, for Ask: its text without markers, and that text's vector.
+    search_text: Mapped[str | None] = mapped_column(Text)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSIONS))
+    tsv: Mapped[str] = mapped_column(
+        TSVECTOR, Computed("to_tsvector('english', coalesce(search_text, ''))", persisted=True)
+    )
 
 
 class NoteVersion(Base):
@@ -358,3 +371,38 @@ class Approval(Base):
     decision: Mapped[str] = mapped_column(String(16))
     comment: Mapped[str] = mapped_column(Text, server_default="")
     decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AskRequest(Base):
+    """One question to Ask the notes, kept 30 days (INTENT.md, Architectural Constraints)."""
+
+    __tablename__ = "ask_requests"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    ip_hash: Mapped[str] = mapped_column(String(64))
+    question: Mapped[str] = mapped_column(Text)
+    cited_note_ids: Mapped[list[int]] = mapped_column(ARRAY(BigInteger))
+    insufficient: Mapped[bool]
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class RateLimit(Base):
+    """Requests per key and UTC day: a hashed IP, or `all` for the global cap."""
+
+    __tablename__ = "rate_limits"
+
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    count: Mapped[int]
+
+
+class EvalRun(Base):
+    __tablename__ = "eval_runs"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    suite: Mapped[str] = mapped_column(String(32))
+    git_sha: Mapped[str] = mapped_column(String(40), server_default="")
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -22,6 +22,8 @@ WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
 COPY --from=build --chown=dan /app/models /app/models
 COPY config ./config
+# The eval set, for the worker's nightly run.
+COPY evals ./evals
 ENV PATH=/app/.venv/bin:$PATH EMBEDDING_CACHE_DIR=/app/models PYTHONUNBUFFERED=1
 USER dan
 EXPOSE 8000

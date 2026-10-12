@@ -1,9 +1,9 @@
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 
 import pytest
 from langchain_core.language_models import BaseChatModel
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, AIMessageChunk
 from pydantic import BaseModel
 
 from dailyainotes.domain.llm_usage import CallRecord, Usage
@@ -43,6 +43,18 @@ class Broken(FakeListChatModel):
 
     async def ainvoke(self, *args: object, **kwargs: object) -> AIMessage:  # type: ignore[override]
         raise ConnectionError("429 Too Many Requests")
+
+    async def astream(self, *args: object, **kwargs: object) -> AsyncIterator[AIMessageChunk]:  # type: ignore[override]
+        raise ConnectionError("429 Too Many Requests")
+        yield AIMessageChunk(content="")  # unreachable; makes this an async generator
+
+
+class CutOff(FakeListChatModel):
+    """A model whose connection drops after the first words."""
+
+    async def astream(self, *args: object, **kwargs: object) -> AsyncIterator[AIMessageChunk]:  # type: ignore[override]
+        yield AIMessageChunk(content="The race was")
+        raise ConnectionError("connection reset")
 
 
 def models(**replies: list[str] | None) -> Callable[[ModelRef], BaseChatModel]:
@@ -143,3 +155,54 @@ def test_the_json_object_is_found_in_a_reply(reply: str) -> None:
 def test_a_reply_without_json_is_an_error() -> None:
     with pytest.raises(ValueError, match="no JSON"):
         extract_json("four")
+
+
+def streaming_router(ledger: MemoryLedger, **replies: list[str] | None) -> Router:
+    return Router({"ask": [PRIMARY, FALLBACK]}, models(**replies), ledger)
+
+
+async def stream(r: Router) -> str:
+    return "".join([piece async for piece in r.stream("ask", system="Answer.", user="Why?")])
+
+
+async def test_a_stream_arrives_in_pieces_and_is_recorded_once() -> None:
+    ledger = MemoryLedger()
+
+    text = await stream(streaming_router(ledger, ollama=["It rained [1]."], openrouter=[]))
+
+    assert text == "It rained [1]."
+    assert [(c.provider, c.ok) for c in ledger.calls] == [("ollama", True)]
+
+
+async def test_a_stream_falls_back_when_the_first_model_fails_before_any_text() -> None:
+    ledger = MemoryLedger()
+
+    text = await stream(streaming_router(ledger, ollama=None, openrouter=["It rained [1]."]))
+
+    assert text == "It rained [1]."
+    assert [(c.provider, c.ok, c.fell_back) for c in ledger.calls] == [
+        ("ollama", False, False),
+        ("openrouter", True, True),
+    ]
+
+
+async def test_a_stream_cut_off_midway_fails_instead_of_starting_over() -> None:
+    ledger = MemoryLedger()
+    r = Router(
+        {"ask": [PRIMARY, FALLBACK]},
+        lambda ref: (
+            CutOff(responses=[""]) if ref == PRIMARY else FakeListChatModel(responses=["x"])
+        ),
+        ledger,
+    )
+    pieces: list[str] = []
+
+    async def read() -> None:
+        async for piece in r.stream("ask", system="Answer.", user="Why?"):
+            pieces.append(piece)
+
+    with pytest.raises(ConnectionError):
+        await read()
+
+    assert pieces == ["The race was"]
+    assert [(c.provider, c.ok) for c in ledger.calls] == [("ollama", False)]

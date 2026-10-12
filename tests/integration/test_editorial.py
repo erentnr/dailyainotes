@@ -250,7 +250,7 @@ async def test_a_planted_number_is_rewritten_and_the_note_waits_for_approval(
     )
     config = {"configurable": {"thread_id": "note:1"}}
     async with checkpointer(database_url) as saver:
-        graph = build_story_graph(StoryDeps(engine, router), saver)
+        graph = build_story_graph(StoryDeps(engine, router, embeddings), saver)
 
         paused = await graph.ainvoke({"story_id": story_id, "note_id": note_id}, config)
 
@@ -275,6 +275,10 @@ async def test_a_planted_number_is_rewritten_and_the_note_waits_for_approval(
 
     note = await note_row(engine, note_id)
     assert (note.status, note.published_version) == ("published", 2)
+    # Indexed for Ask, without its markers.
+    assert note.search_text.startswith("Verstappen wins in Austin\nMax Verstappen won")
+    assert "[1]" not in note.search_text
+    assert note.embedding is not None
     async with engine.connect() as connection:
         approval = (await connection.execute(select(Approval))).one()
     assert (approval.decision, approval.version) == ("approve", 2)
@@ -296,7 +300,7 @@ async def test_a_weak_claim_reaches_review_after_two_rewrites_and_can_be_rejecte
     )
     config = {"configurable": {"thread_id": "note:1"}}
     async with checkpointer(database_url) as saver:
-        graph = build_story_graph(StoryDeps(engine, router), saver)
+        graph = build_story_graph(StoryDeps(engine, router, embeddings), saver)
 
         await graph.ainvoke({"story_id": story_id, "note_id": note_id}, config)
 
@@ -327,20 +331,35 @@ async def test_an_edition_resumes_where_the_models_ran_out_and_runs_once_a_day(
     day = NOW.date()
     async with checkpointer(database_url) as saver:
         failed = await run_edition(
-            scout, StoryDeps(engine, out_of_models), saver, topic_id=topic_id, slug="f1", day=day
+            scout,
+            StoryDeps(engine, out_of_models, embeddings),
+            saver,
+            topic_id=topic_id,
+            slug="f1",
+            day=day,
         )
         assert (failed.status, failed.stories, failed.waiting) == ("failed", 3, [])
         assert len(failed.errors) == 2
 
         resumed = await run_edition(
-            scout, StoryDeps(engine, working), saver, topic_id=topic_id, slug="f1", day=day
+            scout,
+            StoryDeps(engine, working, embeddings),
+            saver,
+            topic_id=topic_id,
+            slug="f1",
+            day=day,
         )
         assert (resumed.status, len(resumed.waiting)) == ("done", 2)
         # Each story graph resumed at the verifier; nothing before it ran again.
         assert working.calls == {"verifier": 2}
 
         again = await run_edition(
-            scout, StoryDeps(engine, working), saver, topic_id=topic_id, slug="f1", day=day
+            scout,
+            StoryDeps(engine, working, embeddings),
+            saver,
+            topic_id=topic_id,
+            slug="f1",
+            day=day,
         )
         assert again.status == "skipped"
 
@@ -367,11 +386,13 @@ async def test_the_owner_reads_and_approves_a_note_with_dan_review(
         }
     )
     async with checkpointer(database_url) as saver:
-        graph = build_story_graph(StoryDeps(engine, router), saver)
+        graph = build_story_graph(StoryDeps(engine, router, embeddings), saver)
         await graph.ainvoke(
             {"story_id": story_id, "note_id": note_id}, {"configurable": {"thread_id": "note:1"}}
         )
     monkeypatch.setenv("DATABASE_URL", database_url)
+    # Approving indexes the note; the stand-in keeps the real model (and the network) out.
+    monkeypatch.setattr("dailyainotes.cli.LocalEmbeddings", lambda cache_dir: embeddings)
 
     def dan(*args: str) -> str:
         result = CliRunner().invoke(app, list(args))

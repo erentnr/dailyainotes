@@ -25,6 +25,10 @@ async def test_the_worker_creates_its_queue_and_runs_the_daily_edition_at_0130_u
             await worker.daily_edition.defer_async(timestamp=0)
         await worker.run(wait=False)
 
-    (periodic,) = worker.app.periodic_registry.periodic_tasks.values()
-    assert periodic.cron == "30 1 * * *"
+    crons = {p.task.name: p.cron for p in worker.app.periodic_registry.periodic_tasks.values()}
+    assert crons == {
+        "dailyainotes.worker.daily_edition": "30 1 * * *",
+        "dailyainotes.worker.purge_ask_log": "15 0 * * *",
+        "dailyainotes.worker.nightly_eval": "0 4 * * *",
+    }
     assert runs == [(None, True)]

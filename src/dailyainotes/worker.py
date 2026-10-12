@@ -1,17 +1,21 @@
 """The worker: Procrastinate, on the same Postgres, runs every active topic's edition at
-01:30 UTC. Start it with `dan-worker`; not `python -m`, which would build a second app in
-`__main__` that the worker cannot find its tasks in.
+01:30 UTC, the eval set with its judge at 04:00, and purges the Ask log at 00:15.
 
-Its tables live in the `procrastinate` schema (migration 0005), outside what the drift test
-compares; the worker creates them on its first start.
+Start it with `dan-worker`, not `python -m`, which would build a second app in `__main__` that
+the worker cannot find its tasks in. Its tables live in the `procrastinate` schema (migration
+0005), outside what the drift test compares; the worker creates them on its first start.
 """
 
 import asyncio
+from datetime import UTC, datetime
 
 import procrastinate
 import structlog
 
+from dailyainotes.ask import purge
 from dailyainotes.db.checkpoints import libpq_url
+from dailyainotes.db.engine import create_engine
+from dailyainotes.evals import run_eval
 from dailyainotes.graphs.edition import run_editions
 from dailyainotes.logging import configure_logging
 from dailyainotes.settings import get_settings
@@ -43,6 +47,25 @@ async def daily_edition(timestamp: int) -> None:
             waiting=len(report.waiting),
             errors=report.errors,
         )
+
+
+@app.periodic(cron="15 0 * * *")
+@app.task(queueing_lock="purge")
+async def purge_ask_log(timestamp: int) -> None:
+    """The Ask log after 30 days, rate-limit counts after a day (INTENT.md)."""
+    engine = create_engine(get_settings().database_url)
+    try:
+        await purge(engine, datetime.now(UTC))
+    finally:
+        await engine.dispose()
+
+
+@app.periodic(cron="0 4 * * *")
+@app.task(queueing_lock="eval")
+async def nightly_eval(timestamp: int) -> None:
+    """The eval set with the Ask model and the judge, after the daily edition is done."""
+    metrics, _ = await run_eval(get_settings(), judge=True, record=True)
+    log.info("eval", **metrics)
 
 
 async def run(*, wait: bool = True) -> None:

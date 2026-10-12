@@ -1,12 +1,13 @@
-"""Search candidates over source chunks: full text and vectors, each best first."""
+"""Search candidates over source chunks and over published notes: full text and vectors,
+each best first."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Select, func, select, text
+from sqlalchemy import Select, and_, func, select, text
 
 from dailyainotes.db.engine import AsyncEngine
-from dailyainotes.db.tables import Chunk, Document, Publisher, Topic, TopicSource
+from dailyainotes.db.tables import Chunk, Document, Note, NoteVersion, Publisher, Topic, TopicSource
 
 
 @dataclass(frozen=True)
@@ -90,3 +91,74 @@ async def chunks_by_id(engine: AsyncEngine, ids: list[int]) -> dict[int, ChunkRe
     async with engine.connect() as connection:
         rows = await connection.execute(statement)
         return {row.id: ChunkRecord(*row) for row in rows}
+
+
+@dataclass(frozen=True)
+class NoteRecord:
+    id: int
+    slug: str
+    topic: str
+    edition_date: date
+    title: str
+    text: str
+
+
+def published[*Ts](query: Select[*Ts], topic_slugs: list[str] | None) -> Select[*Ts]:
+    """Only published notes, of these topics when given."""
+    query = query.where(Note.status == "published")
+    if topic_slugs:
+        query = query.join(Topic, Topic.id == Note.topic_id).where(Topic.slug.in_(topic_slugs))
+    return query
+
+
+async def note_full_text_candidates(
+    engine: AsyncEngine, query: str, *, topic_slugs: list[str] | None, limit: int
+) -> list[int]:
+    tsquery = func.websearch_to_tsquery("english", query)
+    statement = published(
+        select(Note.id)
+        .where(Note.tsv.bool_op("@@")(tsquery))
+        .order_by(func.ts_rank_cd(Note.tsv, tsquery).desc(), Note.id)
+        .limit(limit),
+        topic_slugs,
+    )
+    async with engine.connect() as connection:
+        return list((await connection.execute(statement)).scalars())
+
+
+async def note_vector_candidates(
+    engine: AsyncEngine, embedding: list[float], *, topic_slugs: list[str] | None, limit: int
+) -> list[tuple[int, float]]:
+    """Note ids with their cosine similarity to the query, best first."""
+    distance = Note.embedding.cosine_distance(embedding)
+    statement = published(
+        select(Note.id).add_columns(1 - distance).order_by(distance, Note.id).limit(limit),
+        topic_slugs,
+    )
+    async with engine.begin() as connection:
+        # As for chunks: keep scanning the HNSW index until enough rows pass the filter.
+        await connection.execute(text("SET LOCAL hnsw.iterative_scan = relaxed_order"))
+        return [(row[0], float(row[1])) for row in await connection.execute(statement)]
+
+
+async def notes_by_id(engine: AsyncEngine, ids: list[int]) -> dict[int, NoteRecord]:
+    if not ids:
+        return {}
+    statement = (
+        select(
+            Note.id,
+            Note.slug,
+            Topic.slug,
+            Note.edition_date,
+            NoteVersion.title,
+            func.coalesce(Note.search_text, ""),
+        )
+        .join(Topic, Topic.id == Note.topic_id)
+        .join(
+            NoteVersion,
+            and_(NoteVersion.note_id == Note.id, NoteVersion.version == Note.published_version),
+        )
+        .where(Note.id.in_(ids))
+    )
+    async with engine.connect() as connection:
+        return {row[0]: NoteRecord(*row) for row in await connection.execute(statement)}

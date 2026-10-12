@@ -106,6 +106,16 @@ def next_step(problems: list[str], verdicts: list[Verdict], rewrites: int) -> st
     return "review" if clean or rewrites >= MAX_REWRITES else "write"
 
 
+def without_markers(text: str) -> str:
+    """A note's text for search and for Ask, where its own [n] markers mean nothing."""
+    return re.sub(r"\s?\[\d+\]", "", text)
+
+
+def search_text(title: str, body: str, why_it_matters: str) -> str:
+    """What Ask searches and reads of a published note."""
+    return "\n".join([title, without_markers(body), without_markers(why_it_matters)])
+
+
 def slugify(title: str, day: date) -> str:
     ascii_title = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode()
     words = re.findall(r"[a-z0-9]+", ascii_title.lower())

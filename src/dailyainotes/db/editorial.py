@@ -189,10 +189,11 @@ async def save_stories(engine: AsyncEngine, edition_id: int, stories: list[NewSt
                     .returning(Story.id)
                 )
             ).scalar_one()
-            await connection.execute(
-                insert(StoryDocument),
-                [{"story_id": story_id, "document_id": d} for d in story.document_ids],
-            )
+            if story.document_ids:
+                await connection.execute(
+                    insert(StoryDocument),
+                    [{"story_id": story_id, "document_id": d} for d in story.document_ids],
+                )
             if story.picked:
                 picked.append(story_id)
     return picked
@@ -389,6 +390,18 @@ async def decide(
                 "published_at": func.now(),
             }
         await connection.execute(update(Note).where(Note.id == note_id).values(**values))
+
+
+async def index_note(
+    engine: AsyncEngine, note_id: int, search_text: str, embedding: list[float]
+) -> None:
+    """What Ask searches: the published text and its vector (the full-text index follows)."""
+    async with engine.begin() as connection:
+        await connection.execute(
+            update(Note)
+            .where(Note.id == note_id)
+            .values(search_text=search_text, embedding=embedding)
+        )
 
 
 async def notes(engine: AsyncEngine, *, status: str | None = None) -> list[NoteSummary]:

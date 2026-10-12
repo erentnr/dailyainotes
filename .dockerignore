@@ -6,4 +6,5 @@
 !LICENSE
 !src/
 !config/
+!evals/
 **/__pycache__

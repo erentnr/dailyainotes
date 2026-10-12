@@ -54,3 +54,46 @@ async def hybrid_search(
         for f in fused
     ]
     return (await (reranker or KeepOrder()).rerank(query, hits))[:limit]
+
+
+@dataclass(frozen=True)
+class NoteHit:
+    note: db.NoteRecord
+    score: float
+    full_text_rank: int | None
+    vector_rank: int | None
+    # Cosine similarity to the question, when the note was among the nearest.
+    similarity: float | None
+
+
+async def search_notes(
+    engine: AsyncEngine,
+    embeddings: Embeddings,
+    query: str,
+    *,
+    topic_slugs: list[str] | None = None,
+    limit: int = 8,
+) -> list[NoteHit]:
+    """Published notes, by the same fusion of full text and vectors as source search."""
+    vector = await embeddings.aembed_query(query)
+    full_text = await db.note_full_text_candidates(
+        engine, query, topic_slugs=topic_slugs, limit=CANDIDATES
+    )
+    nearest = await db.note_vector_candidates(
+        engine, vector, topic_slugs=topic_slugs, limit=CANDIDATES
+    )
+    similarity = dict(nearest)
+    fused = reciprocal_rank_fusion(
+        {"full_text": full_text, "vector": [note_id for note_id, _ in nearest]}
+    )[:limit]
+    notes = await db.notes_by_id(engine, [f.id for f in fused])
+    return [
+        NoteHit(
+            notes[f.id],
+            f.score,
+            f.ranks.get("full_text"),
+            f.ranks.get("vector"),
+            similarity.get(f.id),
+        )
+        for f in fused
+    ]

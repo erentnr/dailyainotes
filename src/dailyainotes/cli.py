@@ -1,6 +1,7 @@
 """`dan`, the command line for operators and demos."""
 
 import asyncio
+import json
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -13,6 +14,7 @@ import typer
 from langgraph.types import Command
 from pydantic import BaseModel
 
+from dailyainotes.ask import AskDeps, ask
 from dailyainotes.db import editorial as editorial_db
 from dailyainotes.db import planner as planner_db
 from dailyainotes.db.catalog import SyncCounts
@@ -21,6 +23,7 @@ from dailyainotes.db.engine import AsyncEngine, create_engine
 from dailyainotes.db.ingest import active_topic_slugs, purge_expired_content
 from dailyainotes.db.migrate import upgrade_to_head
 from dailyainotes.db.runs import DbLedger, finish_run, finish_waiting_runs, start_run
+from dailyainotes.evals import EVALS, baseline, regressions, run_eval
 from dailyainotes.graphs.edition import EditionReport, NoActiveTopicError, run_editions
 from dailyainotes.graphs.story import StoryDeps, build_story_graph
 from dailyainotes.graphs.topic_planner import PlannerDeps, build_planner
@@ -42,12 +45,14 @@ topics_app = typer.Typer(no_args_is_help=True, help="Topic planning.")
 edition_app = typer.Typer(no_args_is_help=True, help="Daily editions.")
 review_app = typer.Typer(no_args_is_help=True, help="Approve or reject what waits for you.")
 llm_app = typer.Typer(no_args_is_help=True, help="Model providers.")
+evals_app = typer.Typer(no_args_is_help=True, help="The eval set in evals/.")
 app.add_typer(db_app, name="db")
 app.add_typer(catalog_app, name="catalog")
 app.add_typer(topics_app, name="topics")
 app.add_typer(edition_app, name="edition")
 app.add_typer(review_app, name="review")
 app.add_typer(llm_app, name="llm")
+app.add_typer(evals_app, name="evals")
 
 
 @app.callback()
@@ -396,11 +401,75 @@ async def _decide(item: str, decision: str, comment: str) -> None:
             raise typer.BadParameter(f"{item} is {note.status}, not awaiting approval")
         router = build_router(settings, DbLedger(engine))
         async with checkpointer(settings.database_url) as saver:
-            graph = build_story_graph(StoryDeps(engine, router), saver)
+            embeddings = LocalEmbeddings(settings.embedding_cache_dir)
+            graph = build_story_graph(StoryDeps(engine, router, embeddings), saver)
             await graph.ainvoke(resume, {"configurable": {"thread_id": note.thread_id}})
         await finish_waiting_runs(engine, note.thread_id, "done")
     finally:
         await engine.dispose()
+
+
+@app.command("ask")
+def ask_command(
+    question: str,
+    topic: Annotated[list[str] | None, typer.Option(help="Limit to a topic slug.")] = None,
+) -> None:
+    """Ask the published notes; the answer cites them, or says they don't cover it."""
+    asyncio.run(_ask(question, topic or []))
+
+
+async def _ask(question: str, topics: list[str]) -> None:
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    try:
+        embeddings = LocalEmbeddings(settings.embedding_cache_dir)
+        deps = AskDeps(engine, embeddings, build_router(settings, DbLedger(engine)))
+        sources: list[dict[str, Any]] = []
+        async for kind, data in ask(deps, question, topics):
+            if kind == "sources":
+                sources = data
+            elif kind == "text":
+                typer.echo(data, nl=False)
+            elif kind == "error":
+                typer.echo(data, err=True)
+            elif kind == "done":
+                typer.echo()
+                for marker in data["cited"]:
+                    s = sources[marker - 1]
+                    typer.echo(f"[{marker}] {s['title']} · {s['topic']} · {s['edition_date']}")
+    finally:
+        flush_tracing(settings)
+        await engine.dispose()
+
+
+@evals_app.command("run")
+def evals_run(
+    judge: Annotated[
+        bool, typer.Option(help="Also answer with the Ask model and have the judge check it.")
+    ] = False,
+    record: Annotated[bool, typer.Option(help="Save the scores in eval_runs.")] = False,
+    update_baseline: Annotated[
+        bool, typer.Option(help="Write these scores to evals/baseline.json.")
+    ] = False,
+) -> None:
+    """Score Ask on the 30 questions; fails when a score falls below the baseline."""
+    metrics, results = asyncio.run(run_eval(get_settings(), judge=judge, record=record))
+    for r in results:
+        if r.expected:
+            outcome = f"#{r.rank}" if r.rank else "missed"
+        else:
+            outcome = "not enough" if not r.sources else f"{len(r.sources)} sources"
+        faithful = {True: "  faithful", False: "  NOT faithful", None: ""}[r.faithful]
+        typer.echo(f"{r.id:>2}  {outcome:<10}  {r.question}{faithful}")
+    typer.echo(json.dumps(metrics, indent=2))
+    if update_baseline:
+        kept = {k: v for k, v in metrics.items() if k not in ("questions", "faithfulness")}
+        (EVALS / "baseline.json").write_text(json.dumps(kept, indent=2) + "\n")
+        typer.echo("evals/baseline.json updated; say why in the commit message.")
+        return
+    if failed := regressions(metrics, baseline()):
+        typer.echo("Below the baseline: " + "; ".join(failed), err=True)
+        raise typer.Exit(1)
 
 
 class ProbeAnswer(BaseModel):
@@ -423,6 +492,8 @@ async def _probe() -> None:
         settings.llm_writer,
         settings.llm_extractor,
         settings.llm_verifier,
+        settings.llm_ask,
+        settings.llm_judge,
     ]
     refs = dict.fromkeys(ref for chain in chains for ref in parse_chain(chain))
     try:

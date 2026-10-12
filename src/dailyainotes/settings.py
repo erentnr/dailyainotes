@@ -36,6 +36,17 @@ class Settings(BaseSettings):
     llm_extractor: str = "ollama:gpt-oss:20b,openrouter:google/gemma-4-31b-it:free"
     # From another model family than the Writer's, so it does not share the Writer's mistakes.
     llm_verifier: str = "ollama:gemma4:31b,openrouter:nvidia/nemotron-3-super-120b-a12b:free"
+    # Ollama only: OpenRouter's 50 free requests a day go to the pipeline (INTENT.md).
+    llm_ask: str = "ollama:gpt-oss:120b"
+    # The nightly eval's judge, from another family than the models it judges.
+    llm_judge: str = "ollama:gemma4:31b"
+
+    # Keys the hash of a visitor's IP address for Ask's rate limits. Without it, a random key
+    # is made at start, and the limits reset whenever the API restarts.
+    ip_hash_key: SecretStr | None = None
+
+    # The deployed commit, kept with eval runs; Compose sets it from the image tag.
+    git_sha: str = ""
 
     # Langfuse Cloud tracing; off when the keys are empty. cloud.langfuse.com is the EU region.
     langfuse_public_key: str | None = None

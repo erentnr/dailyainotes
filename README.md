@@ -26,6 +26,8 @@ uv run dan catalog sync              # load config/catalog.toml
 uv run dan topics plan --all         # the Topic Planner proposes sources for each draft topic
 uv run dan review list               # approve or reject: dan review approve plan-<id>
 uv run dan edition run --all         # today's notes; each waits for dan review approve note-<id>
+uv run dan ask "What changed in ..." # answered from published notes, with citations
+uv run dan evals run                 # the 30-question eval (evals/README.md)
 ```
 
 The model steps need `OLLAMA_API_KEY` or `OPENROUTER_API_KEY` in `.env`; `uv run dan llm probe` shows which models answer.

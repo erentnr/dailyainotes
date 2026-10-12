@@ -53,6 +53,9 @@ jobs:
 
       - run: make check
 
+      # The 30-question eval, without a model; fails below evals/baseline.json.
+      - run: uv run --frozen dan evals run
+
   image:
     # Built on every run so a broken Dockerfile fails the pull request; pushed only from main.
     needs: check
