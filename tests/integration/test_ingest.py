@@ -4,11 +4,11 @@ from typing import Any
 
 import pytest
 from langchain_core.embeddings import Embeddings
-from sqlalchemy import func, select
+from sqlalchemy import func, insert, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from dailyainotes.db.ingest import purge_expired_content
-from dailyainotes.db.tables import Chunk, Document, Source
+from dailyainotes.db.tables import Chunk, Document, Source, Topic, TopicSource
 from dailyainotes.ingestion.catalog import Catalog, sync_catalog
 from dailyainotes.ingestion.run import ingest_topic
 
@@ -170,3 +170,31 @@ async def test_page_text_is_purged_after_thirty_days(
         extra_chunks = await connection.execute(select(func.count()).where(Chunk.ordinal > 0))
     assert content.scalar_one() == 0
     assert extra_chunks.scalar_one() == 0
+
+
+async def test_a_source_of_an_excluded_publisher_is_never_fetched(
+    engine: AsyncEngine,
+    web: Callable[..., Any],
+    fixture: Callable[[str], bytes],
+    embeddings: Embeddings,
+) -> None:
+    # The catalog refuses it; this row stands for one an approved plan added before that.
+    guardian = "https://www.theguardian.com/science/space/rss"
+    await sync_catalog(engine, CATALOG)
+    async with engine.begin() as connection:
+        source_id = (
+            await connection.execute(
+                insert(Source)
+                .values(type="rss", locator=guardian, config={"type": "rss", "url": guardian})
+                .returning(Source.id)
+            )
+        ).scalar_one()
+        topic_id = (await connection.execute(select(Topic.id))).scalar_one()
+        await connection.execute(insert(TopicSource).values(topic_id=topic_id, source_id=source_id))
+    recorded = web({**site(fixture), guardian: fixture("rss/feed.xml")})
+
+    reports = await ingest(engine, recorded, embeddings, NOW)
+
+    (skipped,) = [r for r in reports if r.locator == guardian]
+    assert skipped.error == "excluded publisher"
+    assert not any("theguardian" in str(r.url) for r in recorded.requests)

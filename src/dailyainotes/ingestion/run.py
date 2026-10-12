@@ -10,6 +10,7 @@ from langchain_core.embeddings import Embeddings
 from dailyainotes.db import ingest as db
 from dailyainotes.db.engine import AsyncEngine
 from dailyainotes.domain.chunking import chunk_text, heading_chunk
+from dailyainotes.domain.exclusions import is_excluded
 from dailyainotes.sources.connectors import SourceSpec, fetch_source
 from dailyainotes.sources.fetcher import ArticleFetcher, PageDecision
 from dailyainotes.sources.http import Http
@@ -60,6 +61,11 @@ async def ingest_topic(
     for source in await db.sources_for_topic(engine, slug):
         report = SourceReport(source.type, source.locator)
         reports.append(report)
+        if source.type == "rss" and is_excluded(registrable_domain(source.locator)):
+            # A plan approved before the check existed may have added one (INTENT.md).
+            report.error = "excluded publisher"
+            log.warning("source_skipped", source=source.locator, reason=report.error)
+            continue
         spec = SourceSpec(
             source.type, source.locator, source.config, source.etag, source.last_modified
         )
