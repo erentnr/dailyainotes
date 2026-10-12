@@ -8,11 +8,13 @@ license-files = ["LICENSE"]
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "alembic>=1.20.0",
+    "fastapi>=0.141.1",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings",
-    "sqlalchemy>=2.1.1",
+    "sqlalchemy[asyncio]>=2.1.1",
     "structlog",
     "typer",
+    "uvicorn>=0.54.0",
 ]
 
 [project.scripts]
@@ -24,6 +26,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "mypy",
     "pytest",
     "ruff",
@@ -51,5 +54,7 @@ plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers --import-mode=importlib"
+# A deprecation is a failure: the brief rules out deprecated APIs.
+filterwarnings = ["error"]
 markers = ["integration: needs Postgres from `make up`"]
