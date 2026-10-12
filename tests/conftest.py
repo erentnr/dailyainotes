@@ -6,11 +6,52 @@ guarded, so database access stays limited to tests marked `integration`.
 """
 
 import socket
+from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
+import httpx2
 import pytest
 
+from dailyainotes.sources.http import Http
+
 LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost"}
+FIXTURES = Path(__file__).parent / "fixtures"
+
+# A recorded response: a body alone means 200, or (status, body, headers).
+Recording = bytes | tuple[int, bytes, dict[str, str]]
+
+
+class RecordedWeb:
+    """Serves recorded responses by URL prefix through httpx2's MockTransport and remembers
+    every request. Anything unrecorded gets a 404."""
+
+    def __init__(self, routes: dict[str, Recording]) -> None:
+        self.routes = routes
+        self.requests: list[httpx2.Request] = []
+        client = httpx2.AsyncClient(transport=httpx2.MockTransport(self._handle))
+        self.http = Http(client, intervals={}, default_interval=0)
+
+    def _handle(self, request: httpx2.Request) -> httpx2.Response:
+        self.requests.append(request)
+        for prefix, recording in self.routes.items():
+            if str(request.url).startswith(prefix):
+                if isinstance(recording, bytes):
+                    return httpx2.Response(200, content=recording)
+                status, body, headers = recording
+                return httpx2.Response(status, content=body, headers=headers)
+        return httpx2.Response(404)
+
+
+@pytest.fixture
+def fixture() -> Callable[[str], bytes]:
+    """`fixture("rss/feed.xml")` → the recorded bytes."""
+    return lambda name: (FIXTURES / name).read_bytes()
+
+
+@pytest.fixture
+def web() -> Callable[[dict[str, Recording]], RecordedWeb]:
+    return RecordedWeb
 
 
 @pytest.fixture

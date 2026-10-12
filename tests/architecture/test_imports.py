@@ -18,7 +18,15 @@ INTERFACES = LAYERS[0]
 # Importable from every layer; they import nothing layered themselves.
 SHARED = {"settings", "logging"}
 # Third-party packages that only one of our packages may import.
-SEAMS = {"sqlalchemy": "db", "alembic": "db", "psycopg": "db"}
+SEAMS = {
+    "sqlalchemy": "db",
+    "alembic": "db",
+    "psycopg": "db",
+    "pgvector": "db",
+    "httpx2": "sources",
+    "feedparser": "sources",
+    "tldextract": "sources",
+}
 
 
 def top_level(path: Path) -> str:

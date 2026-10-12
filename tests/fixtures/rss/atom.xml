@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Example Lab Blog</title>
+  <link href="https://lab.example.org/" rel="alternate"/>
+  <id>https://lab.example.org/</id>
+  <updated>2026-10-09T10:00:00Z</updated>
+  <entry>
+    <title>Releasing a 7B open-weight model</title>
+    <link href="https://lab.example.org/blog/releasing-7b" rel="alternate"/>
+    <id>https://lab.example.org/blog/releasing-7b</id>
+    <published>2026-10-09T10:00:00Z</published>
+    <updated>2026-10-09T10:00:00Z</updated>
+    <summary type="html">&lt;p&gt;Weights, data mix and training settings are public.&lt;/p&gt;</summary>
+  </entry>
+</feed>

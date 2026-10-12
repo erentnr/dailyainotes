@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+	>
+
+<channel>
+	<title>Example Motorsport</title>
+	<atom:link href="https://news.example.com/feed/" rel="self" type="application/rss+xml" />
+	<link>https://news.example.com</link>
+	<description>Sample feed in the structure of a WordPress motorsport site</description>
+	<lastBuildDate>Mon, 12 Oct 2026 14:49:15 +0000</lastBuildDate>
+	<language>en-GB</language>
+
+	<item>
+		<title>&#8220;Late safety car&#8221; decides a wet race | Formula 1</title>
+		<link>https://news.example.com/2026/10/12/late-safety-car-decides-a-wet-race/?utm_source=rss&amp;utm_medium=rss</link>
+		<dc:creator><![CDATA[Sample Writer]]></dc:creator>
+		<pubDate>Mon, 12 Oct 2026 14:49:15 +0000</pubDate>
+		<category><![CDATA[Formula 1]]></category>
+		<guid isPermaLink="false">https://news.example.com/?p=101</guid>
+		<description><![CDATA[<p>A late <strong>safety car</strong> and a strategy gamble decided the race.</p>
+<p>The post <a href="https://news.example.com/2026/10/12/late-safety-car-decides-a-wet-race/">Late safety car decides a wet race</a> appeared first on Example Motorsport.</p>]]></description>
+		<content:encoded><![CDATA[<p>Sample body text that a real feed would carry in full.</p>]]></content:encoded>
+	</item>
+	<item>
+		<title>Team confirms an engine penalty for the next round</title>
+		<link>https://news.example.com/2026/10/11/engine-penalty-next-round/</link>
+		<pubDate>Sun, 11 Oct 2026 09:10:00 +0000</pubDate>
+		<description><![CDATA[A new power unit means a grid drop for one driver.]]></description>
+	</item>
+	<item>
+		<title>Undated item</title>
+		<link>https://news.example.com/2026/10/10/undated/</link>
+		<description>No publication date in this item.</description>
+	</item>
+</channel>
+</rss>

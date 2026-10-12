@@ -1,0 +1,87 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/DN10kyjqmTJ2FdUDBNOpajNg4yk</id>
+  <title>arXiv Query: search_query=abs:"open-weight" OR abs:"open weights"&amp;id_list=&amp;start=0&amp;max_results=3</title>
+  <updated>2026-10-12T20:48:23Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=abs:%22open-weight%22+OR+abs:%22open+weights%22&amp;start=0&amp;max_results=3&amp;id_list=" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>3</opensearch:itemsPerPage>
+  <opensearch:totalResults>2216</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2610.13895v1</id>
+    <title>Task Context Shapes Component Roles in Language Models</title>
+    <updated>2026-10-09T17:40:53Z</updated>
+    <link href="https://arxiv.org/abs/2610.13895v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2610.13895v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Large language models reuse the same attention heads across tasks, but identifying these shared heads does not explain what they do differently in each task. A natural source of inspiration is task-dependent interactions among shared brain regions, which motivate a network view of language-model computation. Here, we compare fixed model components across tasks using identical graph facts, statements specifying which directed connections are present. We measure how interventions affect attention heads and the activation state in later layers (influence), as well as the answer (importance). Task changes redistribute the influence in five open-weight models spanning four families and 1.5-14 billion parameters. In Gemma-2-9B and Qwen3-14B, an activation edit changes an early internal activation vector and switches which fact the model reads while the written instruction stays fixed. The same heads then respond to different graph facts and influence later components differently. For each prompt, we construct two linear response maps, one before the edit and one after it. Each map predicts a later head's response from a measured change in an earlier head. For a separate factual intervention, the map for the corresponding condition reduces mean squared prediction error by 53.6% in Gemma and 5.0% in Qwen compared with the average of the two maps. These findings show that task context changes both which graph facts the shared components respond to and how their outputs affect later computation. A network account may help explain how models use shared parameters to perform different computations. Measurements of task-dependent influence could also guide interventions intended to alter one behavior while preserving others.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-10-09T17:40:53Z</published>
+    <arxiv:comment>9 pages, 5 Figs</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Sovesh Mohapatra</name>
+    </author>
+    <author>
+      <name>Dani S Bassett</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2610.13627v1</id>
+    <title>AMLworld-Compact: Importance-Weighted Downsampling for Cost-Effective LLM Evaluation and Error Diagnosis</title>
+    <updated>2026-10-09T14:09:32Z</updated>
+    <link href="https://arxiv.org/abs/2610.13627v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2610.13627v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Evaluating large language models (LLMs) on AMLworld's smallest test splits is costly because each of over a million targets requires a separate graph prompt. Sampling reduces this cost, but small balanced subsets change unweighted precision and F1. We introduce AMLworld-Compact, an evaluation set that retains every illicit test transaction and samples benign transactions from supervised-score strata. Its HT-Coreset protocol reduces evaluation targets by 271x and 611x on HI-Small and LI-Small. Horvitz-Thompson weights give unbiased full-test confusion-count estimates for fixed predictions; recall is exact, while precision and F1 are ratio estimates. In a held-out study using Graph Feature Preprocessor (GFP) features, one boosted-tree family defines strata for evaluating the other over 500 draws per configuration. At the released sizes, F1 RMSE is 0.00-2.58 percentage points versus 4.44-7.41 for uniform sampling with HT weights; conservative intervals remain broad. Under the evaluated graph prompts, seven open-weight LLMs have weighted precision near the predict-all-illicit baseline. In an outcome-stratified audit of 1,000 HI-Small few-shot outputs from one run per model, lexical checks pass for 84.5% of correct and 56.2% of incorrect binary verdicts, so these markers do not establish correctness. We release the evaluation sets, construction code, and audit tools at https://huggingface.co/datasets/typhoon-ai/AMLworldCompactEval and https://github.com/nat-nischw/AMLworld-Compact.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-10-09T14:09:32Z</published>
+    <arxiv:comment>28 pages, 5 figures, 27 tables. Under review</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Natapong Nitarach</name>
+    </author>
+    <author>
+      <name>Phume Ngampornsukswadi</name>
+    </author>
+    <author>
+      <name>Pittawat Taveekitworachai</name>
+    </author>
+    <author>
+      <name>Surapon Nonesung</name>
+    </author>
+    <author>
+      <name>Warit Sirichotedumrong</name>
+    </author>
+    <author>
+      <name>Kunat Pipatanakul</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2610.13534v1</id>
+    <title>MAGMA-Bench: Evaluating Long-Horizon Embodied Agents under Dynamic Tasks and Execution Failures</title>
+    <updated>2026-10-09T12:54:11Z</updated>
+    <link href="https://arxiv.org/abs/2610.13534v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2610.13534v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Long-horizon embodied agents must maintain task-relevant information, coordinate heterogeneous robots, and adapt their decisions as execution unfolds. Existing benchmarks investigate dynamic task execution and embodied multi-agent coordination, but provide limited evaluation of their intersection. We introduce MAGMA-Bench, an architecture-agnostic benchmark for persistent task reasoning in dynamic multi-robot environments. MAGMA-Bench evaluates agents across increasing task horizons and controlled online perturbations, including execution failures, task interruptions, and mission updates, with scenarios requiring coordination across robots with heterogeneous capabilities. It uses a structured skill-level interface to separate task-level reasoning from perception and low-level control. We evaluate locally deployable open-weight planners, multi-agent state-tracking strategies, and frontier models. Even the strongest evaluated models fail on a substantial fraction of clean episodes, and their success rates decrease further under online perturbations. Supervised adaptation greatly improves a small model, but performance remains substantially lower on longer and multi-robot missions. We release the benchmark, 261,646 task-level training examples, and an architecture-agnostic expert-trace generation pipeline.</summary>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.RO" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-10-09T12:54:11Z</published>
+    <arxiv:primary_category term="cs.AI"/>
+    <author>
+      <name>Loan Bernat</name>
+      <arxiv:affiliation>LAAS-GEPETTO</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Matthieu Grard</name>
+      <arxiv:affiliation>LAAS-RAP</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Ariane Herbulot</name>
+      <arxiv:affiliation>LAAS-RAP</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Florent Lamiraux</name>
+      <arxiv:affiliation>LAAS-GEPETTO</arxiv:affiliation>
+    </author>
+  </entry>
+</feed>

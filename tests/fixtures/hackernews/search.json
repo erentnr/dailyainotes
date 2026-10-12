@@ -1,0 +1,38 @@
+{
+  "hits": [
+    {
+      "title": "Beam: Reflection's 501B open-weight model",
+      "url": "https://reflection.ai/blog/introducing-beam",
+      "points": 554,
+      "created_at": "2026-10-05T19:16:35Z",
+      "objectID": "49969183",
+      "num_comments": 173
+    },
+    {
+      "title": "Kolibri: A Sovereign Open-Weight Model",
+      "url": "https://aleph-alpha.com/en/blog/kolibri-has-landed-a-sovereign-open-weight-model/",
+      "points": 711,
+      "created_at": "2026-10-03T09:36:04Z",
+      "objectID": "49942706",
+      "num_comments": 336
+    },
+    {
+      "title": "Clef: Open-weight decision models, and new RL fine-tuning platform",
+      "url": "https://blog.cloudflare.com/clef-decision-models/",
+      "points": 641,
+      "created_at": "2026-10-01T16:18:57Z",
+      "objectID": "49923692",
+      "num_comments": 218
+    },
+    {
+      "title": "Ask HN: Which open-weight model do you run locally?",
+      "url": null,
+      "points": 120,
+      "created_at": "2026-10-04T12:00:00Z",
+      "objectID": "49950000",
+      "num_comments": 80
+    }
+  ],
+  "nbHits": 4,
+  "page": 0
+}
