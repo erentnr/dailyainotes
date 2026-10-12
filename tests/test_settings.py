@@ -21,3 +21,23 @@ def test_an_unknown_log_level_is_rejected(monkeypatch: pytest.MonkeyPatch) -> No
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+def test_swapped_langfuse_keys_are_named_without_showing_them(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "sk-lf-secret-value")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "pk-lf-public-value")
+
+    with pytest.raises(ValidationError, match="look swapped") as failure:
+        Settings(_env_file=None)
+
+    assert "secret-value" not in str(failure.value)
+    assert "public-value" not in str(failure.value)
+
+
+def test_langfuse_keys_in_their_right_places_are_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-1")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-2")
+
+    assert Settings(_env_file=None).langfuse_public_key == "pk-lf-1"

@@ -6,14 +6,17 @@ Every setting here also appears in `.env.example`.
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # An invalid setting is reported without its value, which may be a secret.
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", hide_input_in_errors=True
+    )
 
     log_level: LogLevel = "INFO"
     database_url: str = "postgresql+psycopg://dan:dan@localhost:5432/dailyainotes"
@@ -55,6 +58,15 @@ class Settings(BaseSettings):
     langfuse_public_key: str | None = None
     langfuse_secret_key: SecretStr | None = None
     langfuse_base_url: str = "https://cloud.langfuse.com"
+
+    @model_validator(mode="after")
+    def langfuse_keys_in_place(self) -> Settings:
+        public = self.langfuse_public_key or ""
+        secret = self.langfuse_secret_key.get_secret_value() if self.langfuse_secret_key else ""
+        if public.startswith("sk-lf-") or secret.startswith("pk-lf-"):
+            # Langfuse then answers every trace with a bare 401.
+            raise ValueError("LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY look swapped")
+        return self
 
 
 @lru_cache
