@@ -5,7 +5,7 @@ from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from dailyainotes.db.publishers import ensure_publisher
 from dailyainotes.db.tables import Publisher, Source, Topic, TopicSource
@@ -80,29 +80,7 @@ async def sync(
                 )
             ).scalar_one()
             for source in topic.sources:
-                publisher_id = (
-                    await ensure_publisher(connection, source.publisher_domain)
-                    if source.publisher_domain
-                    else None
-                )
-                source_values = {
-                    "type": source.type,
-                    "config": source.config,
-                    "publisher_id": publisher_id,
-                }
-                source_id = (
-                    await connection.execute(
-                        insert(Source)
-                        .values(locator=source.locator, **source_values)
-                        .on_conflict_do_update(index_elements=["locator"], set_=source_values)
-                        .returning(Source.id)
-                    )
-                ).scalar_one()
-                await connection.execute(
-                    insert(TopicSource)
-                    .values(topic_id=topic_id, source_id=source_id)
-                    .on_conflict_do_nothing()
-                )
+                await add_source(connection, topic_id, source)
         counts = (
             await connection.execute(
                 select(
@@ -117,3 +95,25 @@ async def sync(
             )
         ).one()
     return SyncCounts(*counts)
+
+
+async def add_source(connection: AsyncConnection, topic_id: int, source: SourceRow) -> None:
+    """Create or update a source and link it to the topic. Shared by the catalog sync and the
+    Topic Planner."""
+    publisher_id = (
+        await ensure_publisher(connection, source.publisher_domain)
+        if source.publisher_domain
+        else None
+    )
+    values = {"type": source.type, "config": source.config, "publisher_id": publisher_id}
+    source_id = (
+        await connection.execute(
+            insert(Source)
+            .values(locator=source.locator, **values)
+            .on_conflict_do_update(index_elements=["locator"], set_=values)
+            .returning(Source.id)
+        )
+    ).scalar_one()
+    await connection.execute(
+        insert(TopicSource).values(topic_id=topic_id, source_id=source_id).on_conflict_do_nothing()
+    )

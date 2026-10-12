@@ -80,3 +80,7 @@ def discover_feeds(html: str, base_url: str) -> list[str]:
     parser = _FeedLinkParser()
     parser.feed(html)
     return [urljoin(base_url, href) for href in parser.hrefs]
+
+
+def is_feed(content: bytes) -> bool:
+    return bool(feedparser.parse(content).version)

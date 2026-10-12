@@ -1,30 +1,48 @@
 """`dan`, the command line for operators and demos."""
 
 import asyncio
+import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from importlib.metadata import version as package_version
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
+from langgraph.types import Command
+from pydantic import BaseModel
 
+from dailyainotes.db import planner as planner_db
 from dailyainotes.db.catalog import SyncCounts
-from dailyainotes.db.engine import create_engine
+from dailyainotes.db.checkpoints import checkpointer
+from dailyainotes.db.engine import AsyncEngine, create_engine
 from dailyainotes.db.ingest import active_topic_slugs, purge_expired_content
 from dailyainotes.db.migrate import upgrade_to_head
+from dailyainotes.db.runs import DbLedger, finish_run, finish_waiting_runs, start_run
+from dailyainotes.graphs.topic_planner import PlannerDeps, build_planner
 from dailyainotes.ingestion.catalog import CATALOG_PATH, load_catalog, sync_catalog
 from dailyainotes.ingestion.run import SourceReport, ingest_topic
 from dailyainotes.llm.embeddings import LocalEmbeddings
+from dailyainotes.llm.providers import build_router, model_factory
+from dailyainotes.llm.router import ModelsExhaustedError, Router, parse_chain
+from dailyainotes.llm.tracing import flush_tracing
 from dailyainotes.logging import configure_logging
 from dailyainotes.retrieval.hybrid import SearchHit, hybrid_search
-from dailyainotes.settings import get_settings
+from dailyainotes.settings import Settings, get_settings
 from dailyainotes.sources.http import create_http
 
 app = typer.Typer(no_args_is_help=True, help="Daily AI Notes command line.")
 db_app = typer.Typer(no_args_is_help=True, help="Database commands.")
 catalog_app = typer.Typer(no_args_is_help=True, help="The topic catalog.")
+topics_app = typer.Typer(no_args_is_help=True, help="Topic planning.")
+review_app = typer.Typer(no_args_is_help=True, help="Approve or reject what waits for you.")
+llm_app = typer.Typer(no_args_is_help=True, help="Model providers.")
 app.add_typer(db_app, name="db")
 app.add_typer(catalog_app, name="catalog")
+app.add_typer(topics_app, name="topics")
+app.add_typer(review_app, name="review")
+app.add_typer(llm_app, name="llm")
 
 
 @app.callback()
@@ -140,5 +158,181 @@ async def _search(query: str, topics: list[str] | None, limit: int) -> list[Sear
     try:
         embeddings = LocalEmbeddings(settings.embedding_cache_dir)
         return await hybrid_search(engine, embeddings, query, topic_slugs=topics, limit=limit)
+    finally:
+        await engine.dispose()
+
+
+@asynccontextmanager
+async def planner_graph(settings: Settings) -> AsyncIterator[tuple[AsyncEngine, Any]]:
+    engine = create_engine(settings.database_url)
+    try:
+        router = build_router(settings, DbLedger(engine))
+        async with create_http() as http, checkpointer(settings.database_url) as saver:
+            deps = PlannerDeps(engine, router, http, datetime.now(UTC))
+            yield engine, build_planner(deps, saver)
+    finally:
+        flush_tracing(settings)
+        await engine.dispose()
+
+
+@topics_app.command("plan")
+def topics_plan(
+    slug: Annotated[str | None, typer.Argument(help="A topic slug.")] = None,
+    all_drafts: Annotated[bool, typer.Option("--all", help="Every topic still in draft.")] = False,
+) -> None:
+    """Run the Topic Planner; each proposal waits for `dan review`."""
+    if not slug and not all_drafts:
+        raise typer.BadParameter("give a topic slug or --all")
+    asyncio.run(_plan(slug, all_drafts))
+
+
+async def _plan(slug: str | None, all_drafts: bool) -> None:
+    settings = get_settings()
+    async with planner_graph(settings) as (engine, graph):
+        slugs = await planner_db.draft_topic_slugs(engine) if all_drafts else [slug or ""]
+        for each in slugs:
+            topic = await planner_db.topic(engine, each)
+            if topic is None:
+                raise typer.BadParameter(f"no topic {each!r}")
+            version = await planner_db.next_version(engine, topic.id)
+            thread_id = f"plan:{topic.slug}:{version}"
+            run_id = await start_run(engine, "plan", topic_id=topic.id, thread_id=thread_id)
+            state = {
+                "topic_id": topic.id,
+                "slug": topic.slug,
+                "name": topic.name,
+                "description": topic.description,
+                "version": version,
+                "thread_id": thread_id,
+                "run_id": run_id,
+            }
+            try:
+                await graph.ainvoke(state, {"configurable": {"thread_id": thread_id}})
+            except ModelsExhaustedError as error:
+                await finish_run(engine, run_id, "failed", str(error))
+                typer.echo(f"{topic.slug}: no model answered. {error}")
+                continue
+            await finish_run(engine, run_id, "waiting")
+            (proposal,) = [
+                p for p in await planner_db.proposals(engine) if p.thread_id == thread_id
+            ]
+            typer.echo(f"{topic.slug}: proposal plan-{proposal.id} waits for review")
+            print_proposal(proposal)
+
+
+def print_proposal(proposal: planner_db.Proposal) -> None:
+    profile = proposal.profile
+    typer.echo(f"  keywords: {', '.join(profile['keywords'])}")
+    if profile["negative_keywords"]:
+        typer.echo(f"  excluded: {', '.join(profile['negative_keywords'])}")
+    if profile["entities"]:
+        typer.echo(f"  entities: {', '.join(profile['entities'])}")
+    typer.echo(f"  sources ({len(profile['sources'])}):")
+    for source in profile["sources"]:
+        stats = f"{source['recent_items']} recent, {source['match_share']:.0%} on topic"
+        typer.echo(f"    {source['type']:<15} {source['locator'][:60]:<60} {stats}")
+
+
+@review_app.command("list")
+def review_list() -> None:
+    """Everything waiting for your decision."""
+    pending = asyncio.run(_proposals("proposed"))
+    if not pending:
+        typer.echo("Nothing waits for review.")
+    for proposal in pending:
+        item = f"plan-{proposal.id}"
+        sources = f"{len(proposal.profile['sources'])} sources"
+        created = proposal.created_at.date().isoformat()
+        typer.echo(f"{item:<10} {proposal.slug:<28} v{proposal.version}  {sources}  {created}")
+
+
+@review_app.command("show")
+def review_show(item: str) -> None:
+    """One item in full, e.g. `plan-3`."""
+    proposal = asyncio.run(_proposal(item))
+    typer.echo(f"plan-{proposal.id} · {proposal.slug} v{proposal.version} · {proposal.status}")
+    print_proposal(proposal)
+
+
+@review_app.command("approve")
+def review_approve(
+    item: str, comment: Annotated[str, typer.Option(help="Kept with the decision.")] = ""
+) -> None:
+    """Approve an item; its paused graph resumes and finishes."""
+    asyncio.run(_decide(item, "approve", comment))
+    typer.echo(f"{item} approved.")
+
+
+@review_app.command("reject")
+def review_reject(
+    item: str, comment: Annotated[str, typer.Option(help="Kept with the decision.")] = ""
+) -> None:
+    """Reject an item; its paused graph resumes and records the rejection."""
+    asyncio.run(_decide(item, "reject", comment))
+    typer.echo(f"{item} rejected.")
+
+
+async def _proposals(status: str | None) -> list[planner_db.Proposal]:
+    engine = create_engine(get_settings().database_url)
+    try:
+        return await planner_db.proposals(engine, status=status)
+    finally:
+        await engine.dispose()
+
+
+async def _proposal(item: str) -> planner_db.Proposal:
+    kind, _, number = item.partition("-")
+    if kind != "plan" or not number.isdigit():
+        raise typer.BadParameter(f"{item!r} is not a review item like plan-3")
+    for proposal in await _proposals(None):
+        if proposal.id == int(number):
+            return proposal
+    raise typer.BadParameter(f"no {item}")
+
+
+async def _decide(item: str, decision: str, comment: str) -> None:
+    proposal = await _proposal(item)
+    if proposal.status != "proposed":
+        raise typer.BadParameter(f"{item} is already {proposal.status}")
+    settings = get_settings()
+    async with planner_graph(settings) as (engine, graph):
+        config = {"configurable": {"thread_id": proposal.thread_id}}
+        await graph.ainvoke(Command(resume={"decision": decision, "comment": comment}), config)
+        await finish_waiting_runs(engine, proposal.thread_id, "done")
+
+
+class ProbeAnswer(BaseModel):
+    answer: int
+
+
+@llm_app.command("probe")
+def llm_probe() -> None:
+    """Ask every configured model a tiny question; show what works, and how."""
+    asyncio.run(_probe())
+
+
+async def _probe() -> None:
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    make_model = model_factory(settings)
+    refs = dict.fromkeys(parse_chain(settings.llm_planner))
+    try:
+        for ref in refs:
+            router = Router({"probe": [ref]}, make_model, DbLedger(engine))
+            started = time.monotonic()
+            try:
+                await router.structured("probe", ProbeAnswer, system="Answer.", user="2 + 2?")
+                prompt_json = f"ok in {time.monotonic() - started:.1f}s"
+            except ModelsExhaustedError as error:
+                prompt_json = f"failed ({'; '.join(error.attempts)})"
+            try:
+                native = make_model(ref).with_structured_output(ProbeAnswer, method="json_schema")
+                await native.ainvoke("What is 2 + 2?")
+                native_json = "supported"
+            except Exception as error:
+                native_json = f"no ({type(error).__name__})"
+            typer.echo(
+                f"{ref}\n  JSON in the prompt: {prompt_json}\n  native JSON schema: {native_json}"
+            )
     finally:
         await engine.dispose()
