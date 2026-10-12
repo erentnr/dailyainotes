@@ -10,6 +10,7 @@ import httpx2
 import structlog
 import trafilatura
 
+from dailyainotes.domain.exclusions import is_excluded
 from dailyainotes.sources.http import Http
 from dailyainotes.sources.policy import (
     RobotsPolicy,
@@ -19,6 +20,7 @@ from dailyainotes.sources.policy import (
     page_opt_out,
     parse_robots,
 )
+from dailyainotes.sources.urls import registrable_domain
 
 log = structlog.get_logger(__name__)
 
@@ -44,6 +46,8 @@ class ArticleFetcher:
         self._robots: dict[str, tuple[float, RobotsPolicy]] = {}
 
     async def decide(self, url: str, *, publisher_paywalled: bool = False) -> PageDecision:
+        if is_excluded(registrable_domain(url)):
+            return PageDecision("link_only", "excluded publisher")
         if publisher_paywalled:
             return PageDecision("link_only", "publisher is paywalled")
         robots = await self.robots(url)

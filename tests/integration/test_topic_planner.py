@@ -19,10 +19,12 @@ pytestmark = [pytest.mark.integration, pytest.mark.anyio]
 
 NOW = datetime(2026, 10, 12, 18, tzinfo=UTC)
 SITE = "https://lab.example.org/"
+# Excluded by INTENT.md: never fetched, never proposed.
+GUARDIAN = "https://www.theguardian.com/science/space"
 DRAFT = ProfileDraft(
     keywords=["safety car", "engine penalty", "grid"],
     entities=[],
-    candidate_sites=[SITE, "http://insecure.example.com/"],
+    candidate_sites=[SITE, "http://insecure.example.com/", GUARDIAN],
     arxiv_query='abs:"open-weight"',
     github_repos=["vllm-project/vllm"],
     hackernews_query="open weights",
@@ -45,6 +47,9 @@ def site(fixture: Callable[[str], bytes]) -> dict[str, Any]:
     # Most specific first: the site's own prefix would match every URL under it.
     return {
         f"{SITE}robots.txt": (404, b"", {}),
+        "https://www.theguardian.com/robots.txt": (404, b"", {}),
+        "https://www.theguardian.com/blog/feed.xml": fixture("rss/feed.xml"),
+        GUARDIAN: (200, fixture("rss/homepage.html"), html),
         f"{SITE}blog/feed.xml": fixture("rss/feed.xml"),
         f"{SITE}atom.xml": fixture("rss/atom.xml"),
         SITE: (200, fixture("rss/homepage.html"), html),
@@ -99,6 +104,7 @@ async def test_a_plan_waits_for_approval_then_activates_the_topic(
             ("hackernews", "open weights"),
         }
         assert not any("insecure" in str(r.url) for r in recorded.requests)
+        assert not any("theguardian" in str(r.url) for r in recorded.requests)
 
         await graph.ainvoke(Command(resume={"decision": "approve", "comment": "ok"}), config)
 

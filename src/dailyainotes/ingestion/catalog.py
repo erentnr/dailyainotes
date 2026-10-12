@@ -4,10 +4,11 @@ import tomllib
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from dailyainotes.db import catalog as catalog_db
 from dailyainotes.db.engine import AsyncEngine
+from dailyainotes.domain.exclusions import is_excluded
 from dailyainotes.domain.trust import TRUST_PRIOR, PublisherKind
 from dailyainotes.sources.urls import registrable_domain
 
@@ -18,8 +19,18 @@ class Entry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+def allowed(domain_or_url: str) -> str:
+    """Refuse a publisher INTENT.md excludes."""
+    if is_excluded(registrable_domain(domain_or_url)):
+        raise ValueError(f"{domain_or_url} belongs to an excluded publisher (INTENT.md)")
+    return domain_or_url
+
+
+Allowed = AfterValidator(allowed)
+
+
 class PublisherEntry(Entry):
-    domain: str
+    domain: Annotated[str, Allowed]
     name: str
     kind: PublisherKind
     owner_group: str | None = None
@@ -27,9 +38,9 @@ class PublisherEntry(Entry):
 
 class RssSource(Entry):
     type: Literal["rss"]
-    url: str = Field(pattern=r"^https://")
+    url: Annotated[str, Field(pattern=r"^https://"), Allowed]
     # The publisher when the feed's domain is not the articles' domain.
-    publisher: str | None = None
+    publisher: Annotated[str, Allowed] | None = None
 
 
 class ArxivSource(Entry):

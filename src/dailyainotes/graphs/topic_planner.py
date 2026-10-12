@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from dailyainotes.db import planner as db
 from dailyainotes.db.engine import AsyncEngine
+from dailyainotes.domain.exclusions import is_excluded
 from dailyainotes.domain.matching import match_share
 from dailyainotes.sources.connectors import SourceSpec, fetch_source
 from dailyainotes.sources.fetcher import ArticleFetcher
@@ -111,7 +112,11 @@ def build_planner(
     async def discover(state: PlannerState) -> PlannerState:
         draft = ProfileDraft.model_validate(state["draft"])
         feeds = await site_feeds(deps.http, fetcher, draft.candidate_sites)
-        return {"candidates": feeds + query_sources(draft)}
+        # A site may advertise a feed on another domain.
+        candidates = [
+            c for c in feeds + query_sources(draft) if not is_excluded(c["publisher_domain"])
+        ]
+        return {"candidates": candidates}
 
     async def validate(state: PlannerState) -> PlannerState:
         draft = ProfileDraft.model_validate(state["draft"])
@@ -158,6 +163,8 @@ async def site_feeds(http: Http, fetcher: ArticleFetcher, sites: list[str]) -> l
     """Feeds each site advertises, found by reading its `<link rel="alternate">` tags."""
     found: list[dict[str, Any]] = []
     for site in dict.fromkeys(s for s in sites if s.startswith("https://")):
+        if is_excluded(registrable_domain(site)):
+            continue
         robots = await fetcher.robots(site)
         if not robots.allows(site):
             continue

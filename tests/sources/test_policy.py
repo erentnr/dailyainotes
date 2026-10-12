@@ -134,6 +134,23 @@ async def test_a_paywalled_publisher_is_never_fetched(web: Web) -> None:
     assert recorded.requests == []
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.theguardian.com/science/2026/oct/12/comet",
+        "https://www.nytimes.com/2026/10/12/science/comet.html",
+        "https://old.reddit.com/r/space/comments/abc/comet/",
+    ],
+)
+async def test_an_excluded_publisher_is_link_only_and_never_fetched(web: Web, url: str) -> None:
+    recorded = web({})
+
+    decision = await ArticleFetcher(recorded.http).decide(url)
+
+    assert (decision.text_policy, decision.reason) == ("link_only", "excluded publisher")
+    assert recorded.requests == []
+
+
 async def test_a_forbidden_page_is_link_only(web: Web) -> None:
     gate, _ = fetcher(web, (403, b"", HTML))
 

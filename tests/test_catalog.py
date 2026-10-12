@@ -84,3 +84,45 @@ def test_a_catalog_file_is_read_from_toml(tmp_path: Path) -> None:
     path.write_text('[[topics]]\nslug = "a"\nname = "A"\ndescription = "d"\n')
 
     assert load_catalog(path).topics[0].slug == "a"
+
+
+@pytest.mark.parametrize(
+    "catalog",
+    [
+        {
+            "topics": [
+                {
+                    "slug": "t",
+                    "name": "T",
+                    "description": "d",
+                    "sources": [
+                        {"type": "rss", "url": "https://www.theguardian.com/science/space/rss"}
+                    ],
+                }
+            ]
+        },
+        {
+            "topics": [
+                {
+                    "slug": "t",
+                    "name": "T",
+                    "description": "d",
+                    "sources": [
+                        {
+                            "type": "rss",
+                            "url": "https://feeds.example.com/rss",
+                            "publisher": "nytimes.com",
+                        }
+                    ],
+                }
+            ]
+        },
+        {
+            "publishers": [{"domain": "reddit.com", "name": "Reddit", "kind": "user_generated"}],
+            "topics": [],
+        },
+    ],
+)
+def test_an_excluded_publisher_cannot_enter_the_catalog(catalog: dict[str, object]) -> None:
+    with pytest.raises(ValidationError, match="excluded publisher"):
+        Catalog.model_validate(catalog)
