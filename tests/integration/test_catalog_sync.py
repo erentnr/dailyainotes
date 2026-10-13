@@ -14,7 +14,7 @@ async def test_syncing_the_catalog_twice_changes_nothing(engine: AsyncEngine) ->
 
     assert first == second
     assert first.topics == 12
-    assert first.active_topics == 2
+    assert first.active_topics == 3
 
 
 async def test_sync_never_demotes_a_topic_activated_elsewhere(engine: AsyncEngine) -> None:

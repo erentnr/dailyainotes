@@ -19,11 +19,11 @@ def test_the_committed_catalog_has_twelve_topics_with_unique_slugs() -> None:
     assert len(set(slugs)) == 12
 
 
-def test_the_two_starter_topics_have_sources() -> None:
+def test_the_three_starter_topics_have_sources() -> None:
     catalog = load_catalog()
 
     with_sources = {topic.slug for topic in catalog.topics if topic.sources}
-    assert with_sources == {"formula-1", "open-weight-ai-models"}
+    assert with_sources == {"formula-1", "open-weight-ai-models", "film-and-tv"}
 
 
 def test_each_source_type_has_a_locator_and_a_publisher() -> None:
