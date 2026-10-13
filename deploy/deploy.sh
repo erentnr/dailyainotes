@@ -7,24 +7,32 @@ cd "$(dirname "$0")"
 
 tag=${1:?usage: deploy.sh <tag>}
 previous=$(cat .deployed 2>/dev/null || true)
-domain=$(grep '^DOMAIN=' .env | cut -d= -f2-)
+image=$(grep '^IMAGE=' .env | cut -d= -f2-)
 compose=(docker compose -f compose.prod.yml)
 
 # One && chain: bash ignores `set -e` inside a function called from `if`.
+# shellcheck disable=SC2016 # $DOMAIN in single quotes expands in Caddy's container.
 up() {
   export TAG=$1
   "${compose[@]}" pull --quiet api worker web &&
     "${compose[@]}" run --rm api dan db upgrade &&
     "${compose[@]}" up -d --wait --remove-orphans &&
-    # As a visitor reaches it: DNS, the certificate, Caddy, the API and the database.
-    curl -fsS --retry 10 --retry-delay 3 --retry-all-errors "https://$domain/api/v1/health" &&
+    # Through Caddy to the API and the database, inside Docker. Cloudflare's side is not checked
+    # here: a rollback cannot fix it (ADR 0002).
+    "${compose[@]}" exec -T caddy sh -c \
+      'for i in 1 2 3 4 5; do wget -qO- --header "Host: $DOMAIN" http://localhost/api/v1/health && exit; sleep 2; done; exit 1' &&
     echo
 }
 
 if up "$tag"; then
   echo "$tag" > .deployed
-  # Unused images older than three days; a rollback pulls its image again.
-  docker image prune -af --filter "until=72h" > /dev/null
+  # This project's images except this tag and the previous one; a rollback further back pulls
+  # its image again. Other images are left alone: the server may run other projects.
+  for repo in "$image" "$image-web"; do
+    docker image ls --format '{{.Repository}}:{{.Tag}}' "$repo" |
+      grep -vxF -e "$repo:$tag" -e "$repo:$previous" |
+      xargs -r docker image rm > /dev/null || true
+  done
   echo "deployed $tag"
 else
   echo "deploy of $tag failed" >&2

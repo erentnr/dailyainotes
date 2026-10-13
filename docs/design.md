@@ -71,7 +71,7 @@ Thirty questions over 40 fictional notes: fictional, so the set tests the mechan
 
 ## Deployment
 
-One VPS runs everything with Docker Compose: Caddy (the only published ports), the Astro site, the API, the worker (Procrastinate on the same Postgres, so no broker) and Postgres. Each container has a memory limit; logs rotate. A merge to `main` that passes CI builds both images, pushes them to GHCR and runs `deploy.sh` over SSH: pull, migrate, start, check the health endpoint over HTTPS, and redeploy the previous tag if anything fails. Postgres is dumped nightly with 7 copies kept, and `restore-check.sh` proves the newest dump restores.
+One VPS runs everything with Docker Compose: a Cloudflare Tunnel, Caddy, the Astro site, the API, the worker (Procrastinate on the same Postgres, so no broker) and Postgres. No container publishes a port. `cloudflared` connects out to Cloudflare, which holds the certificate, and Caddy sends `/api` to the API and the rest to the site, so the stack can share a server with other services and the server's address stays private ([ADR 0002](adr/0002-cloudflare-tunnel.md)). Each container has a memory limit; logs rotate. A merge to `main` that passes CI builds both images, pushes them to GHCR and runs `deploy.sh` over SSH: pull, migrate, start, check the health endpoint through Caddy, and redeploy the previous tag if anything fails. Postgres is dumped nightly with 7 copies kept, and `restore-check.sh` proves the newest dump restores.
 
 Self-hosted Langfuse needs ClickHouse, Redis and object storage, more than a 4 GB server can spare, so tracing uses Langfuse Cloud's free plan.
 

@@ -1,6 +1,6 @@
-# Production on the VPS: Caddy, the site, the API, the worker and Postgres.
+# Production on the VPS: a Cloudflare Tunnel, Caddy, the site, the API, the worker and Postgres.
 # It lives in /srv/dailyainotes next to the server's .env, which sets IMAGE, DOMAIN,
-# POSTGRES_PASSWORD and the app's settings (README, Deploy). deploy.sh sets TAG.
+# POSTGRES_PASSWORD, TUNNEL_TOKEN and the app's settings (README, Deploy). deploy.sh sets TAG.
 name: dailyainotes-prod
 
 x-logging: &logging
@@ -23,19 +23,25 @@ x-app: &app
   logging: *logging
 
 services:
+  # Connects out to Cloudflare and brings visitors to Caddy, so no container publishes a port
+  # (INTENT.md, Security; ADR 0002).
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.3
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?}
+    depends_on:
+      - caddy
+    restart: unless-stopped
+    mem_limit: 64m
+    logging: *logging
+
   caddy:
     image: caddy:2.11.7-alpine
-    # The only published ports (INTENT.md, Security).
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
     environment:
       DOMAIN: ${DOMAIN:?}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
     depends_on:
       api:
         condition: service_healthy
@@ -107,5 +113,3 @@ services:
 
 volumes:
   pgdata:
-  caddy_data:
-  caddy_config:

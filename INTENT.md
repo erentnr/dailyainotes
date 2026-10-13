@@ -195,9 +195,10 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - **Be a polite client.** User-Agent `DailyAINotes/<version> (+https://dailyainotes.com)`;
   robots.txt per RFC 9309; per-host rate limits; back off on 429 and 5xx and honour
   `Retry-After`.
-- **Network exposure.** Only Caddy publishes ports (80 and 443), since Docker-published ports
-  bypass UFW. Postgres is never exposed. Admin endpoints require the token. Ask is rate-limited
-  per hashed IP and globally.
+- **Network exposure.** No container publishes a port (Docker-published ports bypass UFW): a
+  Cloudflare Tunnel brings visitors to Caddy (ADR 0002). The visitor's address is Cloudflare's
+  `CF-Connecting-IP`, never a header a visitor can write. Postgres is never exposed. Admin
+  endpoints require the token. Ask is rate-limited per hashed IP and globally.
 
 ## Performance and Cost
 
@@ -228,7 +229,7 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 
 - [ ] Before M1: the owner confirms or edits the 12 catalog topics (the default list is in MEMORY.md).
 - [x] At M2: choose models with `dan llm probe` (Writer and fact-checker from different families) and record them in MEMORY.md (2026-10-13).
-- [ ] Before M4: confirm the VPS disk size and the DNS records for dailyainotes.com.
+- [x] Before M4: confirm the VPS disk size and the DNS records for dailyainotes.com (2026-10-13; DNS goes through a Cloudflare Tunnel, ADR 0002).
 - [ ] After 2026-10-15: move the Postgres image to `pgvector/pgvector:0.8.7-pg18-trixie`.
 - [ ] After 2026-10-28: move to Node 26 LTS.
 - [ ] Revise DESIGN.md when the v1 screens (Admin, How it works, Archive, Topic) are redesigned; until then they are layout reference only.

@@ -80,11 +80,11 @@ The model steps need `OLLAMA_API_KEY` or `OPENROUTER_API_KEY` in `.env`; `uv run
 
 ## Deploy
 
-One VPS (Ubuntu 24.04, x86_64; 2 vCPU and 4 GB of memory are enough) runs everything with Docker Compose: Caddy, the site, the API, the worker and Postgres. Each merge to `main` that passes CI builds the two images, pushes them to GHCR and runs [`deploy/deploy.sh`](deploy/deploy.sh) on the server over SSH. That script pulls the image, migrates the database, starts the stack, checks `/api/v1/health` over HTTPS, and redeploys the previous image if any step fails.
+One VPS (Ubuntu 24.04, x86_64; 2 vCPU and 4 GB of memory are enough) runs everything with Docker Compose: a Cloudflare Tunnel, Caddy, the site, the API, the worker and Postgres. No container publishes a port: `cloudflared` connects out to Cloudflare, which holds the certificate and brings visitors to Caddy, so the stack can share a server with other services ([ADR 0002](docs/adr/0002-cloudflare-tunnel.md)). Each merge to `main` that passes CI builds the two images, pushes them to GHCR and runs [`deploy/deploy.sh`](deploy/deploy.sh) on the server over SSH. That script pulls the image, migrates the database, starts the stack, checks `/api/v1/health` through Caddy, and redeploys the previous image if any step fails.
 
 ### Server setup, once
 
-As root on a fresh server:
+As root, on a fresh server; on one that already runs other services, skip what it has:
 
 ```sh
 # Docker Engine and Compose, from Docker's apt repository (docs.docker.com/engine/install/ubuntu)
@@ -105,26 +105,30 @@ apt update && apt install -y docker-ce docker-ce-cli containerd.io docker-buildx
 # Security updates install themselves
 apt install -y unattended-upgrades && dpkg-reconfigure -f noninteractive unattended-upgrades
 
-# Firewall: SSH, HTTP and HTTPS (443/udp for HTTP/3). Only Caddy publishes ports.
-ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 443/udp && ufw enable
+# Firewall: SSH only. Visitors arrive through the tunnel, which connects out.
+ufw allow OpenSSH && ufw enable
+
+# 2 GB of swap, so a spike during the nightly run cannot get containers killed for memory
+fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
 # The deploy user and the app folder. Membership of the docker group is root-equivalent:
 # guard this user's keys.
 adduser --disabled-password --gecos "" deploy && usermod -aG docker deploy
-install -d -o deploy -g deploy -m 700 /srv/dailyainotes
+install -d -o deploy -g deploy -m 700 /srv/dailyainotes /srv/dailyainotes/backups
 install -d -o deploy -g deploy -m 700 /home/deploy/.ssh
 # Put your public key and the deploy workflow's public key in /home/deploy/.ssh/authorized_keys.
 
-# SSH: keys only, no root login
+# SSH: keys only. Root keeps key login: `PermitRootLogin no` would lock out a root-only login.
 tee /etc/ssh/sshd_config.d/10-hardening.conf <<EOF
-PermitRootLogin no
+PermitRootLogin prohibit-password
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 EOF
 systemctl reload ssh
 ```
 
-Then, as `deploy`, write `/srv/dailyainotes/.env` (mode 600). It takes every setting in [`.env.example`](.env.example) except `DATABASE_URL`, which Compose builds, plus:
+Then write `/srv/dailyainotes/.env`, owned by `deploy`, mode 600. It takes the settings in [`.env.example`](.env.example) except three that are not the server's: `DATABASE_URL` (Compose builds it), `EMBEDDING_CACHE_DIR` (the image holds the model) and `GIT_SHA` (Compose sets it). Add:
 
 ```sh
 IMAGE=ghcr.io/<owner>/dailyainotes   # lower case
@@ -132,13 +136,16 @@ DOMAIN=dailyainotes.com
 POSTGRES_PASSWORD=                   # openssl rand -hex 32
 ADMIN_TOKEN=                         # openssl rand -hex 32; the /admin page asks for it
 IP_HASH_KEY=                         # openssl rand -hex 32
+TUNNEL_TOKEN=                        # from Cloudflare, below
 ```
 
-Point the domain's A record (and AAAA, if the server has IPv6) at the server; Caddy obtains the certificate on the first request.
+### Cloudflare Tunnel
+
+The domain's DNS must be on Cloudflare; the free plan is enough. In the dashboard, under Networking, Tunnels, create a tunnel and put its token in `.env` as `TUNNEL_TOKEN`. Add two published application routes, the domain and `www.` before it, both with the service URL `http://caddy:80`; Cloudflare creates their DNS records, so delete any A or AAAA records for those names first. Turn on Always Use HTTPS (SSL/TLS, Edge Certificates). Caddy sends `www` to the bare domain, and passes Cloudflare's `CF-Connecting-IP` to the API as the visitor's address, which Ask's rate limits use.
 
 ### GitHub settings
 
-- Variable `DEPLOY_HOST`: the server's address. Until it is set, CI builds and pushes images but does not deploy.
+- Secret `DEPLOY_HOST`: the server's address. A secret, not a variable, so it stays out of the public CI logs. Until it is set, CI builds and pushes images and skips the deploy steps.
 - Secret `DEPLOY_SSH_KEY`: a private key made only for deploys (`ssh-keygen -t ed25519 -f deploy_key -N ""`), whose public half is in `deploy`'s `authorized_keys`.
 - Secret `DEPLOY_KNOWN_HOSTS`: the output of `ssh-keyscan -t ed25519 <server>`.
 - After the first push, make the `dailyainotes` and `dailyainotes-web` packages public in their GHCR settings, so the server pulls without a token. Otherwise, run `docker login ghcr.io` as `deploy` with a token that can only read packages.

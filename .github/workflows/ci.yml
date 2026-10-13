@@ -130,8 +130,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=web
 
   deploy:
-    # Off until the repository variable DEPLOY_HOST names the server (README, Deploy).
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_HOST != ''
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: image
     runs-on: ubuntu-24.04
     environment: production
@@ -139,12 +138,16 @@ jobs:
       group: deploy
       cancel-in-progress: false
     env:
-      HOST: ${{ vars.DEPLOY_HOST }}
+      # A secret, not a variable, so the server's address stays out of the public logs. The steps
+      # are skipped until it is set (README, Deploy); a job's `if` cannot read secrets.
+      HOST: ${{ secrets.DEPLOY_HOST }}
       TAG: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - if: env.HOST != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Deploy over SSH
+        if: env.HOST != ''
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
