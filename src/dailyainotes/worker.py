@@ -1,5 +1,5 @@
 """The worker: Procrastinate, on the same Postgres, runs every active topic's edition at
-01:30 UTC, the eval set with its judge at 04:00, and purges the Ask log at 00:15.
+01:30 UTC, the eval set with its judge at 04:30, and purges the Ask log at 00:15.
 
 Start it with `dan-worker`, not `python -m`, which would build a second app in `__main__` that
 the worker cannot find its tasks in. Its tables live in the `procrastinate` schema (migration
@@ -60,7 +60,8 @@ async def purge_ask_log(timestamp: int) -> None:
         await engine.dispose()
 
 
-@app.periodic(cron="0 4 * * *")
+# 04:30, not 04:00: the server reboots at 04:00 UTC when a security update needs it.
+@app.periodic(cron="30 4 * * *")
 @app.task(queueing_lock="eval")
 async def nightly_eval(timestamp: int) -> None:
     """The eval set with the Ask model and the judge, after the daily edition is done."""

@@ -29,6 +29,6 @@ async def test_the_worker_creates_its_queue_and_runs_the_daily_edition_at_0130_u
     assert crons == {
         "dailyainotes.worker.daily_edition": "30 1 * * *",
         "dailyainotes.worker.purge_ask_log": "15 0 * * *",
-        "dailyainotes.worker.nightly_eval": "0 4 * * *",
+        "dailyainotes.worker.nightly_eval": "30 4 * * *",
     }
     assert runs == [(None, True)]
