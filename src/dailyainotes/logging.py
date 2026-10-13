@@ -44,3 +44,6 @@ def configure_logging(level: LogLevel) -> None:
         uvicorn_logger = logging.getLogger(name)
         uvicorn_logger.handlers.clear()
         uvicorn_logger.propagate = True
+    # Uvicorn's access lines start with the client's address, and logs never keep raw IPs
+    # (INTENT.md). Caddy's log records each request without it.
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)

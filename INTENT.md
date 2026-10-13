@@ -230,7 +230,7 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - [ ] Before M1: the owner confirms or edits the 12 catalog topics (the default list is in MEMORY.md).
 - [x] At M2: choose models with `dan llm probe` (Writer and fact-checker from different families) and record them in MEMORY.md (2026-10-13).
 - [x] Before M4: confirm the VPS disk size and the DNS records for dailyainotes.com (2026-10-13; DNS goes through a Cloudflare Tunnel, ADR 0002).
-- [ ] Keep raw visitor IPs out of the logs: uvicorn's access log and Caddy's request log (its `CF-Connecting-IP` header) record them, against Coding Standards' logging rule (found 2026-10-13).
+- [x] Keep raw visitor IPs out of the logs: uvicorn's access log and Caddy's request log (its `CF-Connecting-IP` header) record them, against Coding Standards' logging rule (found and fixed 2026-10-13).
 - [ ] After 2026-10-15: move the Postgres image to `pgvector/pgvector:0.8.7-pg18-trixie`.
 - [ ] After 2026-10-28: move to Node 26 LTS.
 - [ ] Revise DESIGN.md when the v1 screens (Admin, How it works, Archive, Topic) are redesigned; until then they are layout reference only.

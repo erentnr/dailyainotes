@@ -1,5 +1,18 @@
 # Plain HTTP inside Docker: only cloudflared reaches Caddy, and Cloudflare holds the certificate
 # (ADR 0002). DOMAIN comes from the server's .env.
+
+# Request headers carry the visitor's address (CF-Connecting-IP, X-Forwarded-For), and logs never
+# keep raw IPs (INTENT.md). This logger takes Caddy's own and error lines; the site's log below
+# takes the access lines. remote_ip is cloudflared's container.
+{
+	log default {
+		format filter {
+			request>headers delete
+			wrap json
+		}
+	}
+}
+
 http://{$DOMAIN} {
 	encode zstd gzip
 
@@ -24,7 +37,11 @@ http://{$DOMAIN} {
 
 	log {
 		output stdout
-		format json
+		# Without request headers, as in the default logger above.
+		format filter {
+			request>headers delete
+			wrap json
+		}
 	}
 }
 

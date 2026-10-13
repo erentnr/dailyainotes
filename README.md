@@ -80,7 +80,7 @@ The model steps need `OLLAMA_API_KEY` or `OPENROUTER_API_KEY` in `.env`; `uv run
 
 ## Deploy
 
-One VPS (Ubuntu 24.04, x86_64; 2 vCPU and 4 GB of memory are enough) runs everything with Docker Compose: a Cloudflare Tunnel, Caddy, the site, the API, the worker and Postgres. No container publishes a port: `cloudflared` connects out to Cloudflare, which holds the certificate and brings visitors to Caddy, so the stack can share a server with other services ([ADR 0002](docs/adr/0002-cloudflare-tunnel.md)). Each merge to `main` that passes CI builds the two images, pushes them to GHCR and runs [`deploy/deploy.sh`](deploy/deploy.sh) on the server over SSH. That script pulls the image, migrates the database, starts the stack, checks `/api/v1/health` through Caddy, and redeploys the previous image if any step fails.
+One VPS (Ubuntu 24.04, x86_64; 2 vCPU and 4 GB of memory are enough) runs everything with Docker Compose: a Cloudflare Tunnel, Caddy, the site, the API, the worker and Postgres. No container publishes a port: `cloudflared` connects out to Cloudflare, which holds the certificate and brings visitors to Caddy, so the stack can share a server with other services ([ADR 0002](docs/adr/0002-cloudflare-tunnel.md)). Each merge to `main` that passes CI builds the two images, pushes them to GHCR and runs [`deploy/deploy.sh`](deploy/deploy.sh) on the server over SSH. That script pulls the image, migrates the database, starts the stack, reloads Caddy's config, checks `/api/v1/health` through Caddy, and redeploys the previous image if any step fails.
 
 ### Server setup, once
 

@@ -17,6 +17,9 @@ up() {
   "${compose[@]}" pull --quiet api worker web &&
     "${compose[@]}" run --rm api dan db upgrade &&
     "${compose[@]}" up -d --wait --remove-orphans &&
+    # Caddy reads the Caddyfile only when it starts, and its container is not recreated when the
+    # file changes.
+    "${compose[@]}" exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile &&
     # Through Caddy to the API and the database, inside Docker. Cloudflare's side is not checked
     # here: a rollback cannot fix it (ADR 0002).
     "${compose[@]}" exec -T caddy sh -c \

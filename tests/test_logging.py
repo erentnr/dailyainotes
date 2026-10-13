@@ -40,7 +40,7 @@ def test_library_logs_have_the_same_json_shape(capsys: pytest.CaptureFixture[str
     assert line["logger"] == "uvicorn.error"
 
 
-def test_uvicorn_access_logs_are_json_even_after_uvicorn_set_up_its_own_handler(
+def test_uvicorn_access_lines_are_dropped_as_they_start_with_the_client_address(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     access = logging.getLogger("uvicorn.access")
@@ -48,11 +48,11 @@ def test_uvicorn_access_logs_are_json_even_after_uvicorn_set_up_its_own_handler(
     access.propagate = False
     configure_logging("INFO")
 
-    access.info("GET /api/v1/health 200")
+    # The call uvicorn makes for each request.
+    access.info('%s - "%s %s HTTP/%s" %d', "203.0.113.7:0", "POST", "/api/v1/ask", "1.1", 200)
 
-    line = last_line(capsys)
-    assert line["event"] == "GET /api/v1/health 200"
-    assert line["logger"] == "uvicorn.access"
+    captured = capsys.readouterr()
+    assert "203.0.113.7" not in captured.out + captured.err
 
 
 def test_events_below_the_configured_level_are_dropped(
