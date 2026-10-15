@@ -45,7 +45,8 @@ export default function AccountActions() {
         {confirming ? (
           <div className="stack">
             <p>
-              This removes your email, your topics and your topic suggestions, at once and for good.
+              This removes your email, your topics, your topic suggestions and your questions to Ask, at
+              once and for good.
               The topics you picked stay in this browser.
             </p>
             <div className="chips">

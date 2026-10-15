@@ -26,6 +26,7 @@
   "/api/v1/ask": {
    "post": {
     "summary": "Ask The Notes",
+    "description": "Only for a signed-in reader (ADR 0004).",
     "operationId": "ask_the_notes_api_v1_ask_post",
     "requestBody": {
      "content": {
@@ -46,8 +47,11 @@
        }
       }
      },
+     "401": {
+      "description": "Not signed in"
+     },
      "429": {
-      "description": "Over the day's question limit"
+      "description": "Over a day's limit"
      },
      "422": {
       "description": "Validation Error",

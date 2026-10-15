@@ -1,6 +1,6 @@
 # 1. Build a proof of concept first
 
-- Status: Accepted; amended by [ADR 0003](0003-sign-in-and-reader-accounts.md) (editor sign-in and reader accounts, 2026-10-15)
+- Status: Accepted; amended by [ADR 0003](0003-sign-in-and-reader-accounts.md) (editor sign-in and reader accounts, 2026-10-15) and [ADR 0004](0004-ask-needs-an-account.md) (Ask needs an account, 2026-10-16)
 - Date: 2026-10-12
 - Decided by: Eren
 

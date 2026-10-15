@@ -48,7 +48,7 @@ Hybrid search runs in Postgres: a generated `tsvector` with a GIN index for full
 
 Ask searches published notes only. A note is a strong match when full-text search finds it or its similarity is at least 0.62. On the eval set the expected notes scored 0.70 to 0.91 and the best note for an off-corpus question at most 0.54. With no strong match, Ask answers "Not enough in the notes to answer that." without calling a model. Otherwise one model answers from at most 5 notes, streamed as server-sent events. Code drops any citation marker that points at no source while it streams, and a model's own "not enough" becomes the standard reply.
 
-Ask is limited to 10 questions per IP and 100 in total a day. IP addresses are stored only as keyed hashes, and the log is purged after 30 days.
+Ask needs a signed-in reader ([ADR 0004](adr/0004-ask-needs-an-account.md)) and is limited to 10 questions a day per reader, 30 per IP address and 200 in total. IP addresses are stored only as keyed hashes; each question keeps its reader, goes when the account is deleted, and the log is purged after 30 days.
 
 ## The model router
 

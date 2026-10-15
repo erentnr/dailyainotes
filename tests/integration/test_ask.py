@@ -9,9 +9,11 @@ from langchain_core.embeddings import Embeddings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from dailyainotes.accounts import delete_account, open_session
+from dailyainotes.api.accounts import AccountDeps
 from dailyainotes.api.app import create_app
 from dailyainotes.api.deps import ask_deps
-from dailyainotes.ask import AskDeps, ask, purge
+from dailyainotes.ask import AskDeps, Asker, ask, purge
 from dailyainotes.db.asks import count_request
 from dailyainotes.db.tables import AskRequest, Note, RateLimit
 from dailyainotes.domain.answers import NOT_ENOUGH
@@ -50,7 +52,10 @@ async def corpus(engine: AsyncEngine, embeddings: Embeddings) -> None:
 
 
 async def events(deps: AskDeps, question: str) -> list[tuple[str, Any]]:
-    return [event async for event in ask(deps, question, [], ip_hash="visitor")]
+    """The events for a question a signed-in reader asks from the site."""
+    session = await open_session(deps.engine, "reader@example.com", datetime.now(UTC))
+    asker = Asker(session.reader_id, "visitor")
+    return [event async for event in ask(deps, question, [], asker=asker)]
 
 
 async def logged(engine: AsyncEngine) -> list[Any]:
@@ -147,25 +152,45 @@ async def test_no_model_answering_ends_the_stream_with_an_error(
     assert row.insufficient
 
 
-async def test_the_api_streams_events_and_allows_ten_questions_per_ip_a_day(
-    engine: AsyncEngine, embeddings: Embeddings
-) -> None:
+def asking_site(engine: AsyncEngine, embeddings: Embeddings) -> httpx2.AsyncClient:
+    """The API with a model that finds the notes lacking; every visitor comes from one IP."""
     app = create_app(Settings(_env_file=None))
     # ASGITransport does not run the lifespan, so the test's engine stands in for its own.
     app.state.engine = engine
+    app.state.accounts = AccountDeps(engine, None, None, "http://test")
 
     def deps(request: Request) -> AskDeps:
         return AskDeps(engine, embeddings, StreamingRouter([]))
 
     app.dependency_overrides[ask_deps] = deps
     transport = httpx2.ASGITransport(app=app)
-    async with httpx2.AsyncClient(transport=transport, base_url="http://test") as client:
-        answers = [
-            await client.post("/api/v1/ask", json={"question": UNCOVERED}) for _ in range(10)
-        ]
-        refused = await client.post("/api/v1/ask", json={"question": UNCOVERED})
-        too_short = await client.post("/api/v1/ask", json={"question": "?"})
-        backwards = await client.post(
+    return httpx2.AsyncClient(transport=transport, base_url="http://test")
+
+
+async def sign_in(engine: AsyncEngine, site: httpx2.AsyncClient, email: str) -> int:
+    """Open a session for the reader and send its cookie from now on; the reader's id."""
+    session = await open_session(engine, email, datetime.now(UTC))
+    site.cookies.set("dan_session", session.token)
+    return session.reader_id
+
+
+async def test_asking_needs_a_signed_in_reader(engine: AsyncEngine, embeddings: Embeddings) -> None:
+    async with asking_site(engine, embeddings) as site:
+        anonymous = await site.post("/api/v1/ask", json={"question": UNCOVERED})
+
+    assert anonymous.status_code == 401
+    assert await logged(engine) == []
+
+
+async def test_the_api_streams_events_and_allows_ten_questions_per_reader_a_day(
+    engine: AsyncEngine, embeddings: Embeddings
+) -> None:
+    async with asking_site(engine, embeddings) as site:
+        reader_id = await sign_in(engine, site, "reader@example.com")
+        answers = [await site.post("/api/v1/ask", json={"question": UNCOVERED}) for _ in range(10)]
+        refused = await site.post("/api/v1/ask", json={"question": UNCOVERED})
+        too_short = await site.post("/api/v1/ask", json={"question": "?"})
+        backwards = await site.post(
             "/api/v1/ask",
             json={"question": UNCOVERED, "since": "2026-10-02", "until": "2026-10-01"},
         )
@@ -181,7 +206,57 @@ async def test_the_api_streams_events_and_allows_ten_questions_per_ip_a_day(
     assert "10 questions" in refused.json()["detail"]
     assert too_short.status_code == 422
     assert backwards.status_code == 422
-    assert len(await logged(engine)) == 10
+    rows = await logged(engine)
+    assert len(rows) == 10
+    assert {row.reader_id for row in rows} == {reader_id}
+
+
+async def test_one_connection_shares_thirty_questions_a_day_between_its_readers(
+    engine: AsyncEngine, embeddings: Embeddings
+) -> None:
+    statuses = []
+    async with asking_site(engine, embeddings) as site:
+        for n in range(4):
+            await sign_in(engine, site, f"reader{n}@example.com")
+            for _ in range(10 if n < 3 else 1):
+                response = await site.post("/api/v1/ask", json={"question": UNCOVERED})
+                statuses.append((n, response.status_code, response.text))
+
+    assert {code for n, code, _ in statuses if n < 3} == {200}
+    ((_, code, text),) = [s for s in statuses if s[0] == 3]
+    assert code == 429
+    assert "30 questions" in text
+
+
+async def test_the_site_answers_two_hundred_questions_a_day_in_all(
+    engine: AsyncEngine, embeddings: Embeddings
+) -> None:
+    async with engine.begin() as connection:
+        await connection.execute(
+            RateLimit.__table__.insert().values(key="all", day=datetime.now(UTC).date(), count=199)
+        )
+    async with asking_site(engine, embeddings) as site:
+        await sign_in(engine, site, "reader@example.com")
+        last = await site.post("/api/v1/ask", json={"question": UNCOVERED})
+        refused = await site.post("/api/v1/ask", json={"question": UNCOVERED})
+
+    assert last.status_code == 200
+    assert refused.status_code == 429
+    assert "all the questions it can today" in refused.json()["detail"]
+
+
+async def test_deleting_an_account_deletes_its_questions(
+    engine: AsyncEngine, embeddings: Embeddings
+) -> None:
+    async with asking_site(engine, embeddings) as site:
+        reader_id = await sign_in(engine, site, "reader@example.com")
+        await site.post("/api/v1/ask", json={"question": UNCOVERED})
+        await sign_in(engine, site, "other@example.com")
+        await site.post("/api/v1/ask", json={"question": UNCOVERED})
+
+    await delete_account(engine, reader_id)
+
+    assert [row.reader_id for row in await logged(engine)] == [reader_id + 1]
 
 
 async def test_old_questions_and_counts_are_purged(

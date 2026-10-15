@@ -389,6 +389,10 @@ class AskRequest(Base):
     __tablename__ = "ask_requests"
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    # The reader who asked (ADR 0004); NULL only for questions from before accounts were needed.
+    reader_id: Mapped[int | None] = mapped_column(
+        ForeignKey("readers.id", ondelete="CASCADE"), index=True
+    )
     ip_hash: Mapped[str] = mapped_column(String(64))
     question: Mapped[str] = mapped_column(Text)
     cited_note_ids: Mapped[list[int]] = mapped_column(ARRAY(BigInteger))

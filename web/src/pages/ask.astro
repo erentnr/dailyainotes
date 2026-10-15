@@ -3,18 +3,58 @@ import AskChat from "../islands/AskChat";
 import Base from "../layouts/Base.astro";
 import { serverApi } from "../lib/api/server";
 
-const { data: topics } = await serverApi().GET("/api/v1/topics");
+const api = serverApi();
+const reader = Astro.locals.reader;
 // From the daily page's Ask box (?q=) or a note's "Ask a follow-up" (?topic=).
 const question = Astro.url.searchParams.get("q")?.trim().slice(0, 300) ?? "";
 const topic = Astro.url.searchParams.get("topic");
+const [{ data: topics }, { data: options }] = await Promise.all([
+  api.GET("/api/v1/topics"),
+  reader ? Promise.resolve({ data: undefined }) : api.GET("/api/v1/auth/options"),
+]);
+// Asking needs an account (ADR 0004); signing in comes back here with the question.
+const signIn = `/sign-in?next=${encodeURIComponent(`/ask${Astro.url.search}`)}`;
 ---
 
-<Base title="Ask your notes" tabBar={false}>
-  <AskChat
-    client:load
-    topics={topics ?? []}
-    signedIn={Astro.locals.reader !== null}
-    initialQuestion={question}
-    initialTopic={topic && topics?.some((t) => t.slug === topic) ? topic : null}
-  />
+<Base title="Ask your notes" tabBar={reader === null}>
+  {
+    reader ? (
+      <AskChat
+        client:load
+        topics={topics ?? []}
+        signedIn
+        initialQuestion={question}
+        initialTopic={topic && topics?.some((t) => t.slug === topic) ? topic : null}
+      />
+    ) : (
+      <div class="ask-gate">
+        <header class="ask-head">
+          <h1 class="h1">Ask your notes</h1>
+          <p class="lede">
+            Ask anything about the topics we follow. Answers come only from published notes, and every
+            sentence is cited. If the notes don't cover it, we say so.
+          </p>
+        </header>
+        <section class="card gate-card" aria-labelledby="gate-title">
+          <p class="state-title" id="gate-title">Sign in to ask.</p>
+          {question && (
+            <p class="gate-question">
+              Your question waits for you: <q>{question}</q>
+            </p>
+          )}
+          <p class="muted">
+            Asking needs an account, so each reader gets their own daily questions. No password: we email
+            you a code. Reading the notes stays open to everyone.
+          </p>
+          {options?.sign_in ? (
+            <a class="button button-primary" href={signIn}>
+              Sign in to ask
+            </a>
+          ) : (
+            <p class="small muted">Sign-in is not open yet, so Ask is closed for now.</p>
+          )}
+        </section>
+      </div>
+    )
+  }
 </Base>

@@ -10,8 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 
+from dailyainotes.api.accounts import Reader
 from dailyainotes.api.deps import ask_deps
-from dailyainotes.ask import AskDeps, RateLimitedError, ask, check_limits, hash_ip
+from dailyainotes.ask import AskDeps, Asker, RateLimitedError, ask, check_limits, hash_ip
 
 router = APIRouter()
 
@@ -31,20 +32,28 @@ class Question(BaseModel):
         return self
 
 
-@router.post("/ask", responses={429: {"description": "Over the day's question limit"}})
+@router.post(
+    "/ask",
+    responses={401: {"description": "Not signed in"}, 429: {"description": "Over a day's limit"}},
+)
 async def ask_the_notes(
-    body: Question, request: Request, deps: Annotated[AskDeps, Depends(ask_deps)]
+    body: Question,
+    request: Request,
+    deps: Annotated[AskDeps, Depends(ask_deps)],
+    found: Reader,
 ) -> StreamingResponse:
+    """Only for a signed-in reader (ADR 0004)."""
     # Behind Caddy, uvicorn takes the client address from X-Forwarded-For.
     ip_hash = hash_ip(request.client.host if request.client else "", request.app.state.ip_key)
+    asker = Asker(found.reader_id, ip_hash)
     try:
-        await check_limits(deps.engine, ip_hash, datetime.now(UTC).date())
+        await check_limits(deps.engine, asker, datetime.now(UTC).date())
     except RateLimitedError as error:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(error)) from error
 
     async def events() -> AsyncIterator[str]:
         async for kind, data in ask(
-            deps, body.question, body.topics, since=body.since, until=body.until, ip_hash=ip_hash
+            deps, body.question, body.topics, since=body.since, until=body.until, asker=asker
         ):
             yield f"event: {kind}\ndata: {json.dumps(data, default=str)}\n\n"
 

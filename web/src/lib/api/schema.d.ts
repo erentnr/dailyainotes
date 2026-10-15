@@ -30,7 +30,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Ask The Notes */
+        /**
+         * Ask The Notes
+         * @description Only for a signed-in reader (ADR 0004).
+         */
         post: operations["ask_the_notes_api_v1_ask_post"];
         delete?: never;
         options?: never;
@@ -915,6 +918,13 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -924,7 +934,7 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
-            /** @description Over the day's question limit */
+            /** @description Over a day's limit */
             429: {
                 headers: {
                     [name: string]: unknown;

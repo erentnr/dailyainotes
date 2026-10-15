@@ -20,9 +20,11 @@ from dailyainotes.retrieval.hybrid import NoteHit, search_notes
 
 log = structlog.get_logger(__name__)
 
-# INTENT.md, Performance and Cost.
-PER_IP_PER_DAY = 10
-PER_DAY = 100
+# INTENT.md, Performance and Cost. Asking needs an account (ADR 0004); one connection may
+# have several, and the total keeps Ask from spending the free quota the nightly run needs.
+PER_READER_PER_DAY = 10
+PER_IP_PER_DAY = 30
+PER_DAY = 200
 KEEP_LOG = timedelta(days=30)
 MAX_SOURCES = 5
 # A note is a strong match when full-text search finds it, or when its vector is at least this
@@ -78,10 +80,22 @@ def hash_ip(ip: str, key: bytes) -> str:
     return hmac.new(key, ip.encode(), hashlib.sha256).hexdigest()
 
 
-async def check_limits(engine: AsyncEngine, ip_hash: str, day: date) -> None:
-    if await db.count_request(engine, f"ip:{ip_hash}", day) > PER_IP_PER_DAY:
+@dataclass(frozen=True)
+class Asker:
+    """A signed-in reader asking from the site: their questions are counted and logged."""
+
+    reader_id: int
+    ip_hash: str
+
+
+async def check_limits(engine: AsyncEngine, asker: Asker, day: date) -> None:
+    if await db.count_request(engine, f"reader:{asker.reader_id}", day) > PER_READER_PER_DAY:
         raise RateLimitedError(
-            f"You have asked {PER_IP_PER_DAY} questions today. Come back tomorrow."
+            f"You have asked {PER_READER_PER_DAY} questions today. Come back tomorrow."
+        )
+    if await db.count_request(engine, f"ip:{asker.ip_hash}", day) > PER_IP_PER_DAY:
+        raise RateLimitedError(
+            f"This connection has asked {PER_IP_PER_DAY} questions today. Come back tomorrow."
         )
     if await db.count_request(engine, "all", day) > PER_DAY:
         raise RateLimitedError(
@@ -150,10 +164,10 @@ async def ask(
     *,
     since: date | None = None,
     until: date | None = None,
-    ip_hash: str | None = None,
+    asker: Asker | None = None,
 ) -> AsyncIterator[Event]:
-    """`answer` for one question, over the notes of these topics and days, logged when it comes
-    from a visitor (`ip_hash`)."""
+    """`answer` for one question, over the notes of these topics and days, logged when a reader
+    asks it on the site."""
     sources = await find_sources(deps, question, topics, since, until)
     done: dict[str, Any] = {"insufficient": True, "cited": []}
     try:
@@ -164,9 +178,11 @@ async def ask(
     except Exception as error:  # no model answered, or the stream broke off
         log.warning("ask_failed", error=describe(error))
         yield "error", "Ask cannot reach a model right now. Try again later."
-    if ip_hash is not None:
+    if asker is not None:
         cited = [sources[marker - 1].note_id for marker in done["cited"]]
-        await db.log_ask(deps.engine, ip_hash, question, cited, done["insufficient"])
+        await db.log_ask(
+            deps.engine, asker.reader_id, asker.ip_hash, question, cited, done["insufficient"]
+        )
 
 
 async def purge(engine: AsyncEngine, now: datetime) -> None:

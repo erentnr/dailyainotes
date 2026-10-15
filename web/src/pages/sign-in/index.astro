@@ -31,7 +31,7 @@ const { data: options } = await serverApi().GET("/api/v1/auth/options");
   </header>
   <p class="measure muted">
     No password: we email you a code. An account keeps your topics on every device and lets you
-    suggest topics. Reading and Ask work without one.
+    suggest topics, and you need one to ask the notes. Reading works without one.
   </p>
   {
     options?.sign_in ? (

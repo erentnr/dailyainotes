@@ -1,5 +1,6 @@
 """Reader accounts (ADR 0003): sign-in with a code or link sent by email, sessions, the topics a
-reader follows, topic suggestions, and deleting an account. Reading and Ask never need one.
+reader follows, topic suggestions, and deleting an account. Reading never needs one; Ask does
+(ADR 0004).
 
 Codes and session tokens are stored only as digests. Sign-in emails are limited per address,
 per IP and per day, below what Resend's free plan sends."""

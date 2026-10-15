@@ -24,11 +24,17 @@ async def count_request(engine: AsyncEngine, key: str, day: date) -> int:
 
 
 async def log_ask(
-    engine: AsyncEngine, ip_hash: str, question: str, cited_note_ids: list[int], insufficient: bool
+    engine: AsyncEngine,
+    reader_id: int,
+    ip_hash: str,
+    question: str,
+    cited_note_ids: list[int],
+    insufficient: bool,
 ) -> None:
     async with engine.begin() as connection:
         await connection.execute(
             insert(AskRequest).values(
+                reader_id=reader_id,
                 ip_hash=ip_hash,
                 question=question,
                 cited_note_ids=cited_note_ids,

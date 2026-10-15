@@ -428,7 +428,7 @@ Plain, specific and honest about gaps. No jargon: never "RAG", "embeddings" or "
 | Daily page (`/`, `/day/<date>`) | 03 phone, 03d desktop, 03b first day | Yes. The first-day state shows each followed topic's real status (notes, or nothing new) instead of live progress |
 | Note detail (`/notes/<slug>`) | 04 phone, 04d desktop | Yes |
 | Topic picker and onboarding (`/topics`) | 05 phone, 05d desktop | Yes. "Something more specific?" sends a topic suggestion for the editor; step 2 is signing in to keep topics on every device |
-| Ask the notes (`/ask`) | 06 phone, 06d desktop | Yes |
+| Ask the notes (`/ask`) | 06 phone, 06d desktop | Yes, for signed-in readers ([ADR 0004](docs/adr/0004-ask-needs-an-account.md)). A signed-out visitor sees what Ask does and a way to sign in that keeps their question |
 | Topic timeline, How it works, Sign in, Account, Privacy, /admin | Not on the D page | Built from these tokens and components; layouts to revise |
 
 Not built, by the owner's decision (2026-10-16), because nothing behind them exists yet: the More, Less and Not relevant feedback buttons, a delivery time, live progress while a first page is written, and custom topics written by readers. The conflicting-source box waits until the pipeline records which sources disagree.

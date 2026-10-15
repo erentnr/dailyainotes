@@ -1,6 +1,6 @@
 # 3. Editor sign-in through Cloudflare Access, and reader accounts
 
-- Status: Accepted
+- Status: Accepted; amended by [ADR 0004](0004-ask-needs-an-account.md) (Ask needs an account, 2026-10-16)
 - Date: 2026-10-15
 - Decided by: Eren
 

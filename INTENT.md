@@ -135,10 +135,10 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - **Copyright.** Show only our own summaries, quotes of at most 25 words per source, and links to
   originals. Never republish full text. Paywalled or AI-opted-out pages are link-only. Source text
   is purged after 30 days. Reddit, Guardian and NYT content is excluded.
-- **Accounts are optional** (ADR 0003). Reading and Ask never need one. A signed-out visitor's
-  topics stay in the browser; an account holds only an email, the topics followed and topic
-  suggestions, and deleting it removes all of them. Other per-visitor state is a hashed-IP
-  rate-limit counter and the Ask log, kept 30 days.
+- **Accounts are optional for reading; Ask needs one** (ADR 0003, ADR 0004). A signed-out
+  visitor's topics stay in the browser; an account holds only an email, the topics followed,
+  topic suggestions and its questions to Ask (kept 30 days), and deleting it removes all of them.
+  Other per-visitor state is the rate-limit counters (per reader and per hashed IP), kept a day.
 - **Reader sign-in is an emailed code or link, never a password.** Codes and session tokens are
   stored only as SHA-256 digests; a code works once, for 10 minutes, and 5 wrong tries void it.
   The session is an HttpOnly, SameSite=Lax cookie (Secure on HTTPS). Requests that change an
@@ -208,15 +208,16 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - **Network exposure.** No container publishes a port (Docker-published ports bypass UFW): a
   Cloudflare Tunnel brings visitors to Caddy (ADR 0002). The visitor's address is Cloudflare's
   `CF-Connecting-IP`, never a header a visitor can write. Postgres is never exposed. Admin
-  endpoints require the token. Ask is rate-limited per hashed IP and globally.
+  endpoints require the token. Ask requires a signed-in reader and is rate-limited per reader,
+  per hashed IP and globally.
 
 ## Performance and Cost
 
 - **Free quotas are the budget.** A daily draft cap (default 15, at most 2 per topic); a per-provider
   daily token budget in the router; one request at a time to Ollama; OpenRouter's free requests
   go to the pipeline before Ask.
-- **Ask limits:** 10 questions per IP a day and 100 a day in total. No model call when retrieval
-  finds nothing strong.
+- **Ask limits** (ADR 0004): 10 questions a day per reader, 30 per hashed IP and 200 in total. No
+  model call when retrieval finds nothing strong.
 - **Work only when something changed.** Conditional requests (ETag, Last-Modified) for feeds;
   each document embedded once; no new note for a story already covered unless new reports arrive.
 - **Every container has a memory limit;** the embedding model loads once per process.

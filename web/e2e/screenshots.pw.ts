@@ -10,6 +10,14 @@ const FOLLOWED = [
   { slug: "astronomy-and-spaceflight", slot: 6 },
 ];
 
+/** The preview database's reader (MEMORY.md, Procedural Memory: a preview database). Signed in,
+ * the account's topics, the same as FOLLOWED, replace the browser's. */
+const PREVIEW_SESSION = "preview-reader-session";
+
+async function signIn(page: Page) {
+  await page.context().addCookies([{ name: "dan_session", value: PREVIEW_SESSION, url: "http://localhost:4321" }]);
+}
+
 async function follow(page: Page, topics: typeof FOLLOWED) {
   await page.addInitScript((value) => localStorage.setItem("dan.topics", value), JSON.stringify(topics));
 }
@@ -81,8 +89,14 @@ test("topics with a search that finds nothing", async ({ page }, info) => {
   await shoot(page, "topics-no-match", info.project.name);
 });
 
-test("ask", async ({ page }, info) => {
+test("ask, signed out, with a question waiting", async ({ page }, info) => {
   await follow(page, FOLLOWED);
+  await page.goto("/ask?q=What+happened+in+Formula+1+this+week%3F");
+  await shoot(page, "ask-signed-out", info.project.name);
+});
+
+test("ask, signed in", async ({ page }, info) => {
+  await signIn(page);
   await page.goto("/ask");
   await shoot(page, "ask", info.project.name);
 });
@@ -93,7 +107,7 @@ function answer(events: [string, unknown][]) {
 }
 
 test("ask with an answer open at its citation", async ({ page }, info) => {
-  await follow(page, FOLLOWED);
+  await signIn(page);
   const slug = await firstNote(page, "formula-1");
   const note = (await (await page.request.get(`/api/v1/notes/${slug}`)).json()) as { title: string; edition_date: string };
   await page.route("**/api/v1/ask", (route) =>
@@ -115,7 +129,7 @@ test("ask with an answer open at its citation", async ({ page }, info) => {
 });
 
 test("ask when the notes fall short", async ({ page }, info) => {
-  await follow(page, FOLLOWED);
+  await signIn(page);
   await page.route("**/api/v1/ask", (route) =>
     route.fulfill(
       answer([
