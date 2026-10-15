@@ -44,8 +44,8 @@ These apply to every change: code, docs and configuration.
   reason. When two readings of a request lead to different work, show both.
 - **Stay inside the proof-of-concept scope.** Don't build what ADR 0001 defers; add ideas to the
   README's Next steps instead.
-- **Small, reviewable steps.** Each step ends with `make check` (M0) passing and one commit, on a
-  working branch, never directly on `main`.
+- **Small, reviewable steps.** Each step ends with `make check` (M0) passing and one commit, on
+  `main` unless the owner names another branch.
 - **Never push, tag, open a pull request or create a remote without being asked.** Before the
   first public push, check the whole history for secrets and private content.
 - **Report honestly,** with the output. A skipped or failed check is reported as skipped or
