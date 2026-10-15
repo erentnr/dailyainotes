@@ -1,5 +1,6 @@
 ---
 import AskChat from "../islands/AskChat";
+import AskPreview from "../islands/AskPreview";
 import Base from "../layouts/Base.astro";
 import { serverApi } from "../lib/api/server";
 
@@ -35,6 +36,7 @@ const signIn = `/sign-in?next=${encodeURIComponent(`/ask${Astro.url.search}`)}`;
             sentence is cited. If the notes don't cover it, we say so.
           </p>
         </header>
+        <AskPreview client:visible />
         <section class="card gate-card" aria-labelledby="gate-title">
           <p class="state-title" id="gate-title">Sign in to ask.</p>
           {question && (

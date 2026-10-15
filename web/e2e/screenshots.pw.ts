@@ -27,6 +27,16 @@ async function hydrated(page: Page) {
   await page.waitForFunction(() => !document.querySelector("astro-island[ssr]"));
 }
 
+/** Moves the page's clock on until `selector` shows, then past the parts' fade-in. */
+async function playUntil(page: Page, selector: string) {
+  for (let step = 0; step < 100 && !(await page.locator(selector).count()); step++) {
+    await page.clock.runFor(200);
+  }
+  await page.clock.runFor(500);
+  // CSS fades run on the browser's own time, not the test's clock.
+  await page.waitForTimeout(450);
+}
+
 async function shoot(page: Page, name: string, project: string) {
   await page.waitForLoadState("networkidle");
   await hydrated(page);
@@ -89,10 +99,25 @@ test("topics with a search that finds nothing", async ({ page }, info) => {
   await shoot(page, "topics-no-match", info.project.name);
 });
 
-test("ask, signed out, with a question waiting", async ({ page }, info) => {
-  await follow(page, FOLLOWED);
+test("ask, signed out: the example as it plays", async ({ page }, info) => {
+  // The page's clock is the test's, so each frame is the same on every run.
+  await page.clock.install();
   await page.goto("/ask?q=What+happened+in+Formula+1+this+week%3F");
-  await shoot(page, "ask-signed-out", info.project.name);
+  await hydrated(page);
+  for (const [name, mark] of [
+    ["typing", ".demo-typed"],
+    ["writing", ".demo-live .citation"],
+    ["note-open", ".citation.is-active"],
+  ] as const) {
+    await playUntil(page, mark);
+    await shoot(page, `ask-example-${name}`, info.project.name);
+  }
+});
+
+test("ask, signed out, with less motion", async ({ page }, info) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/ask");
+  await shoot(page, "ask-example-still", info.project.name);
 });
 
 test("ask, signed in", async ({ page }, info) => {

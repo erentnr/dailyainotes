@@ -2992,3 +2992,143 @@ textarea.input {
     padding: 24px 28px;
   }
 }
+
+/* The Ask example: parts appear in place, so nothing on the page jumps while it plays. */
+
+.ask-demo {
+  margin: 0;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ask-demo-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ask-demo-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  transition: opacity 0.5s;
+}
+
+.ask-demo-stage.is-fading {
+  opacity: 0;
+}
+
+.demo-part {
+  transition:
+    opacity 0.35s,
+    transform 0.35s;
+}
+
+.demo-part.is-hidden {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.demo-answer {
+  padding: 14px;
+  border-radius: var(--radius-cover);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.demo-text {
+  position: relative;
+  margin: 0;
+  font-size: 15px;
+  line-height: 24px;
+}
+
+.demo-ghost {
+  visibility: hidden;
+}
+
+.demo-live {
+  position: absolute;
+  inset: 0;
+}
+
+.ask-demo .cited-note {
+  background: var(--card);
+}
+
+.citation.is-active {
+  background: var(--acc);
+  color: var(--acc-ink);
+}
+
+.demo-composer {
+  min-height: 60px;
+  padding: 6px 6px 6px var(--space-4);
+  border-radius: 20px;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 16px;
+}
+
+.demo-placeholder {
+  flex: 1;
+  color: var(--ink3);
+}
+
+.demo-typed {
+  flex: 1;
+}
+
+.demo-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 1px;
+  background: var(--ink);
+  vertical-align: -3px;
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.demo-send {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--ink);
+  color: var(--card);
+  display: inline-grid;
+  place-items: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-part,
+  .ask-demo-stage {
+    transition: none;
+  }
+  .demo-caret {
+    animation: none;
+  }
+}
+
+@media (min-width: 760px) {
+  .ask-demo {
+    padding: 20px 24px;
+  }
+  .demo-text {
+    font-size: 16px;
+    line-height: 26px;
+  }
+}
