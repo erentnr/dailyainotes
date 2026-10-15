@@ -758,6 +758,8 @@ export interface components {
             name: string;
             /** Description */
             description: string;
+            /** Category */
+            category: ("motorsport" | "sport" | "science" | "climate" | "business" | "technology" | "culture") | null;
             /** Notes */
             notes: number;
         };

@@ -49,6 +49,7 @@ class TopicRow:
     slug: str
     name: str
     description: str
+    category: str | None
     notes: int
 
 
@@ -203,7 +204,13 @@ async def active_topics(engine: AsyncEngine) -> list[TopicRow]:
         .subquery()
     )
     statement = (
-        select(Topic.slug, Topic.name, Topic.description, func.coalesce(published.c.notes, 0))
+        select(
+            Topic.slug,
+            Topic.name,
+            Topic.description,
+            Topic.category,
+            func.coalesce(published.c.notes, 0),
+        )
         .outerjoin(published, published.c.topic_id == Topic.id)
         .where(Topic.status == "active")
         .order_by(Topic.name)

@@ -1728,6 +1728,26 @@
       "type": "string",
       "title": "Description"
      },
+     "category": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "motorsport",
+         "sport",
+         "science",
+         "climate",
+         "business",
+         "technology",
+         "culture"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Category"
+     },
      "notes": {
       "type": "integer",
       "title": "Notes"
@@ -1738,6 +1758,7 @@
      "slug",
      "name",
      "description",
+     "category",
      "notes"
     ],
     "title": "Topic"

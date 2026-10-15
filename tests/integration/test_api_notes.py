@@ -12,6 +12,7 @@ from dailyainotes.api.app import create_app
 from dailyainotes.ask import AskDeps
 from dailyainotes.db.tables import Topic
 from dailyainotes.evals import EVALS, CorpusNote, load_corpus, read_jsonl
+from dailyainotes.ingestion.catalog import load_catalog, sync_catalog
 from dailyainotes.settings import Settings
 
 pytestmark = [pytest.mark.integration, pytest.mark.anyio]
@@ -48,6 +49,17 @@ async def test_topics_list_the_active_ones_with_their_note_counts(
         ("astronomy-and-spaceflight", 5),
         ("climate-tech", 5),
     ]
+
+
+async def test_topics_carry_their_category_from_the_catalog(
+    site: httpx2.AsyncClient, engine: AsyncEngine
+) -> None:
+    before = await get(site, "/api/v1/topics")
+    await sync_catalog(engine, load_catalog())
+    after = await get(site, "/api/v1/topics")
+
+    assert [t["category"] for t in before] == [None, None]
+    assert {t["slug"]: t["category"] for t in after}["climate-tech"] == "climate"
 
 
 async def test_the_daily_page_shows_the_latest_day_with_notes_on_the_picked_topics(

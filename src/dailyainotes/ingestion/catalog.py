@@ -9,6 +9,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from dailyainotes.db import catalog as catalog_db
 from dailyainotes.db.engine import AsyncEngine
 from dailyainotes.domain.exclusions import is_excluded
+from dailyainotes.domain.topics import TopicCategory
 from dailyainotes.domain.trust import TRUST_PRIOR, PublisherKind
 from dailyainotes.sources.urls import registrable_domain
 
@@ -68,6 +69,7 @@ class TopicEntry(Entry):
     slug: str = Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")
     name: str
     description: str
+    category: TopicCategory | None = None
     controversial: bool = False
     sources: list[SourceEntry] = []
 
@@ -108,6 +110,7 @@ async def sync_catalog(engine: AsyncEngine, catalog: Catalog) -> catalog_db.Sync
             slug=t.slug,
             name=t.name,
             description=t.description,
+            category=t.category,
             controversial=t.controversial,
             sources=[
                 catalog_db.SourceRow(

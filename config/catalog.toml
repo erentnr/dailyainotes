@@ -2,6 +2,9 @@
 # and updates, never deletes. Topics listed with sources here are active; the others wait for
 # the Topic Planner (M2) to propose their sources.
 #
+# A topic's category picks its cover motif and its group in the topic picker
+# (src/dailyainotes/domain/topics.py, DESIGN.md: Covers).
+#
 # Publisher kinds set the starting trust (src/dailyainotes/domain/trust.py). Publishers with
 # the same owner_group are not independent of each other.
 
@@ -92,6 +95,7 @@ kind = "specialist"
 slug = "formula-1"
 name = "Formula 1"
 description = "Races, teams, rule changes"
+category = "motorsport"
 sources = [
   { type = "rss", url = "https://www.formula1.com/en/latest/all.xml" },
   { type = "rss", url = "https://www.autosport.com/rss/f1/news/" },
@@ -105,6 +109,7 @@ sources = [
 slug = "open-weight-ai-models"
 name = "Open-weight AI models"
 description = "Releases with downloadable weights: licences, training recipes, evaluations"
+category = "technology"
 sources = [
   { type = "rss", url = "https://huggingface.co/blog/feed.xml" },
   { type = "arxiv", query = 'abs:"open-weight" OR abs:"open weights"' },
@@ -116,51 +121,61 @@ sources = [
 slug = "premier-league"
 name = "Premier League"
 description = "Results, transfers, injuries"
+category = "sport"
 
 [[topics]]
 slug = "tennis"
 name = "Tennis"
 description = "Tour results, Grand Slams"
+category = "sport"
 
 [[topics]]
 slug = "climate-tech"
 name = "Climate tech"
 description = "Batteries, grids, carbon removal"
+category = "climate"
 
 [[topics]]
 slug = "astronomy-and-spaceflight"
 name = "Astronomy and spaceflight"
 description = "Sky events, missions, launches, discoveries"
+category = "science"
 
 [[topics]]
 slug = "cybersecurity"
 name = "Cybersecurity"
 description = "Breaches, fixes, advisories"
+category = "technology"
 
 [[topics]]
 slug = "electric-vehicles"
 name = "Electric vehicles"
 description = "Cars, charging, batteries"
+category = "climate"
 
 [[topics]]
 slug = "central-banks-and-markets"
 name = "Central banks and markets"
 description = "Rates, inflation, earnings"
+category = "business"
 
 [[topics]]
 slug = "health-research"
 name = "Health research"
 description = "Trials, approvals, public health"
+category = "science"
 
 [[topics]]
 slug = "video-games"
 name = "Video games"
 description = "Releases, studios, updates"
+category = "culture"
 
 [[topics]]
 slug = "film-and-tv"
 name = "Film and TV"
 description = "Releases, festivals, awards"
+category = "culture"
 sources = [
   { type = "rss", url = "https://www.thewrap.com/feed/" },
   { type = "rss", url = "https://www.tvinsider.com/feed/" },

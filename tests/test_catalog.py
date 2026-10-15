@@ -19,6 +19,25 @@ def test_the_committed_catalog_has_twelve_topics_with_unique_slugs() -> None:
     assert len(set(slugs)) == 12
 
 
+def test_every_committed_topic_has_a_category() -> None:
+    catalog = load_catalog()
+
+    assert {topic.slug: topic.category for topic in catalog.topics} == {
+        "formula-1": "motorsport",
+        "premier-league": "sport",
+        "tennis": "sport",
+        "astronomy-and-spaceflight": "science",
+        "health-research": "science",
+        "climate-tech": "climate",
+        "electric-vehicles": "climate",
+        "central-banks-and-markets": "business",
+        "open-weight-ai-models": "technology",
+        "cybersecurity": "technology",
+        "film-and-tv": "culture",
+        "video-games": "culture",
+    }
+
+
 def test_the_three_starter_topics_have_sources() -> None:
     catalog = load_catalog()
 
@@ -65,6 +84,7 @@ def test_each_source_type_has_a_locator_and_a_publisher() -> None:
     [
         {"slug": "Not A Slug", "name": "x", "description": "x"},
         {"slug": "x", "name": "x", "description": "x", "colour": "red"},
+        {"slug": "x", "name": "x", "description": "x", "category": "cooking"},
         {"slug": "x", "name": "x", "description": "x", "sources": [{"type": "telegram"}]},
         {
             "slug": "x",

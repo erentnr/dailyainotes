@@ -33,6 +33,7 @@ class TopicRow:
     slug: str
     name: str
     description: str
+    category: str | None
     controversial: bool
     sources: list[SourceRow]
 
@@ -65,6 +66,7 @@ async def sync(
             values = {
                 "name": topic.name,
                 "description": topic.description,
+                "category": topic.category,
                 "controversial": topic.controversial,
             }
             # A topic with catalog sources is active. Without them it keeps whatever status

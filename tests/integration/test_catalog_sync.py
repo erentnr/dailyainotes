@@ -33,6 +33,24 @@ async def test_sync_never_demotes_a_topic_activated_elsewhere(engine: AsyncEngin
     assert status == "active"
 
 
+async def test_sync_stores_each_topic_category_and_leaves_others_without(
+    engine: AsyncEngine,
+) -> None:
+    catalog = Catalog.model_validate(
+        {"topics": [{"slug": "f1", "name": "F1", "description": "d", "category": "motorsport"}]}
+    )
+    uncategorized = Catalog.model_validate(
+        {"topics": [{"slug": "ferries", "name": "Ferries", "description": "d"}]}
+    )
+
+    await sync_catalog(engine, catalog)
+    await sync_catalog(engine, uncategorized)
+
+    async with engine.connect() as connection:
+        rows = (await connection.execute(select(Topic.slug, Topic.category))).all()
+    assert sorted(rows) == [("f1", "motorsport"), ("ferries", None)]
+
+
 async def test_a_source_from_an_unlisted_domain_gets_an_unknown_publisher(
     engine: AsyncEngine,
 ) -> None:

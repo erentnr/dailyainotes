@@ -27,6 +27,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from dailyainotes.domain.embedding import EMBEDDING_DIMENSIONS
+from dailyainotes.domain.topics import CATEGORIES
 
 # Stable constraint names, so hand-written migrations can refer to them.
 NAMING_CONVENTION = {
@@ -44,7 +45,10 @@ class Base(DeclarativeBase):
 
 class Topic(Base):
     __tablename__ = "topics"
-    __table_args__ = (CheckConstraint("status IN ('draft', 'active', 'paused')", name="status"),)
+    __table_args__ = (
+        CheckConstraint("status IN ('draft', 'active', 'paused')", name="status"),
+        CheckConstraint(f"category IN ({', '.join(repr(c) for c in CATEGORIES)})", name="category"),
+    )
 
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
     slug: Mapped[str] = mapped_column(String(80), unique=True)
@@ -52,6 +56,8 @@ class Topic(Base):
     description: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(16), server_default="draft")
     controversial: Mapped[bool] = mapped_column(server_default=false())
+    # From the catalog; NULL for a topic that came from elsewhere, such as a suggestion.
+    category: Mapped[str | None] = mapped_column(String(16))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

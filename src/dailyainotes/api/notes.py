@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from dailyainotes.db import notes as db
 from dailyainotes.db.asks import latest_eval_run
 from dailyainotes.domain.editorial import without_markers
+from dailyainotes.domain.topics import TopicCategory
 
 router = APIRouter()
 STATS_DAYS = 14
@@ -19,6 +20,8 @@ class Topic(BaseModel):
     slug: str
     name: str
     description: str
+    # Picks the topic's cover and its group in the picker; null draws the plain cover.
+    category: TopicCategory | None
     notes: int
 
 
