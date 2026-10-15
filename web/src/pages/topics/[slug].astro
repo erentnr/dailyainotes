@@ -1,9 +1,11 @@
 ---
+import { CoverBanner } from "../../components/ui/CoverBanner";
 import { VerdictBadge } from "../../components/ui/VerdictBadge";
 import Base from "../../layouts/Base.astro";
 import type { NoteCard } from "../../lib/api/client";
 import { serverApi } from "../../lib/api/server";
 import { formatDay, formatMonth, plural } from "../../lib/format";
+import { homeSlot } from "../../lib/topics";
 
 const { data, response } = await serverApi().GET("/api/v1/topics/{slug}/notes", {
   params: { path: { slug: Astro.params.slug ?? "" }, query: { limit: 100 } },
@@ -12,6 +14,9 @@ if (!data) {
   if (response.status === 404) return Astro.rewrite("/404");
   throw new Error(`The API answered ${response.status}`);
 }
+// A signed-in reader's slot for the topic; otherwise the slot it would take.
+const followed = Astro.locals.reader?.topics.find((t) => t.slug === data.topic.slug);
+const tone = followed?.slot ?? homeSlot(data.topic.category);
 const months = new Map<string, NoteCard[]>();
 for (const note of data.notes) {
   const month = formatMonth(note.edition_date);
@@ -20,6 +25,7 @@ for (const note of data.notes) {
 ---
 
 <Base title={data.topic.name} description={data.topic.description}>
+  <CoverBanner topic={data.topic} tone={tone} />
   <div class="measure">
     <header class="page-head">
       <div class="label">Topic timeline</div>
@@ -29,18 +35,15 @@ for (const note of data.notes) {
     {data.notes.length === 0 && <p class="muted">No notes on this topic yet.</p>}
     {
       [...months].map(([month, notes]) => (
-        <section>
-          <h2 class="month label">{month}</h2>
-          <ol class="timeline">
+        <section class="month">
+          <h2 class="section-title">{month}</h2>
+          <ol class="card timeline">
             {notes.map((note) => (
               <li class="timeline-item">
                 <span class="meta">{formatDay(note.edition_date)}</span>
-                <span class="stem">
-                  <span class="tag-square" style="background: var(--ink3)" />
-                </span>
-                <span>
+                <span class="timeline-body">
                   <a href={`/notes/${note.slug}`}>{note.title}</a>
-                  <span class="chips" style="margin-top: var(--space-2); align-items: center">
+                  <span class="note-foot">
                     <span class="meta">{plural(note.sources, "source")}</span>
                     <VerdictBadge counts={note} />
                   </span>

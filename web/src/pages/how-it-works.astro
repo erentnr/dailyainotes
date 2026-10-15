@@ -36,7 +36,7 @@ const stages = [
     </p>
   </header>
 
-  <ol class="pipeline measure">
+  <ol class="card pipeline measure">
     {
       stages.map(([name, kind, text]) => (
         <li>
@@ -58,7 +58,8 @@ const stages = [
       <StatTile label="Model calls" value={String(calls)} series={days.map((d) => d.model_calls)} />
       <StatTile label="Cost per day" value={`$${(cost / days.length).toFixed(2)}`} context="Free plans only" />
     </div>
-    <table class="table small" style="margin-top: var(--space-6)">
+    <div class="card table-card" style="margin-top: var(--space-4)">
+    <table class="table small">
       <thead>
         <tr><th>Day</th><th class="num">Notes</th><th class="num">Model calls</th><th class="num">Tokens</th><th class="num">Cost</th></tr>
       </thead>
@@ -76,6 +77,7 @@ const stages = [
         }
       </tbody>
     </table>
+    </div>
   </section>
 
   <section class="section measure">
@@ -85,6 +87,7 @@ const stages = [
     </p>
     {
       stats.eval || stats.eval_judged ? (
+        <div class="card table-card">
         <table class="table small">
           <tbody>
             {evals.map(([label, key]) => (
@@ -99,6 +102,7 @@ const stages = [
             </tr>
           </tbody>
         </table>
+        </div>
       ) : (
         <p class="muted">No eval run is recorded yet.</p>
       )
@@ -107,6 +111,7 @@ const stages = [
 
   <section class="section measure">
     <div class="label">Models</div>
+    <div class="card table-card">
     <table class="table small">
       <tbody>
         {
@@ -119,6 +124,7 @@ const stages = [
         }
       </tbody>
     </table>
+    </div>
     <p class="small muted">
       Each role tries its models in order and moves on when one fails or runs out of its free
       quota. The source is on GitHub under the Apache-2.0 license.
