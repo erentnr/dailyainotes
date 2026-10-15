@@ -50,6 +50,17 @@ class Settings(BaseSettings):
     cf_access_team_domain: str | None = None
     cf_access_aud: str | None = None
 
+    # The site's own address: links in sign-in emails, and the origin that requests changing a
+    # reader's data must come from. Compose sets it in production.
+    site_url: str = "http://localhost:4321"
+    # Reader sign-in (ADR 0003): Resend sends the code, from an address on a domain verified
+    # there. Sign-in is off while the key is empty.
+    resend_api_key: SecretStr | None = None
+    email_from: str = "Daily AI Notes <sign-in@dailyainotes.com>"
+    # Cloudflare Turnstile on the sign-in form. Without the secret, the form has no bot check.
+    turnstile_site_key: str | None = None
+    turnstile_secret_key: SecretStr | None = None
+
     # Keys the hash of a visitor's IP address for Ask's rate limits. Without it, a random key
     # is made at start, and the limits reset whenever the API restarts.
     ip_hash_key: SecretStr | None = None

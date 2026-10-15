@@ -98,8 +98,9 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
   `create_react_agent` or langchain-community. Always pass `method=` to
   `with_structured_output`; providers default differently.
 - **Domain vocabulary.** topic, topic profile, source, publisher, document, chunk, story,
-  edition (one topic, one day), note, note version, citation, claim, claim check, approval, run.
-  Use these words in code, tables and docs.
+  edition (one topic, one day), note, note version, citation, claim, claim check, approval, run,
+  reader, editor, session, sign-in code, topic suggestion. Use these words in code, tables and
+  docs.
 - **Frontend.** TypeScript 6 in strict mode. Components in `web/src/components/ui/` (M6) take
   props only and never fetch; pages and islands do the fetching.
 - **Every UI follows DESIGN.md:** the site, the /admin page and diagrams in docs.
@@ -134,8 +135,15 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - **Copyright.** Show only our own summaries, quotes of at most 25 words per source, and links to
   originals. Never republish full text. Paywalled or AI-opted-out pages are link-only. Source text
   is purged after 30 days. Reddit, Guardian and NYT content is excluded.
-- **No accounts in phase 1.** A visitor's topic choice stays in the browser. The only per-visitor
-  server state is a hashed-IP rate-limit counter and the Ask log, kept 30 days.
+- **Accounts are optional** (ADR 0003). Reading and Ask never need one. A signed-out visitor's
+  topics stay in the browser; an account holds only an email, the topics followed and topic
+  suggestions, and deleting it removes all of them. Other per-visitor state is a hashed-IP
+  rate-limit counter and the Ask log, kept 30 days.
+- **Reader sign-in is an emailed code or link, never a password.** Codes and session tokens are
+  stored only as SHA-256 digests; a code works once, for 10 minutes, and 5 wrong tries void it.
+  The session is an HttpOnly, SameSite=Lax cookie (Secure on HTTPS). Requests that change an
+  account must carry the site's own `Origin`. Sign-in emails are limited per address, per hashed
+  IP and per day, below Resend's free plan, behind Cloudflare Turnstile.
 - **The editor signs in through Cloudflare Access** (ADR 0003). The API checks Access's signed
   token (`Cf-Access-Jwt-Assertion`: signature, audience, issuer, expiry) on every admin request,
   never trusts the edge alone, and records the editor's email with each decision.

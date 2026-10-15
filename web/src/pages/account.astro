@@ -1,0 +1,42 @@
+---
+import AccountActions from "../islands/AccountActions";
+import Base from "../layouts/Base.astro";
+import { serverApi } from "../lib/api/server";
+
+const reader = Astro.locals.reader;
+if (!reader) return Astro.redirect("/sign-in?next=/account");
+const { data: topics } = await serverApi().GET("/api/v1/topics");
+const names = new Map((topics ?? []).map((t) => [t.slug, t.name]));
+---
+
+<Base title="Your account">
+  <header class="page-head graph-paper">
+    <div class="label">Account</div>
+    <h1 class="h1">Your account</h1>
+    <p class="meta">{reader.email}</p>
+  </header>
+  <div class="measure">
+    <section class="section">
+      <div class="label">Your topics</div>
+      {
+        reader.topics.length ? (
+          <ul class="chips" style="list-style: none; padding: 0">
+            {reader.topics.map((t) => (
+              <li>
+                {/* TopicTag's markup: Astro reserves the `slot` prop for its own slots. */}
+                <span class="tag">
+                  <span class="tag-square" style={`background: var(--t${t.slot})`} aria-hidden="true" />
+                  {names.get(t.slug) ?? t.slug}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="muted">You follow no topics yet.</p>
+        )
+      }
+      <p><a href="/topics">Change your topics</a>. They follow you to every device you sign in on.</p>
+    </section>
+    <AccountActions client:load />
+  </div>
+</Base>

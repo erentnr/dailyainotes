@@ -21,6 +21,7 @@ const nav = [
 ];
 const current = (href: string) =>
   (href === "/" ? path === "/" : path.startsWith(href)) ? "page" : undefined;
+const reader = Astro.locals.reader;
 ---
 
 <!doctype html>
@@ -40,6 +41,14 @@ const current = (href: string) =>
       const dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
       document.documentElement.classList.toggle("dark", dark);
     </script>
+    {
+      reader && (
+        <script is:inline define:vars={{ topics: reader.topics }}>
+          // A signed-in reader's topics come from the account, before any island reads them.
+          localStorage.setItem("dan.topics", JSON.stringify(topics));
+        </script>
+      )
+    }
   </head>
   <body>
     <header class="site-header">
@@ -48,7 +57,20 @@ const current = (href: string) =>
         <nav class="top-nav" aria-label="Main">
           {nav.map(([href, label]) => <a href={href} aria-current={current(href!)}>{label}</a>)}
         </nav>
-        <span class="theme"><ThemeToggle client:load /></span>
+        <div class="header-end">
+          {
+            reader ? (
+              <a class="account-link" href="/account" aria-current={current("/account")}>
+                Account
+              </a>
+            ) : (
+              <a class="account-link" href="/sign-in" aria-current={current("/sign-in")}>
+                Sign in
+              </a>
+            )
+          }
+          <ThemeToggle client:load />
+        </div>
       </div>
     </header>
     <main class="page">

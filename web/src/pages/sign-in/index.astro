@@ -1,0 +1,32 @@
+---
+import { EmptyState } from "../../components/ui/States";
+import SignIn from "../../islands/SignIn";
+import Base from "../../layouts/Base.astro";
+import { safeNext } from "../../lib/account";
+import { serverApi } from "../../lib/api/server";
+
+const next = safeNext(Astro.url.searchParams.get("next"));
+if (Astro.locals.reader) return Astro.redirect(next === "/" ? "/account" : next);
+const { data: options } = await serverApi().GET("/api/v1/auth/options");
+---
+
+<Base title="Sign in">
+  <header class="page-head graph-paper">
+    <div class="label">Account</div>
+    <h1 class="h1">Sign in</h1>
+  </header>
+  <p class="measure muted">
+    No password: we email you a code. An account keeps your topics on every device and lets you
+    suggest topics. Reading and Ask work without one.
+  </p>
+  {
+    options?.sign_in ? (
+      <SignIn client:load siteKey={options.turnstile_site_key} next={next} />
+    ) : (
+      <EmptyState>Sign-in is not open yet. Everything else works without an account.</EmptyState>
+    )
+  }
+  <p class="small muted measure section">
+    What we keep and why is on the <a href="/privacy">privacy page</a>.
+  </p>
+</Base>

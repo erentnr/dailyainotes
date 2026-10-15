@@ -233,8 +233,26 @@ h3 {
 }
 
 /* The theme toggle sits at the right edge; from 600 px the navigation takes that place. */
-.theme {
+.header-end {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.account-link {
+  color: var(--ink-2);
+  text-decoration: none;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  border-radius: var(--rounded-sm);
+}
+
+.account-link[aria-current="page"] {
+  color: var(--accent);
+  font-weight: 500;
 }
 
 @media (min-width: 600px) {
@@ -244,7 +262,7 @@ h3 {
   .tab-bar {
     display: none;
   }
-  .theme {
+  .header-end {
     margin-left: 0;
   }
 }
@@ -287,6 +305,13 @@ h3 {
   border: 1px solid var(--line-2);
 }
 
+/* Only for an action that cannot be undone, such as deleting an account. */
+.button-danger {
+  background: var(--surface);
+  color: var(--bad);
+  border: 1px solid var(--bad);
+}
+
 .button:disabled {
   opacity: 0.5;
   cursor: default;
@@ -301,6 +326,29 @@ h3 {
   border: 1px solid var(--line-2);
   border-radius: var(--rounded-sm);
   font: inherit;
+}
+
+/* A label above its input. */
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.input-code {
+  max-width: 10em;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  letter-spacing: 0.3em;
+  font-variant-numeric: tabular-nums;
+}
+
+.form-error {
+  color: var(--bad);
+}
+
+/* Turnstile's widget: 65 px tall when it shows, nothing when it decides alone. */
+.bot-check {
+  min-height: 65px;
 }
 
 textarea.input {

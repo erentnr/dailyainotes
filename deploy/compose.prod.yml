@@ -16,6 +16,8 @@ x-app: &app
     FORWARDED_ALLOW_IPS: "*"
     # Kept with eval runs.
     GIT_SHA: ${TAG:?}
+    # Links in sign-in emails, and the origin reader requests must come from.
+    SITE_URL: https://${DOMAIN:?}
   depends_on:
     db:
       condition: service_healthy

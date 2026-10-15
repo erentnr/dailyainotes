@@ -7,9 +7,10 @@ from importlib.metadata import version
 
 from fastapi import FastAPI
 
-from dailyainotes.api import admin, ask, health, notes
+from dailyainotes.api import accounts, admin, ask, health, notes
 from dailyainotes.api.access import access_verifier
 from dailyainotes.db.engine import create_engine
+from dailyainotes.external.http import create_client
 from dailyainotes.logging import configure_logging
 from dailyainotes.settings import Settings, get_settings
 
@@ -22,7 +23,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.engine = create_engine(settings.database_url)
-        yield
+        async with create_client() as client:
+            app.state.accounts = accounts.account_deps(settings, app.state.engine, client)
+            yield
         await app.state.engine.dispose()
 
     app = FastAPI(title="Daily AI Notes", version=version("dailyainotes"), lifespan=lifespan)
@@ -35,5 +38,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router, prefix="/api/v1")
     app.include_router(ask.router, prefix="/api/v1")
     app.include_router(notes.router, prefix="/api/v1")
+    app.include_router(accounts.router, prefix="/api/v1")
     app.include_router(admin.router, prefix="/api/v1/admin")
     return app

@@ -40,13 +40,13 @@ Editor = Annotated[str, Depends(editor)]
 router = APIRouter(dependencies=[Depends(editor)])
 
 
-class Me(BaseModel):
+class SignedInEditor(BaseModel):
     email: str
 
 
 @router.get("/me")
-async def me(email: Editor) -> Me:
-    return Me(email=email)
+async def me(email: Editor) -> SignedInEditor:
+    return SignedInEditor(email=email)
 
 
 class Citation(BaseModel):

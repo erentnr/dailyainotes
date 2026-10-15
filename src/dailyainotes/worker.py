@@ -1,5 +1,6 @@
 """The worker: Procrastinate, on the same Postgres, runs every active topic's edition at
-01:30 UTC, the eval set with its judge at 04:30, and purges the Ask log at 00:15.
+01:30 UTC, the eval set with its judge at 04:30, purges the Ask log at 00:15 and expired
+sign-in codes and sessions at 00:20.
 
 Start it with `dan-worker`, not `python -m`, which would build a second app in `__main__` that
 the worker cannot find its tasks in. Its tables live in the `procrastinate` schema (migration
@@ -12,6 +13,7 @@ from datetime import UTC, datetime
 import procrastinate
 import structlog
 
+from dailyainotes.accounts import purge_expired
 from dailyainotes.ask import purge
 from dailyainotes.db.checkpoints import libpq_url
 from dailyainotes.db.engine import create_engine
@@ -56,6 +58,17 @@ async def purge_ask_log(timestamp: int) -> None:
     engine = create_engine(get_settings().database_url)
     try:
         await purge(engine, datetime.now(UTC))
+    finally:
+        await engine.dispose()
+
+
+@app.periodic(cron="20 0 * * *")
+@app.task(queueing_lock="purge-sign-ins")
+async def purge_sign_ins(timestamp: int) -> None:
+    """Expired sign-in codes and sessions (ADR 0003)."""
+    engine = create_engine(get_settings().database_url)
+    try:
+        await purge_expired(engine, datetime.now(UTC))
     finally:
         await engine.dispose()
 

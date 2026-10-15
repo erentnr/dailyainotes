@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { formatDay, plural, verdictOf } from "../src/lib/format";
 import { parseEvents } from "../src/lib/sse";
-import { addTopic, loadPicked, removeTopic, SLOTS } from "../src/lib/topics";
+import { safeNext } from "../src/lib/account";
+import { addTopic, loadPicked, mergePicked, removeTopic, SLOTS, samePicked } from "../src/lib/topics";
 
 describe("topics", () => {
   it("gives each topic the first free slot and keeps slots when one is removed", () => {
@@ -24,9 +25,44 @@ describe("topics", () => {
     expect(picked).toHaveLength(SLOTS);
   });
 
+  it("merges the browser's picks into the account's at sign-in, account slots first", () => {
+    const account = [
+      { slug: "f1", slot: 1 },
+      { slug: "film", slot: 3 },
+    ];
+    const local = [
+      { slug: "film", slot: 1 },
+      { slug: "tennis", slot: 2 },
+      { slug: "astronomy", slot: 3 },
+    ];
+
+    expect(mergePicked(account, local)).toEqual([
+      { slug: "f1", slot: 1 },
+      { slug: "film", slot: 3 },
+      { slug: "tennis", slot: 2 },
+      { slug: "astronomy", slot: 4 },
+    ]);
+    expect(mergePicked([], local)).toEqual([
+      { slug: "film", slot: 1 },
+      { slug: "tennis", slot: 2 },
+      { slug: "astronomy", slot: 3 },
+    ]);
+    expect(samePicked(mergePicked(account, []), account)).toBe(true);
+  });
+
   it("reads nothing from broken storage", () => {
     expect(loadPicked({ getItem: () => "{not json" })).toEqual([]);
     expect(loadPicked({ getItem: () => '[{"slug": 1}]' })).toEqual([]);
+  });
+});
+
+describe("accounts", () => {
+  it("sends a reader back only to a path on this site after signing in", () => {
+    expect(safeNext("/topics")).toBe("/topics");
+    expect(safeNext("/notes/a?x=1")).toBe("/notes/a?x=1");
+    for (const bad of [null, "", "https://evil.example", "//evil.example", "/\\evil.example", "topics"]) {
+      expect(safeNext(bad)).toBe("/");
+    }
   });
 });
 

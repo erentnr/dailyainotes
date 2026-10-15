@@ -337,7 +337,8 @@ Focus is a 2 px `accent` outline with a 2 px offset. Every tap target is at leas
 
 ## Components
 
-- **Buttons:** `button-primary` is the one accent action on a screen; `button-secondary` has a 1 px `line-2` border. Both are 44 px tall with 16 px of horizontal padding.
+- **Buttons:** `button-primary` is the one accent action on a screen; `button-secondary` has a 1 px `line-2` border. Both are 44 px tall with 16 px of horizontal padding. `button-danger` is the secondary button with `bad` text and border, only for an action that cannot be undone, such as deleting an account, and only after the reader has asked for it once.
+- **Forms:** a `label` above each input; an error under the input in `bad`, saying what to do next. A sign-in code is typed in mono with tabular figures.
 - **Note card:** a borderless article between hairlines, 20 px above and below. Top row: the topic (tag square and name, 13 px, weight 500) and the time in `meta`. Then the title in `title`, a two-line summary in `ui` at `ink-2`, and a footer with overlapping publisher favicons, a source count and a verdict badge.
 - **Citation chip:** the number in `badge` on `accent-soft`, inline in the text, 22 px tall. Pressed, it turns `citation-chip-active` and opens the expanded citation below the paragraph: a `surface` panel with a 1 px `line-2` border and `sm` corners, holding the publisher and date, the source title, the quoted passage in italic Newsreader with the cited words highlighted in `accent-soft`, the location in the source and "Open source ↗".
 - **Verdict badges:** a 14 px stroke icon and a word: Verified, Partially verified, Unsupported.
@@ -373,6 +374,7 @@ The v2 screens are current; phase 1 builds them without the parts that need an a
 | Note detail | 04 phone, 04d desktop (dark) | Built, with "How this note was made" and the sources list; no feedback buttons |
 | Topic picker | 05 phone, 05d desktop | Built as the catalog picker; no custom topic and no delivery-time step |
 | Ask your notes | 06 phone (dark), 06d desktop | Built; "Follow" adds the topic to the browser's list |
+| Sign in, Account, Privacy | Not on the canvas | Built from these components (ADR 0003): a page header on graph paper, labeled sections, buttons and forms |
 
 The page "Later screens · v1, to revise" (Topic timeline, Archive, How it works, Admin review queue) is layout reference only until the owner revises it. Phase 1 builds a topic timeline and a How it works page in the v2 style, and the minimal /admin approval page from the same components.
 

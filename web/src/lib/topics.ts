@@ -1,5 +1,6 @@
-/** The visitor's topics, kept in the browser (no accounts in phase 1), each with one of the
- * eight color slots. A topic keeps its slot when another is removed (DESIGN.md, Colors). */
+/** The visitor's topics, each with one of the eight color slots. A topic keeps its slot when
+ * another is removed (DESIGN.md, Colors). They live in the browser; for a signed-in reader the
+ * account holds them and the page copies them here before anything reads them (ADR 0003). */
 
 export interface Picked {
   slug: string;
@@ -34,6 +35,17 @@ export function loadPicked(storage: Pick<Storage, "getItem"> = localStorage): Pi
   } catch {
     return [];
   }
+}
+
+/** At sign-in: the account's topics keep their slots, and the browser's other picks join them
+ * in the free slots, up to eight. */
+export function mergePicked(account: Picked[], local: Picked[]): Picked[] {
+  return local.reduce((merged, p) => addTopic(merged, p.slug), account);
+}
+
+export function samePicked(a: Picked[], b: Picked[]): boolean {
+  const key = (picked: Picked[]) => JSON.stringify([...picked].sort((x, y) => x.slot - y.slot));
+  return key(a) === key(b);
 }
 
 export function savePicked(picked: Picked[], storage: Pick<Storage, "setItem"> = localStorage) {

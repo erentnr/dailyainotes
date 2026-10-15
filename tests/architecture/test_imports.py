@@ -10,20 +10,21 @@ SOURCE = Path(__file__).parents[2] / "src" / PACKAGE
 # Highest layer first. A package may import its own layer or the ones below it.
 LAYERS: list[set[str]] = [
     {"api", "worker", "cli", "mcp"},  # interfaces
-    {"graphs", "ingestion", "ask", "stats", "evals"},  # graphs and services
-    {"db", "sources", "llm", "retrieval"},  # adapters
+    {"graphs", "ingestion", "ask", "stats", "evals", "accounts"},  # graphs and services
+    {"db", "sources", "llm", "retrieval", "external"},  # adapters
     {"domain"},
 ]
 INTERFACES = LAYERS[0]
 # Importable from every layer; they import nothing layered themselves.
 SHARED = {"settings", "logging"}
-# Third-party packages that only one of our packages may import.
-SEAMS = {
+# Third-party packages that only these packages may import.
+SEAMS: dict[str, str | set[str]] = {
     "sqlalchemy": "db",
     "alembic": "db",
     "psycopg": "db",
     "pgvector": "db",
-    "httpx2": "sources",
+    # News sources, and the outside services sign-in uses (Resend, Turnstile).
+    "httpx2": {"sources", "external"},
     "feedparser": "sources",
     "tldextract": "sources",
     "trafilatura": "sources",
@@ -93,7 +94,10 @@ def test_vendor_packages_stay_behind_their_seam() -> None:
     for path in modules():
         source = top_level(path)
         for imported in imports_of(path):
-            owner = SEAMS.get(imported.split(".")[0])
-            if owner is not None and owner != source:
-                violations.append(f"{path.name}: {imported} belongs in {owner}/")
+            owners = SEAMS.get(imported.split(".")[0])
+            if owners is None:
+                continue
+            allowed = {owners} if isinstance(owners, str) else owners
+            if source not in allowed:
+                violations.append(f"{path.name}: {imported} belongs in {' or '.join(allowed)}/")
     assert violations == []

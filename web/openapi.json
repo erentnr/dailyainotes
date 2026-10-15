@@ -276,6 +276,254 @@
     }
    }
   },
+  "/api/v1/auth/options": {
+   "get": {
+    "summary": "Options",
+    "operationId": "options_api_v1_auth_options_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Options"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/code": {
+   "post": {
+    "summary": "Request Code",
+    "operationId": "request_code_api_v1_auth_code_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CodeRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "type": "boolean"
+         },
+         "type": "object",
+         "title": "Response Request Code Api V1 Auth Code Post"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Not an email, or the bot check failed"
+     },
+     "429": {
+      "description": "Too many codes"
+     },
+     "502": {
+      "description": "The email could not be sent"
+     },
+     "503": {
+      "description": "Sign-in is off"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/verify": {
+   "post": {
+    "summary": "Verify Code",
+    "operationId": "verify_code_api_v1_auth_verify_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CodeSignIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Me"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Wrong, used or expired code"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/link": {
+   "post": {
+    "summary": "Verify Link",
+    "operationId": "verify_link_api_v1_auth_link_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LinkSignIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Me"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Used or expired link"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/sign-out": {
+   "post": {
+    "summary": "End Session",
+    "operationId": "end_session_api_v1_auth_sign_out_post",
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     }
+    }
+   }
+  },
+  "/api/v1/me": {
+   "get": {
+    "summary": "Me",
+    "description": "The signed-in reader's account, or null when no one is signed in.",
+    "operationId": "me_api_v1_me_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "anyOf": [
+          {
+           "$ref": "#/components/schemas/Me"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "title": "Response Me Api V1 Me Get"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "summary": "Delete Me",
+    "operationId": "delete_me_api_v1_me_delete",
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "401": {
+      "description": "Unauthorized"
+     }
+    }
+   }
+  },
+  "/api/v1/me/topics": {
+   "put": {
+    "summary": "Set Topics",
+    "operationId": "set_topics_api_v1_me_topics_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Topics"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Me"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Too many topics, or one twice"
+     },
+     "401": {
+      "description": "Unauthorized"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/admin/me": {
    "get": {
     "summary": "Me",
@@ -286,7 +534,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/Me"
+         "$ref": "#/components/schemas/SignedInEditor"
         }
        }
       }
@@ -416,6 +664,46 @@
     ],
     "title": "Claim"
    },
+   "CodeRequest": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "maxLength": 254,
+      "title": "Email"
+     },
+     "bot_token": {
+      "type": "string",
+      "maxLength": 2048,
+      "title": "Bot Token",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "email"
+    ],
+    "title": "CodeRequest"
+   },
+   "CodeSignIn": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "maxLength": 254,
+      "title": "Email"
+     },
+     "code": {
+      "type": "string",
+      "pattern": "^\\s*\\d{6}\\s*$",
+      "title": "Code"
+     }
+    },
+    "type": "object",
+    "required": [
+     "email",
+     "code"
+    ],
+    "title": "CodeSignIn"
+   },
    "Day": {
     "properties": {
      "date": {
@@ -501,6 +789,27 @@
     ],
     "title": "Decision"
    },
+   "FollowedTopic": {
+    "properties": {
+     "slug": {
+      "type": "string",
+      "maxLength": 80,
+      "title": "Slug"
+     },
+     "slot": {
+      "type": "integer",
+      "maximum": 8.0,
+      "minimum": 1.0,
+      "title": "Slot"
+     }
+    },
+    "type": "object",
+    "required": [
+     "slug",
+     "slot"
+    ],
+    "title": "FollowedTopic"
+   },
    "HTTPValidationError": {
     "properties": {
      "detail": {
@@ -540,16 +849,39 @@
     ],
     "title": "Health"
    },
+   "LinkSignIn": {
+    "properties": {
+     "token": {
+      "type": "string",
+      "maxLength": 100,
+      "minLength": 20,
+      "title": "Token"
+     }
+    },
+    "type": "object",
+    "required": [
+     "token"
+    ],
+    "title": "LinkSignIn"
+   },
    "Me": {
     "properties": {
      "email": {
       "type": "string",
       "title": "Email"
+     },
+     "topics": {
+      "items": {
+       "$ref": "#/components/schemas/FollowedTopic"
+      },
+      "type": "array",
+      "title": "Topics"
      }
     },
     "type": "object",
     "required": [
-     "email"
+     "email",
+     "topics"
     ],
     "title": "Me"
    },
@@ -737,6 +1069,31 @@
     ],
     "title": "NoteDetail"
    },
+   "Options": {
+    "properties": {
+     "sign_in": {
+      "type": "boolean",
+      "title": "Sign In"
+     },
+     "turnstile_site_key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Turnstile Site Key"
+     }
+    },
+    "type": "object",
+    "required": [
+     "sign_in",
+     "turnstile_site_key"
+    ],
+    "title": "Options"
+   },
    "Question": {
     "properties": {
      "question": {
@@ -819,6 +1176,19 @@
      "claims"
     ],
     "title": "Review"
+   },
+   "SignedInEditor": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "title": "Email"
+     }
+    },
+    "type": "object",
+    "required": [
+     "email"
+    ],
+    "title": "SignedInEditor"
    },
    "Stats": {
     "properties": {
@@ -925,6 +1295,23 @@
      "notes"
     ],
     "title": "Topic"
+   },
+   "Topics": {
+    "properties": {
+     "topics": {
+      "items": {
+       "$ref": "#/components/schemas/FollowedTopic"
+      },
+      "type": "array",
+      "maxItems": 8,
+      "title": "Topics"
+     }
+    },
+    "type": "object",
+    "required": [
+     "topics"
+    ],
+    "title": "Topics"
    },
    "ValidationError": {
     "properties": {

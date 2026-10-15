@@ -1,0 +1,72 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Privacy" description="What Daily AI Notes keeps about you, why, and for how long.">
+  <header class="page-head graph-paper">
+    <div class="label">Privacy</div>
+    <h1 class="h1">What we keep, and for how long</h1>
+  </header>
+  <div class="measure stack">
+    <p>
+      Daily AI Notes is a small open-source project. It keeps as little as it can, sells nothing and
+      runs no advertising or tracking scripts. The code that does all of this is public on{" "}
+      <a href="https://github.com/erentnr/dailyainotes">GitHub</a>.
+    </p>
+
+    <section class="section stack">
+      <div class="label">Without an account</div>
+      <p>
+        The topics you pick stay in your browser. The site asks for the notes on them, but does not
+        store which topics anyone follows.
+      </p>
+      <p>
+        When you ask the notes a question, we keep the question, the notes the answer cited, and a
+        keyed hash of your IP address that cannot be turned back into the address, for 30 days. The
+        hash also counts your questions for the day's limit; those counts are deleted after a day.
+      </p>
+      <p>Our server logs record requests without IP addresses or request headers.</p>
+    </section>
+
+    <section class="section stack">
+      <div class="label">With an account</div>
+      <p>
+        Your email address, the topics you follow, the topics you suggest, and your sign-in sessions.
+        A session is a random token in a cookie that scripts cannot read; we store only a hash of it,
+        with when it was made and last used, and it ends after 30 days without use. Sign-in codes
+        are stored as hashes too, and deleted once they expire.
+      </p>
+      <p>
+        You can delete your account on your <a href="/account">account page</a> at any time. That
+        removes all of it at once.
+      </p>
+    </section>
+
+    <section class="section stack">
+      <div class="label">Who else sees what</div>
+      <ul class="stack">
+        <li>
+          <strong>Cloudflare</strong> carries every request to this site, and its Turnstile check on
+          the sign-in form tells people from bots.
+        </li>
+        <li><strong>Resend</strong> sends the sign-in email, so it receives your address and the code.</li>
+        <li>
+          <strong>Ollama Cloud</strong> runs the model that answers Ask, so it receives your question
+          with the notes that answer it. It says it does not log or train on what it is sent.
+        </li>
+        <li>
+          <strong>Langfuse</strong> records each model call, including Ask questions, so we can see
+          how the pipeline behaves; it keeps them for 30 days.
+        </li>
+      </ul>
+    </section>
+
+    <section class="section stack">
+      <div class="label">Questions</div>
+      <p>
+        Open an issue on <a href="https://github.com/erentnr/dailyainotes/issues">GitHub</a>, without
+        personal details; we will reply there.
+      </p>
+    </section>
+  </div>
+</Base>

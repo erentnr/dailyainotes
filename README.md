@@ -136,6 +136,9 @@ DOMAIN=dailyainotes.com
 POSTGRES_PASSWORD=                   # openssl rand -hex 32
 CF_ACCESS_TEAM_DOMAIN=               # <team>.cloudflareaccess.com, below
 CF_ACCESS_AUD=                       # the Access application's AUD tag, below
+RESEND_API_KEY=                      # reader sign-in emails, below
+TURNSTILE_SITE_KEY=                  # the sign-in form's bot check, below
+TURNSTILE_SECRET_KEY=
 IP_HASH_KEY=                         # openssl rand -hex 32
 TUNNEL_TOKEN=                        # from Cloudflare, below
 ```
@@ -147,6 +150,10 @@ The domain's DNS must be on Cloudflare; the free plan is enough. In the dashboar
 ### Cloudflare Access for /admin
 
 The editor signs in through Cloudflare Access ([ADR 0003](docs/adr/0003-sign-in-and-reader-accounts.md)); its free plan is enough. In the Zero Trust dashboard, choose a team name, then under Access, Applications, add a self-hosted application with two destinations, `<domain>/admin` and `<domain>/api/v1/admin`, and a policy that allows only the editor's email; the one-time PIN login sends a code by email. Put the team domain (`<team>.cloudflareaccess.com`) in `.env` as `CF_ACCESS_TEAM_DOMAIN` and the application's AUD tag as `CF_ACCESS_AUD`. The API checks Access's signed token on every admin request; without these two settings admin is off, and `dan review` on the server still works.
+
+### Reader sign-in
+
+Readers sign in with a code sent by email ([ADR 0003](docs/adr/0003-sign-in-and-reader-accounts.md)); sign-in stays off until `RESEND_API_KEY` is set. On Resend's free plan (3,000 emails a month, 100 a day), add the domain, put the DNS records it shows (SPF and DKIM) in Cloudflare, and add a DMARC record (`_dmarc`, `v=DMARC1; p=none;`). Create an API key with sending access only. `EMAIL_FROM` must use the verified domain. For the bot check, add a Turnstile widget for the domain in Cloudflare's dashboard and put its two keys in `.env`; without them the form has no bot check. Compose sets `SITE_URL` from `DOMAIN`.
 
 ### GitHub settings
 
@@ -190,10 +197,11 @@ To go back to an earlier release, run `./deploy.sh <commit sha>`. Logs: `TAG=$(c
 
 ## Next steps
 
-Deferred by [ADR 0001](docs/adr/0001-proof-of-concept-scope.md), in rough order:
+Deferred by [ADR 0001](docs/adr/0001-proof-of-concept-scope.md) and still open after [ADR 0003](docs/adr/0003-sign-in-and-reader-accounts.md), in rough order:
 
-- Custom topics, beyond the fixed catalog.
-- Accounts, with a per-reader preference memory fed by "more like this" and "less like this".
+- Custom topics written by readers themselves, beyond suggestions the editor accepts.
+- A per-reader preference memory fed by "more like this" and "less like this" (accounts came first, ADR 0003).
+- A daily email of the reader's notes.
 - A full review UI: request a rewrite, edit a draft, review topic plans in the browser.
 - An MCP server with `search_notes`, `get_note` and `list_topics`.
 - Offsite backups, uptime monitoring and alerts.

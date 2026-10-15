@@ -410,3 +410,56 @@ class EvalRun(Base):
     git_sha: Mapped[str] = mapped_column(String(40), server_default="")
     metrics: Mapped[dict[str, Any]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# Reader accounts (ADR 0003). Codes and session tokens are stored only as SHA-256 digests.
+
+
+class Reader(Base):
+    __tablename__ = "readers"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class SignInCode(Base):
+    __tablename__ = "sign_in_codes"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), index=True)
+    code_digest: Mapped[str] = mapped_column(String(64))
+    link_digest: Mapped[str] = mapped_column(String(64), unique=True)
+    attempts: Mapped[int] = mapped_column(server_default=text("0"))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ReaderSession(Base):
+    __tablename__ = "reader_sessions"
+
+    token_digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    reader_id: Mapped[int] = mapped_column(ForeignKey("readers.id", ondelete="CASCADE"), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_used_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class ReaderTopic(Base):
+    __tablename__ = "reader_topics"
+    __table_args__ = (CheckConstraint("slot BETWEEN 1 AND 8", name="slot"),)
+
+    reader_id: Mapped[int] = mapped_column(
+        ForeignKey("readers.id", ondelete="CASCADE"), primary_key=True
+    )
+    topic_id: Mapped[int] = mapped_column(
+        ForeignKey("topics.id", ondelete="CASCADE"), primary_key=True
+    )
+    # The topic's color slot, kept when another topic is removed (DESIGN.md, Colors).
+    slot: Mapped[int] = mapped_column(Integer)
