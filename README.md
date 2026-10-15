@@ -202,7 +202,7 @@ Deferred by [ADR 0001](docs/adr/0001-proof-of-concept-scope.md) and still open a
 - Custom topics written by readers themselves, beyond suggestions the editor accepts.
 - A per-reader preference memory fed by "more like this" and "less like this" (accounts came first, ADR 0003).
 - A daily email of the reader's notes.
-- A full review UI: request a rewrite, edit a draft, review topic plans in the browser.
+- A full review UI: request a rewrite, edit a draft (topic plans are reviewed at /admin since ADR 0003).
 - An MCP server with `search_notes`, `get_note` and `list_topics`.
 - Offsite backups, uptime monitoring and alerts.
 

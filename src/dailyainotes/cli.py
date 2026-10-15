@@ -3,26 +3,22 @@
 import asyncio
 import json
 import time
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-from langgraph.types import Command
 from pydantic import BaseModel
 
 from dailyainotes.ask import AskDeps, ask
 from dailyainotes.db import editorial as editorial_db
 from dailyainotes.db import planner as planner_db
 from dailyainotes.db.catalog import SyncCounts
-from dailyainotes.db.checkpoints import checkpointer
 from dailyainotes.db.engine import AsyncEngine, create_engine
 from dailyainotes.db.ingest import active_topic_slugs, purge_expired_content
 from dailyainotes.db.migrate import upgrade_to_head
-from dailyainotes.db.runs import DbLedger, finish_run, finish_waiting_runs, start_run
+from dailyainotes.db.runs import DbLedger
 from dailyainotes.evals import EVALS, baseline, regressions, run_eval
 from dailyainotes.graphs.edition import (
     EditionReport,
@@ -31,8 +27,14 @@ from dailyainotes.graphs.edition import (
     decide_note,
     run_editions,
 )
+from dailyainotes.graphs.planning import (
+    NotProposedError,
+    UnknownTopicError,
+    decide_plan,
+    plan_topic,
+    planner,
+)
 from dailyainotes.graphs.story import StoryDeps
-from dailyainotes.graphs.topic_planner import PlannerDeps, build_planner
 from dailyainotes.ingestion.catalog import CATALOG_PATH, load_catalog, sync_catalog
 from dailyainotes.ingestion.run import SourceReport, ingest_topic
 from dailyainotes.llm.embeddings import LocalEmbeddings
@@ -41,7 +43,7 @@ from dailyainotes.llm.router import ModelsExhaustedError, Router, parse_chain
 from dailyainotes.llm.tracing import flush_tracing
 from dailyainotes.logging import configure_logging
 from dailyainotes.retrieval.hybrid import SearchHit, hybrid_search
-from dailyainotes.settings import Settings, get_settings
+from dailyainotes.settings import get_settings
 from dailyainotes.sources.http import create_http
 
 app = typer.Typer(no_args_is_help=True, help="Daily AI Notes command line.")
@@ -180,19 +182,6 @@ async def _search(query: str, topics: list[str] | None, limit: int) -> list[Sear
         await engine.dispose()
 
 
-@asynccontextmanager
-async def planner_graph(settings: Settings) -> AsyncIterator[tuple[AsyncEngine, Any]]:
-    engine = create_engine(settings.database_url)
-    try:
-        router = build_router(settings, DbLedger(engine))
-        async with create_http() as http, checkpointer(settings.database_url) as saver:
-            deps = PlannerDeps(engine, router, http, datetime.now(UTC))
-            yield engine, build_planner(deps, saver)
-    finally:
-        flush_tracing(settings)
-        await engine.dispose()
-
-
 @topics_app.command("plan")
 def topics_plan(
     slug: Annotated[str | None, typer.Argument(help="A topic slug.")] = None,
@@ -206,36 +195,22 @@ def topics_plan(
 
 async def _plan(slug: str | None, all_drafts: bool) -> None:
     settings = get_settings()
-    async with planner_graph(settings) as (engine, graph):
-        slugs = await planner_db.draft_topic_slugs(engine) if all_drafts else [slug or ""]
-        for each in slugs:
-            topic = await planner_db.topic(engine, each)
-            if topic is None:
-                raise typer.BadParameter(f"no topic {each!r}")
-            version = await planner_db.next_version(engine, topic.id)
-            thread_id = f"plan:{topic.slug}:{version}"
-            run_id = await start_run(engine, "plan", topic_id=topic.id, thread_id=thread_id)
-            state = {
-                "topic_id": topic.id,
-                "slug": topic.slug,
-                "name": topic.name,
-                "description": topic.description,
-                "version": version,
-                "thread_id": thread_id,
-                "run_id": run_id,
-            }
-            try:
-                await graph.ainvoke(state, {"configurable": {"thread_id": thread_id}})
-            except ModelsExhaustedError as error:
-                await finish_run(engine, run_id, "failed", str(error))
-                typer.echo(f"{topic.slug}: no model answered. {error}")
-                continue
-            await finish_run(engine, run_id, "waiting")
-            (proposal,) = [
-                p for p in await planner_db.proposals(engine) if p.thread_id == thread_id
-            ]
-            typer.echo(f"{topic.slug}: proposal plan-{proposal.id} waits for review")
-            print_proposal(proposal)
+    engine = create_engine(settings.database_url)
+    try:
+        async with planner(settings, engine) as graph:
+            slugs = await planner_db.draft_topic_slugs(engine) if all_drafts else [slug or ""]
+            for each in slugs:
+                try:
+                    proposal = await plan_topic(engine, graph, each)
+                except UnknownTopicError as error:
+                    raise typer.BadParameter(str(error)) from error
+                except ModelsExhaustedError as error:
+                    typer.echo(f"{each}: no model answered. {error}")
+                    continue
+                typer.echo(f"{each}: proposal plan-{proposal.id} waits for review")
+                print_proposal(proposal)
+    finally:
+        await engine.dispose()
 
 
 def print_proposal(proposal: planner_db.Proposal) -> None:
@@ -391,26 +366,20 @@ def review_reject(
 
 async def _decide(item: str, decision: str, comment: str) -> None:
     kind, number = parse_item(item)
-    resume: Command[Any] = Command(resume={"decision": decision, "comment": comment, "by": BY})
     settings = get_settings()
-    if kind == "plan":
-        proposal = await _proposal(number)
-        if proposal.status != "proposed":
-            raise typer.BadParameter(f"{item} is already {proposal.status}")
-        async with planner_graph(settings) as (engine, graph):
-            config = {"configurable": {"thread_id": proposal.thread_id}}
-            await graph.ainvoke(resume, config)
-            await finish_waiting_runs(engine, proposal.thread_id, "done")
-        return
     engine = create_engine(settings.database_url)
     try:
+        if kind == "plan":
+            async with planner(settings, engine) as graph:
+                await decide_plan(engine, graph, number, decision, comment, by=BY)
+            return
         deps = StoryDeps(
             engine,
             build_router(settings, DbLedger(engine)),
             LocalEmbeddings(settings.embedding_cache_dir),
         )
         await decide_note(deps, settings.database_url, number, decision, comment, by=BY)
-    except NotAwaitingApprovalError as error:
+    except (NotAwaitingApprovalError, NotProposedError) as error:
         raise typer.BadParameter(str(error)) from error
     finally:
         await engine.dispose()

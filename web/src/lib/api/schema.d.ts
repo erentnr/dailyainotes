@@ -246,6 +246,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suggest Topic */
+        post: operations["suggest_topic_api_v1_me_suggestions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/me": {
         parameters: {
             query?: never;
@@ -291,6 +308,86 @@ export interface paths {
         put?: never;
         /** Decide */
         post: operations["decide_api_v1_admin_notes__note_id__decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plans
+         * @description Topic plans waiting for review.
+         */
+        get: operations["plans_api_v1_admin_plans_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/plans/{plan_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide On Plan
+         * @description Approving adds the plan's sources and makes the topic active.
+         */
+        post: operations["decide_on_plan_api_v1_admin_plans__plan_id__decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Waiting Suggestions
+         * @description Readers' topic suggestions waiting for a decision; who suggested them is not shown.
+         */
+        get: operations["waiting_suggestions_api_v1_admin_suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/suggestions/{suggestion_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide On Suggestion
+         * @description Accepting makes a draft topic and queues the Topic Planner; its plan then waits here.
+         */
+        post: operations["decide_on_suggestion_api_v1_admin_suggestions__suggestion_id__decision_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -405,6 +502,18 @@ export interface components {
             email: string;
             /** Topics */
             topics: components["schemas"]["FollowedTopic"][];
+            /** Suggestions */
+            suggestions: components["schemas"]["Suggestion"][];
+        };
+        /** NewSuggestion */
+        NewSuggestion: {
+            /** Name */
+            name: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /** NoteCard */
         NoteCard: {
@@ -493,6 +602,56 @@ export interface components {
             /** Turnstile Site Key */
             turnstile_site_key: string | null;
         };
+        /** Plan */
+        Plan: {
+            /** Id */
+            id: number;
+            /** Topic */
+            topic: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Keywords */
+            keywords: string[];
+            /** Negative Keywords */
+            negative_keywords: string[];
+            /** Entities */
+            entities: string[];
+            /** Sources */
+            sources: components["schemas"]["PlanSource"][];
+        };
+        /** PlanDecision */
+        PlanDecision: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approve" | "reject";
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+        };
+        /** PlanSource */
+        PlanSource: {
+            /** Type */
+            type: string;
+            /** Locator */
+            locator: string;
+            /** Recent Items */
+            recent_items: number;
+            /** Match Share */
+            match_share: number;
+            /** Readable Share */
+            readable_share?: number | null;
+        };
         /** Question */
         Question: {
             /** Question */
@@ -550,6 +709,41 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** Suggestion */
+        Suggestion: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Note */
+            note: string;
+            /** Status */
+            status: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Topic Slug */
+            topic_slug: string | null;
+            /** Topic Status */
+            topic_status: string | null;
+        };
+        /** SuggestionDecision */
+        SuggestionDecision: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "accept" | "decline";
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
         /** Timeline */
         Timeline: {
             topic: components["schemas"]["Topic"];
@@ -584,6 +778,20 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WaitingSuggestion */
+        WaitingSuggestion: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Note */
+            note: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** Citation */
         dailyainotes__api__admin__Citation: {
@@ -1104,6 +1312,53 @@ export interface operations {
             };
         };
     };
+    suggest_topic_api_v1_me_suggestions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSuggestion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Too many waiting */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     me_api_v1_admin_me_get: {
         parameters: {
             query?: never;
@@ -1156,6 +1411,134 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Decision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Not waiting */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plans_api_v1_admin_plans_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"][];
+                };
+            };
+        };
+    };
+    decide_on_plan_api_v1_admin_plans__plan_id__decision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Not waiting */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    waiting_suggestions_api_v1_admin_suggestions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaitingSuggestion"][];
+                };
+            };
+        };
+    };
+    decide_on_suggestion_api_v1_admin_suggestions__suggestion_id__decision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                suggestion_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuggestionDecision"];
             };
         };
         responses: {

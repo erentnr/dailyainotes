@@ -7,6 +7,7 @@ from importlib.metadata import version
 
 from fastapi import FastAPI
 
+from dailyainotes import queue
 from dailyainotes.api import accounts, admin, ask, health, notes
 from dailyainotes.api.access import access_verifier
 from dailyainotes.db.engine import create_engine
@@ -23,6 +24,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.engine = create_engine(settings.database_url)
+        # Accepted topic suggestions ask the worker for a Topic Planner run.
+        app.state.plan_queue = queue.plan_queue(settings.database_url)
         async with create_client() as client:
             app.state.accounts = accounts.account_deps(settings, app.state.engine, client)
             yield

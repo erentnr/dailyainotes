@@ -1,5 +1,6 @@
 ---
 import AccountActions from "../islands/AccountActions";
+import SuggestTopic from "../islands/SuggestTopic";
 import Base from "../layouts/Base.astro";
 import { serverApi } from "../lib/api/server";
 
@@ -36,6 +37,10 @@ const names = new Map((topics ?? []).map((t) => [t.slug, t.name]));
         )
       }
       <p><a href="/topics">Change your topics</a>. They follow you to every device you sign in on.</p>
+    </section>
+    <section class="section" id="suggest">
+      <div class="label">Suggest a topic</div>
+      <SuggestTopic client:load initial={reader.suggestions} />
     </section>
     <AccountActions client:load />
   </div>

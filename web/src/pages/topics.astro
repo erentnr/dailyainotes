@@ -13,6 +13,10 @@ const { data: topics } = await serverApi().GET("/api/v1/topics");
     <h1 class="h1">What should we take notes on?</h1>
   </header>
   {topics ? <TopicPicker client:load topics={topics} signedIn={Astro.locals.reader !== null} /> : <ErrorState>The catalog could not be loaded.</ErrorState>}
+  <p class="muted measure section">
+    Missing a topic?{" "}
+    <a href={Astro.locals.reader ? "/account#suggest" : "/sign-in?next=/account%23suggest"}>Suggest one</a>.
+  </p>
   {topics && (
     <section class="section">
       <div class="label">Every note on a topic</div>

@@ -72,10 +72,15 @@ async def site(engine: AsyncEngine, deps: AccountDeps) -> AsyncIterator[httpx2.A
         yield client
 
 
-def client_for(engine: AsyncEngine, deps: AccountDeps, *, site_url: str = SITE) -> Any:
+def client_for(
+    engine: AsyncEngine, deps: AccountDeps, *, site_url: str = SITE, **state: Any
+) -> Any:
+    """The API without its lifespan (ASGITransport does not run it), so the test sets its state."""
     app = create_app(Settings(_env_file=None, site_url=site_url, turnstile_site_key="site-key"))
-    app.state.engine = engine  # ASGITransport does not run the lifespan
+    app.state.engine = engine
     app.state.accounts = deps
+    for name, value in state.items():
+        setattr(app.state, name, value)
     return httpx2.AsyncClient(
         transport=httpx2.ASGITransport(app=app), base_url=SITE, headers={"Origin": SITE}
     )
@@ -119,12 +124,12 @@ async def test_a_reader_signs_in_with_the_emailed_code(
     assert email.to == READER
     assert email.subject == f"{mailbox.code()} is your Daily AI Notes sign-in code"
     assert f"{SITE}/sign-in/link#" in email.html
-    assert signed.json() == {"email": READER, "topics": []}
+    assert signed.json() == {"email": READER, "topics": [], "suggestions": []}
     cookie = signed.headers["set-cookie"]
     assert cookie.startswith(f"{COOKIE}=")
     for flag in ("HttpOnly", "SameSite=lax", "Max-Age=2592000"):
         assert flag in cookie
-    assert me == {"email": READER, "topics": []}
+    assert me == {"email": READER, "topics": [], "suggestions": []}
 
 
 async def test_the_link_signs_in_too_and_either_works_only_once(
@@ -387,3 +392,81 @@ async def test_expired_codes_and_sessions_are_purged(
     assert await rows(engine, SignInCode) == 0
     assert await rows(engine, ReaderSession) == 0
     assert await rows(engine, Reader) == 1
+
+
+async def test_a_reader_suggests_topics_and_sees_what_the_editor_decided(
+    engine: AsyncEngine, deps: AccountDeps, mailbox: Mailbox, access: Any
+) -> None:
+    queued: list[str] = []
+
+    async def queue_plan(slug: str) -> None:
+        queued.append(slug)
+
+    async with client_for(engine, deps, access=access.verifier, plan_queue=queue_plan) as site:
+        editor = {"Cf-Access-Jwt-Assertion": access.token("editor@example.com")}
+        anonymous = await site.post("/api/v1/me/suggestions", json={"name": "Chess"})
+        await signed_in_reader(site, mailbox)
+        for name in ("Chess", "  Women's   football ", "Opera"):
+            await site.post("/api/v1/me/suggestions", json={"name": name, "note": f"{name} news"})
+        fourth = await site.post("/api/v1/me/suggestions", json={"name": "Sailing"})
+        waiting = (await site.get("/api/v1/admin/suggestions", headers=editor)).json()
+        by_name = {s["name"]: s["id"] for s in waiting}
+
+        accepted = await site.post(
+            f"/api/v1/admin/suggestions/{by_name['Chess']}/decision",
+            json={"decision": "accept"},
+            headers=editor,
+        )
+        declined = await site.post(
+            f"/api/v1/admin/suggestions/{by_name['Opera']}/decision",
+            json={"decision": "decline", "reason": "Too few English sources."},
+            headers=editor,
+        )
+        again = await site.post(
+            f"/api/v1/admin/suggestions/{by_name['Chess']}/decision",
+            json={"decision": "decline"},
+            headers=editor,
+        )
+        mine = {s["name"]: s for s in (await site.get("/api/v1/me")).json()["suggestions"]}
+        fifth = await site.post("/api/v1/me/suggestions", json={"name": "Sailing"})
+
+    assert anonymous.status_code == 401
+    assert fourth.status_code == 400
+    assert "3 suggestions waiting" in fourth.json()["detail"]
+    assert [s["name"] for s in waiting] == ["Chess", "Women's football", "Opera"]
+    assert "email" not in str(waiting)  # the editor does not see who suggested what
+    assert accepted.json() == {"status": "accepted", "topic": "chess"}
+    assert queued == ["chess"]
+    assert declined.json() == {"status": "declined"}
+    assert again.status_code == 409
+    assert (mine["Chess"]["status"], mine["Chess"]["topic_slug"]) == ("accepted", "chess")
+    assert mine["Chess"]["topic_status"] == "draft"
+    assert (mine["Opera"]["status"], mine["Opera"]["reason"]) == (
+        "declined",
+        "Too few English sources.",
+    )
+    assert fifth.status_code == 201  # two answered, so one more may wait
+    async with engine.connect() as connection:
+        topic = (
+            await connection.execute(
+                select(Topic.name, Topic.description, Topic.status).where(Topic.slug == "chess")
+            )
+        ).one()
+    assert tuple(topic) == ("Chess", "Chess news", "draft")
+
+
+async def test_an_accepted_suggestion_never_takes_an_existing_topics_slug(
+    engine: AsyncEngine, deps: AccountDeps, mailbox: Mailbox
+) -> None:
+    await add_topics(engine, "tennis")
+    session = await accounts.open_session(engine, READER, datetime.now(UTC))
+    await accounts.suggest(engine, session.reader_id, "Tennis!", "")
+    (waiting,) = await accounts.suggestions(engine, session.reader_id)
+    queued: list[str] = []
+
+    async def queue_plan(slug: str) -> None:
+        queued.append(slug)
+
+    slug = await accounts.accept_suggestion(engine, waiting.id, "editor@example.com", queue_plan)
+
+    assert slug == queued[0] == "tennis-2"

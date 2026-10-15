@@ -1,9 +1,10 @@
 """Reader accounts as plain rules (ADR 0003): what counts as an email address, how sign-in codes
-and session tokens are made, and how they are stored, which is only as a hash."""
+and session tokens are made and stored (only as a hash), and how a suggested topic is named."""
 
 import hashlib
 import re
 import secrets
+import unicodedata
 from datetime import timedelta
 
 # A code or link works once, for this long; this many wrong codes void it.
@@ -46,3 +47,17 @@ def digest(value: str) -> str:
 def code_digest(email: str, code: str) -> str:
     # With the email, so the same code sent to two readers is stored differently.
     return digest(f"{email}:{code}")
+
+
+# A reader may have this many topic suggestions waiting for the editor at once.
+MAX_OPEN_SUGGESTIONS = 3
+
+
+def topic_slug(name: str, taken: set[str]) -> str:
+    """A slug for a suggested topic's name, unlike any slug already taken."""
+    ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    base = "-".join(re.findall(r"[a-z0-9]+", ascii_name.lower()))[:70].strip("-") or "topic"
+    slug, n = base, 2
+    while slug in taken:
+        slug, n = f"{base}-{n}", n + 1
+    return slug

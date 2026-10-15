@@ -3,17 +3,20 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+import httpx2
 import pytest
 from langgraph.types import Command
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from dailyainotes.api.app import create_app
 from dailyainotes.db import planner as planner_db
 from dailyainotes.db.checkpoints import checkpointer
-from dailyainotes.db.tables import Source, Topic, TopicSource
+from dailyainotes.db.tables import Source, Topic, TopicProfile, TopicSource
 from dailyainotes.graphs.topic_planner import PlannerDeps, ProfileDraft, build_planner
 from dailyainotes.ingestion.catalog import Catalog, sync_catalog
+from dailyainotes.settings import Settings
 
 pytestmark = [pytest.mark.integration, pytest.mark.anyio]
 
@@ -155,3 +158,74 @@ async def test_a_rejected_plan_leaves_the_topic_as_it_was(
     assert sources == []
     (rejected,) = await planner_db.proposals(engine, status="rejected")
     assert rejected.profile["sources"]
+
+
+async def test_a_feed_whose_pages_a_model_may_not_read_is_not_proposed(
+    engine: AsyncEngine,
+    database_url: str,
+    web: Callable[..., Any],
+    fixture: Callable[[str], bytes],
+) -> None:
+    """The feed is on topic, but its publisher's robots.txt blocks us, so every story from it
+    would be link-only (found 2026-10-13: film and TV)."""
+    blocked = {"https://news.example.com/robots.txt": b"User-agent: *\nDisallow: /\n"}
+    recorded = web({**blocked, **site(fixture)})
+    state, config = await start(engine)
+    async with checkpointer(database_url) as saver:
+        graph = build_planner(PlannerDeps(engine, FakeRouter(), recorded.http, NOW), saver)
+        await graph.ainvoke(state, config)
+
+    (proposal,) = await planner_db.proposals(engine, status="proposed")
+    kinds = [s["type"] for s in proposal.profile["sources"]]
+    assert "rss" not in kinds
+    assert kinds == ["arxiv", "github_releases", "hackernews"]
+    # The policy gate decided from robots.txt alone: no article page was fetched.
+    assert not any("/2026/10/" in str(r.url) for r in recorded.requests)
+
+
+async def test_the_editor_reviews_a_plan_at_admin(
+    engine: AsyncEngine,
+    database_url: str,
+    web: Callable[..., Any],
+    fixture: Callable[[str], bytes],
+    access: Any,
+) -> None:
+    state, config = await start(engine)
+    async with checkpointer(database_url) as saver:
+        graph = build_planner(
+            PlannerDeps(engine, FakeRouter(), web(site(fixture)).http, NOW), saver
+        )
+        await graph.ainvoke(state, config)
+    app = create_app(Settings(_env_file=None, database_url=database_url))
+    app.state.engine = engine  # ASGITransport does not run the lifespan
+    app.state.access = access.verifier
+    editor = {"Cf-Access-Jwt-Assertion": access.token("editor@example.com")}
+
+    transport = httpx2.ASGITransport(app=app)
+    async with httpx2.AsyncClient(transport=transport, base_url="http://test") as client:
+        (plan,) = (await client.get("/api/v1/admin/plans", headers=editor)).json()
+        approved = await client.post(
+            f"/api/v1/admin/plans/{plan['id']}/decision",
+            json={"decision": "approve", "comment": "good feeds"},
+            headers=editor,
+        )
+        again = await client.post(
+            f"/api/v1/admin/plans/{plan['id']}/decision",
+            json={"decision": "reject"},
+            headers=editor,
+        )
+        left = (await client.get("/api/v1/admin/plans", headers=editor)).json()
+
+    assert (plan["topic"], plan["name"], plan["version"]) == ("demo", "Demo", 1)
+    assert plan["keywords"] == ["safety car", "engine penalty", "grid"]
+    (feed,) = [s for s in plan["sources"] if s["type"] == "rss"]
+    assert feed["readable_share"] == 1.0
+    assert approved.json() == {"status": "approved"}
+    assert again.status_code == 409
+    assert left == []
+    async with engine.connect() as connection:
+        status = (
+            await connection.execute(select(Topic.status).where(Topic.slug == "demo"))
+        ).scalar_one()
+        decided = (await connection.execute(select(TopicProfile.decided_by))).scalar_one()
+    assert (status, decided) == ("active", "editor@example.com")

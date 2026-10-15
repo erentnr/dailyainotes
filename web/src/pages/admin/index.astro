@@ -1,6 +1,7 @@
 ---
-import AdminQueue from "../islands/AdminQueue";
-import Base from "../layouts/Base.astro";
+import AdminNav from "../../components/AdminNav.astro";
+import AdminQueue from "../../islands/AdminQueue";
+import Base from "../../layouts/Base.astro";
 ---
 
 <Base title="Review">
@@ -8,5 +9,6 @@ import Base from "../layouts/Base.astro";
     <div class="label">Admin</div>
     <h1 class="h1">Notes waiting for approval</h1>
   </header>
+  <AdminNav />
   <AdminQueue client:only="react" />
 </Base>

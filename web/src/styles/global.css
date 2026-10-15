@@ -671,6 +671,56 @@ textarea.input {
   margin: var(--space-2) 0;
 }
 
+.plain-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.plain-list > li {
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+}
+
+/* A table wider than a phone scrolls inside its own box, never the page. */
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table-wrap a {
+  overflow-wrap: anywhere;
+}
+
+/* The admin pages' own navigation, under the page header. */
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--space-6);
+}
+
+.subnav a {
+  color: var(--ink-2);
+  text-decoration: none;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.subnav a[aria-current="page"] {
+  color: var(--accent);
+  font-weight: 500;
+  border-bottom-color: var(--accent);
+}
+
+.subnav-end {
+  margin-left: auto;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;

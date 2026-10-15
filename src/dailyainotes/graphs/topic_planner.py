@@ -47,6 +47,11 @@ MAX_FEEDS_PER_SITE = 2
 MAX_REPOS = 2
 # A feed is relevant when this share of its recent items names a keyword or an entity.
 MIN_MATCH_SHARE = 0.2
+# A relevant feed is useful only when a model may read its pages: this many of its recent items
+# go through the policy gate, and at least this share must not be link-only. Many publishers'
+# robots.txt blocks AI crawlers, which leaves every story they report unusable (2026-10-13).
+READABLE_SAMPLE = 4
+MIN_READABLE_SHARE = 0.5
 RECENT = timedelta(days=30)
 
 
@@ -124,7 +129,8 @@ def build_planner(
         draft = ProfileDraft.model_validate(state["draft"])
         terms = draft.keywords + draft.entities
         checked = [
-            await check(deps.http, candidate, terms, deps.now) for candidate in state["candidates"]
+            await check(deps.http, fetcher, candidate, terms, deps.now)
+            for candidate in state["candidates"]
         ]
         return {"sources": keep(checked)}
 
@@ -231,9 +237,10 @@ def query_sources(draft: ProfileDraft) -> list[dict[str, Any]]:
 
 
 async def check(
-    http: Http, candidate: dict[str, Any], terms: list[str], now: datetime
+    http: Http, fetcher: ArticleFetcher, candidate: dict[str, Any], terms: list[str], now: datetime
 ) -> dict[str, Any]:
-    """Fetch a candidate once: how many recent items it has, and how many name the topic."""
+    """Fetch a candidate once: how many recent items it has, how many name the topic, and, for
+    a relevant feed, how many of its pages a model may read."""
     spec = SourceSpec(candidate["type"], candidate["locator"], candidate["config"])
     try:
         outcome = await fetch_source(http, spec, now=now)
@@ -241,16 +248,27 @@ async def check(
         return {**candidate, "recent_items": 0, "match_share": 0.0, "note": type(error).__name__}
     recent = [i for i in outcome.items if i.published_at is None or now - i.published_at <= RECENT]
     share = match_share([f"{i.title} {i.lead}" for i in recent[:20]], terms)
-    return {**candidate, "recent_items": len(recent), "match_share": round(share, 2), "note": ""}
+    checked = {**candidate, "recent_items": len(recent), "match_share": round(share, 2), "note": ""}
+    if candidate["type"] == "rss" and recent and share >= MIN_MATCH_SHARE:
+        sample = [await fetcher.decide(i.url) for i in recent[:READABLE_SAMPLE]]
+        readable = sum(d.text_policy != "link_only" for d in sample) / len(sample)
+        checked["readable_share"] = round(readable, 2)
+        if readable < MIN_READABLE_SHARE:
+            checked["note"] = sample[0].reason
+    return checked
 
 
 def keep(checked: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Sources with recent items; feeds must also be on topic. Best matches first."""
+    """Sources with recent items; feeds must also be on topic, with pages a model may read.
+    Best matches first."""
     feeds = sorted(
         (
             c
             for c in checked
-            if c["type"] == "rss" and c["recent_items"] and c["match_share"] >= MIN_MATCH_SHARE
+            if c["type"] == "rss"
+            and c["recent_items"]
+            and c["match_share"] >= MIN_MATCH_SHARE
+            and c.get("readable_share", 0.0) >= MIN_READABLE_SHARE
         ),
         key=lambda c: (-c["match_share"], -c["recent_items"]),
     )

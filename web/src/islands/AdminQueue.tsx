@@ -4,20 +4,10 @@ import { ErrorState } from "../components/ui/States";
 import { VerdictBadge } from "../components/ui/VerdictBadge";
 import type { Review } from "../lib/api/client";
 import { api } from "../lib/api/client";
+import { problem } from "../lib/admin";
 import { formatDay } from "../lib/format";
 
 const VERDICT = { supported: "verdict-ok", weak: "verdict-warn" } as Record<string, string>;
-// Cloudflare Access signs the editor in before this page loads (ADR 0003); this ends that session.
-const SIGN_OUT = "/cdn-cgi/access/logout";
-
-/** Why the queue could not load, from the API's status; a failed request most often means
- * Access sent it to its sign-in page because the session ended. */
-function problem(status: number | undefined): string {
-  if (status === 503) return "Admin is off: Cloudflare Access is not set up. Approve with dan review on the server.";
-  if (status === 401) return "Sign in through Cloudflare Access: reload this page.";
-  if (status === undefined) return "Your sign-in has ended. Reload this page to sign in again.";
-  return "Admin is unavailable.";
-}
 
 /** The approval page. Cloudflare Access has signed the editor in; the API checks its token. */
 export default function AdminQueue() {
@@ -56,11 +46,7 @@ export default function AdminQueue() {
 
   return (
     <div className="measure stack">
-      {email && (
-        <p className="meta">
-          Signed in as {email} · <a href={SIGN_OUT}>Sign out</a>
-        </p>
-      )}
+      {email && <p className="meta">Signed in as {email}</p>}
       {error && <ErrorState>{error}</ErrorState>}
       {reviews?.length === 0 && <p className="muted">Nothing waits for approval.</p>}
       {reviews?.map((r) => {

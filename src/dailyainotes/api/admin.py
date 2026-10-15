@@ -1,17 +1,22 @@
-"""The /admin page's API: the notes waiting for approval, and the decision on one. Cloudflare
-Access signs the editor in before a request gets here (ADR 0003)."""
+"""The /admin page's API: notes, topic plans and readers' topic suggestions waiting for the
+editor, and the decision on each. Cloudflare Access signs the editor in before a request gets
+here (ADR 0003)."""
 
-from datetime import date
-from typing import Annotated, Literal
+from datetime import date, datetime
+from typing import Annotated, Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from dailyainotes.accounts import accept_suggestion, decline_suggestion
 from dailyainotes.api.access import HEADER, AccessDeniedError, AccessVerifier
 from dailyainotes.api.deps import story_deps
 from dailyainotes.db import editorial as db
+from dailyainotes.db import planner as planner_db
+from dailyainotes.db import suggestions as suggestions_db
 from dailyainotes.graphs.edition import NotAwaitingApprovalError, decide_note
+from dailyainotes.graphs.planning import NotProposedError, decide_plan, planner
 from dailyainotes.graphs.story import StoryDeps
 
 log = structlog.get_logger(__name__)
@@ -118,3 +123,106 @@ async def decide(
     except NotAwaitingApprovalError as error:
         raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from error
     return {"status": "published" if body.decision == "approve" else "rejected"}
+
+
+class PlanSource(BaseModel):
+    type: str
+    locator: str
+    recent_items: int
+    # The share of recent items that name a keyword or an entity.
+    match_share: float
+    # The share of sampled pages a model may read; None for query sources.
+    readable_share: float | None = None
+
+
+class Plan(BaseModel):
+    id: int
+    topic: str
+    name: str
+    version: int
+    created_at: datetime
+    keywords: list[str]
+    negative_keywords: list[str]
+    entities: list[str]
+    sources: list[PlanSource]
+
+
+class PlanDecision(BaseModel):
+    decision: Literal["approve", "reject"]
+    comment: str = ""
+
+
+def plan_of(proposal: planner_db.Proposal) -> Plan:
+    profile: dict[str, Any] = proposal.profile
+    return Plan(
+        id=proposal.id,
+        topic=proposal.slug,
+        name=proposal.name,
+        version=proposal.version,
+        created_at=proposal.created_at,
+        keywords=profile["keywords"],
+        negative_keywords=profile["negative_keywords"],
+        entities=profile["entities"],
+        sources=[PlanSource(**s) for s in profile["sources"]],
+    )
+
+
+@router.get("/plans")
+async def plans(request: Request) -> list[Plan]:
+    """Topic plans waiting for review."""
+    proposals = await planner_db.proposals(request.app.state.engine, status="proposed")
+    return [plan_of(p) for p in proposals]
+
+
+@router.post("/plans/{plan_id}/decision", responses={409: {"description": "Not waiting"}})
+async def decide_on_plan(
+    request: Request, plan_id: int, body: PlanDecision, email: Editor
+) -> dict[str, str]:
+    """Approving adds the plan's sources and makes the topic active."""
+    engine = request.app.state.engine
+    try:
+        async with planner(request.app.state.settings, engine) as graph:
+            await decide_plan(engine, graph, plan_id, body.decision, body.comment, by=email)
+    except NotProposedError as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from error
+    return {"status": "approved" if body.decision == "approve" else "rejected"}
+
+
+class WaitingSuggestion(BaseModel):
+    id: int
+    name: str
+    note: str
+    created_at: datetime
+
+
+class SuggestionDecision(BaseModel):
+    decision: Literal["accept", "decline"]
+    # Shown to the reader when declining.
+    reason: str = Field(default="", max_length=300)
+
+
+@router.get("/suggestions")
+async def waiting_suggestions(request: Request) -> list[WaitingSuggestion]:
+    """Readers' topic suggestions waiting for a decision; who suggested them is not shown."""
+    found = await suggestions_db.waiting(request.app.state.engine)
+    return [WaitingSuggestion(**vars(s)) for s in found]
+
+
+@router.post(
+    "/suggestions/{suggestion_id}/decision", responses={409: {"description": "Not waiting"}}
+)
+async def decide_on_suggestion(
+    request: Request, suggestion_id: int, body: SuggestionDecision, email: Editor
+) -> dict[str, str]:
+    """Accepting makes a draft topic and queues the Topic Planner; its plan then waits here."""
+    engine = request.app.state.engine
+    try:
+        if body.decision == "accept":
+            slug = await accept_suggestion(
+                engine, suggestion_id, email, request.app.state.plan_queue
+            )
+            return {"status": "accepted", "topic": slug}
+        await decline_suggestion(engine, suggestion_id, body.reason, email)
+    except suggestions_db.NotOpenError as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from error
+    return {"status": "declined"}

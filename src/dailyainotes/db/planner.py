@@ -31,6 +31,7 @@ class Proposal:
     profile: dict[str, Any]
     thread_id: str
     created_at: datetime
+    name: str
 
 
 async def topic(engine: AsyncEngine, slug: str) -> TopicRecord | None:
@@ -91,6 +92,7 @@ async def proposals(engine: AsyncEngine, *, status: str | None = None) -> list[P
             TopicProfile.profile,
             TopicProfile.thread_id,
             TopicProfile.created_at,
+            Topic.name,
         )
         .join(Topic, Topic.id == TopicProfile.topic_id)
         .order_by(TopicProfile.id)
@@ -99,6 +101,10 @@ async def proposals(engine: AsyncEngine, *, status: str | None = None) -> list[P
         statement = statement.where(TopicProfile.status == status)
     async with engine.connect() as connection:
         return [Proposal(*row) for row in await connection.execute(statement)]
+
+
+async def proposal(engine: AsyncEngine, proposal_id: int) -> Proposal | None:
+    return next((p for p in await proposals(engine) if p.id == proposal_id), None)
 
 
 async def approve(engine: AsyncEngine, proposal_id: int, comment: str, by: str) -> None:

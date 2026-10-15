@@ -376,7 +376,7 @@ The v2 screens are current; phase 1 builds them without the parts that need an a
 | Ask your notes | 06 phone (dark), 06d desktop | Built; "Follow" adds the topic to the browser's list |
 | Sign in, Account, Privacy | Not on the canvas | Built from these components (ADR 0003): a page header on graph paper, labeled sections, buttons and forms |
 
-The page "Later screens · v1, to revise" (Topic timeline, Archive, How it works, Admin review queue) is layout reference only until the owner revises it. Phase 1 builds a topic timeline and a How it works page in the v2 style, and the minimal /admin approval page from the same components.
+The page "Later screens · v1, to revise" (Topic timeline, Archive, How it works, Admin review queue) is layout reference only until the owner revises it. Phase 1 builds a topic timeline and a How it works page in the v2 style, and the /admin pages (notes, topic plans, topic suggestions, under one sub-navigation) from the same components.
 
 ## Do's and Don'ts
 

@@ -1,0 +1,16 @@
+---
+import { SIGN_OUT } from "../lib/admin";
+
+// The editor's pages, all behind Cloudflare Access (ADR 0003).
+const links = [
+  ["/admin", "Notes"],
+  ["/admin/plans", "Topic plans"],
+  ["/admin/suggestions", "Suggestions"],
+];
+const path = Astro.url.pathname.replace(/\/$/, "");
+---
+
+<nav class="subnav" aria-label="Admin">
+  {links.map(([href, label]) => <a href={href} aria-current={path === href ? "page" : undefined}>{label}</a>)}
+  <a class="subnav-end" href={SIGN_OUT}>Sign out</a>
+</nav>

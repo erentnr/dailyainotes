@@ -463,3 +463,21 @@ class ReaderTopic(Base):
     )
     # The topic's color slot, kept when another topic is removed (DESIGN.md, Colors).
     slot: Mapped[int] = mapped_column(Integer)
+
+
+class TopicSuggestion(Base):
+    __tablename__ = "topic_suggestions"
+    __table_args__ = (CheckConstraint("status IN ('open', 'accepted', 'declined')", name="status"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    reader_id: Mapped[int] = mapped_column(ForeignKey("readers.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    note: Mapped[str] = mapped_column(Text, server_default="")
+    status: Mapped[str] = mapped_column(String(16), server_default="open")
+    # Shown to the reader when the editor declines.
+    reason: Mapped[str] = mapped_column(Text, server_default="")
+    # The draft topic made when the editor accepted it.
+    topic_id: Mapped[int | None] = mapped_column(ForeignKey("topics.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decided_by: Mapped[str] = mapped_column(Text, server_default="")

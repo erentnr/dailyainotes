@@ -1,10 +1,9 @@
-"""The worker: Procrastinate, on the same Postgres, runs every active topic's edition at
-01:30 UTC, the eval set with its judge at 04:30, purges the Ask log at 00:15 and expired
-sign-in codes and sessions at 00:20.
+"""The worker runs the queue (`queue.py`): every active topic's edition at 01:30 UTC, the eval
+set with its judge at 04:30, the Ask-log purge at 00:15 and expired sign-in codes and sessions
+at 00:20, and the Topic Planner whenever the editor accepts a topic suggestion.
 
 Start it with `dan-worker`, not `python -m`, which would build a second app in `__main__` that
-the worker cannot find its tasks in. Its tables live in the `procrastinate` schema (migration
-0005), outside what the drift test compares; the worker creates them on its first start.
+the worker cannot find its tasks in.
 """
 
 import asyncio
@@ -15,24 +14,15 @@ import structlog
 
 from dailyainotes.accounts import purge_expired
 from dailyainotes.ask import purge
-from dailyainotes.db.checkpoints import libpq_url
 from dailyainotes.db.engine import create_engine
 from dailyainotes.evals import run_eval
+from dailyainotes.graphs import planning
 from dailyainotes.graphs.edition import run_editions
 from dailyainotes.logging import configure_logging
+from dailyainotes.queue import app
 from dailyainotes.settings import get_settings
 
 log = structlog.get_logger(__name__)
-
-
-def connector(database_url: str) -> procrastinate.PsycopgConnector:
-    return procrastinate.PsycopgConnector(
-        conninfo=libpq_url(database_url), kwargs={"options": "-c search_path=procrastinate"}
-    )
-
-
-# Connects only when opened; tests swap the database with `app.replace_connector`.
-app = procrastinate.App(connector=connector(get_settings().database_url))
 
 
 @app.periodic(cron="30 1 * * *")
@@ -69,6 +59,20 @@ async def purge_sign_ins(timestamp: int) -> None:
     engine = create_engine(get_settings().database_url)
     try:
         await purge_expired(engine, datetime.now(UTC))
+    finally:
+        await engine.dispose()
+
+
+# Queued by /admin when the editor accepts a suggestion (queue.PLAN_TOPIC names it). A retry is
+# safe: a failed plan saved no proposal.
+@app.task(retry=procrastinate.RetryStrategy(max_attempts=2, wait=600))
+async def plan_topic(slug: str) -> None:
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    try:
+        async with planning.planner(settings, engine) as graph:
+            proposal = await planning.plan_topic(engine, graph, slug)
+        log.info("topic_planned", topic=slug, proposal=proposal.id)
     finally:
         await engine.dispose()
 

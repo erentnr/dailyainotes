@@ -23,6 +23,7 @@ from dailyainotes.accounts import (
     SignedIn,
     SignInOffError,
     TooManyCodesError,
+    TooManySuggestionsError,
     WrongCodeError,
     delete_account,
     follow,
@@ -32,6 +33,8 @@ from dailyainotes.accounts import (
     sign_in_with_link,
     sign_out,
     signed_in,
+    suggest,
+    suggestions,
 )
 from dailyainotes.ask import hash_ip
 from dailyainotes.db.engine import AsyncEngine
@@ -138,9 +141,28 @@ class FollowedTopic(BaseModel):
     slot: int = Field(ge=1, le=MAX_TOPICS)
 
 
+class Suggestion(BaseModel):
+    id: int
+    name: str
+    note: str
+    # open, accepted or declined; once accepted, the topic is live when its status is active.
+    status: str
+    reason: str
+    created_at: datetime
+    topic_slug: str | None
+    topic_status: str | None
+
+
 class Me(BaseModel):
     email: str
     topics: list[FollowedTopic]
+    suggestions: list[Suggestion]
+
+
+class NewSuggestion(BaseModel):
+    name: str = Field(min_length=3, max_length=80)
+    # What the topic should follow, in a line.
+    note: str = Field(default="", max_length=300)
 
 
 class Topics(BaseModel):
@@ -149,7 +171,13 @@ class Topics(BaseModel):
 
 async def me_for(deps: AccountDeps, found: SignedIn) -> Me:
     topics = await followed(deps.engine, found.reader_id)
-    return Me(email=found.email, topics=[FollowedTopic(slug=t.slug, slot=t.slot) for t in topics])
+    return Me(
+        email=found.email,
+        topics=[FollowedTopic(slug=t.slug, slot=t.slot) for t in topics],
+        suggestions=[
+            Suggestion(**vars(s)) for s in await suggestions(deps.engine, found.reader_id)
+        ],
+    )
 
 
 def refuse(error: Exception, code: int) -> HTTPException:
@@ -253,6 +281,20 @@ async def set_topics(body: Topics, deps: Deps, found: Reader) -> Me:
     try:
         await follow(deps.engine, found.reader_id, [Followed(t.slug, t.slot) for t in body.topics])
     except InvalidTopicsError as error:
+        raise refuse(error, status.HTTP_400_BAD_REQUEST) from error
+    return await me_for(deps, found)
+
+
+@router.post(
+    "/me/suggestions",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[SameOrigin],
+    responses={400: {"description": "Too many waiting"}, 401: {}},
+)
+async def suggest_topic(body: NewSuggestion, deps: Deps, found: Reader) -> Me:
+    try:
+        await suggest(deps.engine, found.reader_id, body.name, body.note)
+    except TooManySuggestionsError as error:
         raise refuse(error, status.HTTP_400_BAD_REQUEST) from error
     return await me_for(deps, found)
 

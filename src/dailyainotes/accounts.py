@@ -1,10 +1,11 @@
 """Reader accounts (ADR 0003): sign-in with a code or link sent by email, sessions, the topics a
-reader follows, and deleting an account. Reading and Ask never need one.
+reader follows, topic suggestions, and deleting an account. Reading and Ask never need one.
 
 Codes and session tokens are stored only as digests. Sign-in emails are limited per address,
 per IP and per day, below what Resend's free plan sends."""
 
 import hmac
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Protocol
@@ -12,11 +13,13 @@ from typing import Protocol
 import structlog
 
 from dailyainotes.db import accounts as db
+from dailyainotes.db import suggestions as suggestions_db
 from dailyainotes.db.asks import count_request
 from dailyainotes.db.engine import AsyncEngine
 from dailyainotes.domain.accounts import (
     CODE_LIFETIME,
     MAX_CODE_ATTEMPTS,
+    MAX_OPEN_SUGGESTIONS,
     MAX_TOPICS,
     SESSION_LIFETIME,
     SESSION_RENEWAL,
@@ -67,6 +70,10 @@ class CodeUsedUpError(SignInError):
 
 
 class InvalidTopicsError(SignInError):
+    pass
+
+
+class TooManySuggestionsError(SignInError):
     pass
 
 
@@ -228,3 +235,36 @@ async def delete_account(engine: AsyncEngine, reader_id: int) -> None:
 
 async def purge_expired(engine: AsyncEngine, now: datetime) -> None:
     await db.purge_expired(engine, now)
+
+
+async def suggest(engine: AsyncEngine, reader_id: int, name: str, note: str) -> None:
+    """A topic suggestion for the editor; a reader has a few waiting at most."""
+    if await suggestions_db.open_count(engine, reader_id) >= MAX_OPEN_SUGGESTIONS:
+        raise TooManySuggestionsError(
+            f"You have {MAX_OPEN_SUGGESTIONS} suggestions waiting for the editor. Suggest another "
+            "once one is answered."
+        )
+    await suggestions_db.add(engine, reader_id, " ".join(name.split()), note.strip())
+    log.info("topic_suggested", reader_id=reader_id)
+
+
+async def suggestions(engine: AsyncEngine, reader_id: int) -> list[suggestions_db.ReaderSuggestion]:
+    return await suggestions_db.for_reader(engine, reader_id)
+
+
+async def accept_suggestion(
+    engine: AsyncEngine,
+    suggestion_id: int,
+    by: str,
+    queue_plan: Callable[[str], Awaitable[None]],
+) -> str:
+    """The editor accepts: a draft topic is made, and the worker runs the Topic Planner on it.
+    The new topic's slug."""
+    slug = await suggestions_db.accept(engine, suggestion_id, by)
+    await queue_plan(slug)
+    log.info("suggestion_accepted", suggestion=suggestion_id, topic=slug)
+    return slug
+
+
+async def decline_suggestion(engine: AsyncEngine, suggestion_id: int, reason: str, by: str) -> None:
+    await suggestions_db.decline(engine, suggestion_id, reason.strip(), by)

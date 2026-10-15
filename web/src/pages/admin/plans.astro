@@ -1,0 +1,14 @@
+---
+import AdminNav from "../../components/AdminNav.astro";
+import AdminPlans from "../../islands/AdminPlans";
+import Base from "../../layouts/Base.astro";
+---
+
+<Base title="Topic plans">
+  <header class="page-head">
+    <div class="label">Admin</div>
+    <h1 class="h1">Topic plans waiting for review</h1>
+  </header>
+  <AdminNav />
+  <AdminPlans client:only="react" />
+</Base>
