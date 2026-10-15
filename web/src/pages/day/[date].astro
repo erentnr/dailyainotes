@@ -1,0 +1,14 @@
+---
+import DailyFeed from "../../islands/DailyFeed";
+import Base from "../../layouts/Base.astro";
+import { formatDay } from "../../lib/format";
+
+const date = Astro.params.date ?? "";
+// A real calendar day, written the way the API takes it.
+const valid = /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(`${date}T00:00:00Z`));
+if (!valid) return Astro.rewrite("/404");
+---
+
+<Base title={formatDay(date)}>
+  <DailyFeed client:load date={date} />
+</Base>

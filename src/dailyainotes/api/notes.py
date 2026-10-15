@@ -39,6 +39,8 @@ class NoteCard(BaseModel):
     supported: int
     weak: int
     unsupported: int
+    # Reports Scout merged into the story ("9 reports → 1").
+    reports: int
 
 
 class Day(BaseModel):
@@ -59,7 +61,6 @@ class Citation(BaseModel):
 class NoteDetail(NoteCard):
     body: str
     why_it_matters: str
-    reports: int
     independent_publishers: int
     citations: list[Citation]
 
@@ -100,6 +101,7 @@ def card(note: db.PublishedNote) -> NoteCard:
         supported=note.supported,
         weak=note.weak,
         unsupported=note.unsupported,
+        reports=note.reports,
     )
 
 
@@ -131,7 +133,6 @@ async def note(request: Request, slug: str) -> NoteDetail:
         **card(published).model_dump(),
         body=published.body,
         why_it_matters=published.why_it_matters,
-        reports=published.reports,
         independent_publishers=published.independent_publishers,
         citations=[Citation(**vars(c)) for c in citations],
     )

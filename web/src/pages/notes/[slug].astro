@@ -26,7 +26,7 @@ if (!note) {
         <div class="chips" style="margin-top: var(--space-4); align-items: center">
           <Publishers names={note.publishers} />
           <span class="meta">{plural(note.sources, "source")}</span>
-          <VerdictBadge {...note} />
+          <VerdictBadge counts={note} />
         </div>
       </header>
       <NoteText client:visible note={note} />

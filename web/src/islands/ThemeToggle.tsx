@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 
-import { Moon, Sun } from "../components/ui/Icons";
+import { Contrast } from "../components/ui/Icons";
 
-/** Light · Paper or Dark · Carbon; the choice is kept in the browser. */
-export default function ThemeToggle() {
+/** Light or dark; the choice is kept in the browser and otherwise follows the system. */
+export default function ThemeToggle({ className = "icon-button" }: { className?: string }) {
   const [dark, setDark] = useState(false);
   useEffect(() => setDark(document.documentElement.classList.contains("dark")), []);
   const toggle = () => {
@@ -15,11 +15,11 @@ export default function ThemeToggle() {
   return (
     <button
       type="button"
-      className="icon-button"
+      className={className}
       onClick={toggle}
       aria-label={dark ? "Use the light theme" : "Use the dark theme"}
     >
-      {dark ? <Sun /> : <Moon />}
+      <Contrast />
     </button>
   );
 }

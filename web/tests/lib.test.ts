@@ -126,5 +126,6 @@ describe("format", () => {
   it("counts in words", () => {
     expect(plural(1, "source")).toBe("1 source");
     expect(plural(4, "source")).toBe("4 sources");
+    expect(plural(5, "story", "stories")).toBe("5 stories");
   });
 });

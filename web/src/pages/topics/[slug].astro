@@ -42,7 +42,7 @@ for (const note of data.notes) {
                   <a href={`/notes/${note.slug}`}>{note.title}</a>
                   <span class="chips" style="margin-top: var(--space-2); align-items: center">
                     <span class="meta">{plural(note.sources, "source")}</span>
-                    <VerdictBadge {...note} />
+                    <VerdictBadge counts={note} />
                   </span>
                 </span>
               </li>

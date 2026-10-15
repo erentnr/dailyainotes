@@ -368,8 +368,9 @@ A 4 px base. Phone first: cards sit 12 px from the screen edge, text blocks 20 p
 
 | Width | Layout |
 |---|---|
-| Under 960 px | One column; the lead note full width with a 200 px cover, the rest as list cards with an 88 px cover tile; a floating tab bar (Today, Topics, Ask, You) |
-| 960 px and up | Top pill navigation; the lead note becomes a split card (cover left, text right); the rest a grid of `minmax(300px, 1fr)` cards; note pages get a 340 px right rail |
+| Under 760 px | One column; the lead note full width with a 200 px cover, the rest as list cards with an 88 px cover tile; a floating tab bar (Today, Topics, Ask, You) |
+| 760 px and up | Top pill navigation; the other notes in a grid of `minmax(300px, 1fr)` cards with a 160 px cover |
+| 960 px and up | The lead note becomes a split card (cover left, text right); note pages get a 340 px right rail |
 
 Content is at most 1240 px wide; a note's text at most 660 px. Nothing scrolls sideways at 360 px except chip rows, which hide their scrollbars.
 
@@ -391,7 +392,7 @@ The reader's chat question has one sharp corner: 20 px on three corners and 6 px
 
 ## Components
 
-- **Note cards.** *Lead:* cover on top (200 px), then the topic tag and "N reports → 1" in `meta`, the title in `lead`, a two-line summary, and a footer with publisher initials, the source count and the verdict badge. On desktop the cover sits left and the text right. *List (phone):* an 88 px cover tile beside the tag, title and two-line summary; the footer spans the card. *Grid (desktop):* a 160 px cover on top, the footer pinned to the bottom.
+- **Note cards.** The day's biggest story (the most merged reports) leads. *Lead:* cover on top (200 px), then the topic tag and "N reports → 1" in `meta`, the title in `lead`, a two-line summary, and a footer with publisher initials, the source count and the verdict badge. On desktop the cover sits left and the text right. *List (phone):* an 88 px cover tile beside the tag, title and two-line summary; the footer spans the card. *Grid (desktop):* a 160 px cover on top, the footer pinned to the bottom.
 - **Topic tag:** an 8 px slot dot and the name in `tag`.
 - **Topic chips and tabs:** 40 px pills on `card` with a 26 to 28 px cover circle, the name and an optional mono count. Selected: ink fill, card-colored text. "For you" and "All topics" have no circle.
 - **Publishers:** 22 px circles overlapping by 6 px, ringed in `card`, each the publisher's initial in mono on ink. No favicons are fetched: that would send each visit to other sites.

@@ -74,7 +74,7 @@ export default function AdminQueue() {
               ))}
             </ol>
             <div className="label">
-              Claims <VerdictBadge claims={r.claims.length} supported={supported} unsupported={unsupported} />
+              Claims <VerdictBadge counts={{ claims: r.claims.length, supported, unsupported }} />
             </div>
             <table className="table small">
               <tbody>

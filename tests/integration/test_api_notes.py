@@ -73,6 +73,8 @@ async def test_the_daily_page_shows_the_latest_day_with_notes_on_the_picked_topi
     (note,) = climate["notes"]
     assert note["title"] == "Verdant Fuels opens a solar-powered hydrogen plant in Port Ellis"
     assert "[1]" not in note["summary"]
+    # The corpus's stories merge no reports of their own; a card says how many it merged.
+    assert note["reports"] == 0
     assert either["date"] == "2026-10-01"
     assert [n["topic"] for n in chosen_day["notes"]] == ["astronomy-and-spaceflight"]
 

@@ -1,9 +1,9 @@
-/** A topic's color square beside its name; never the color alone (DESIGN.md, Colors). */
+/** A topic's slot dot beside its name; never the color alone (DESIGN.md, Colors). */
 export function TopicTag({ name, slot }: { name: string; slot?: number | undefined }) {
   return (
     <span className="tag">
       <span
-        className="tag-square"
+        className="dot"
         style={{ background: slot ? `var(--s${slot})` : "var(--line2)" }}
         aria-hidden="true"
       />

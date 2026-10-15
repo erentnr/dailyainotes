@@ -1,12 +1,12 @@
-/** A notebook square with three ruled lines and an ink-blue margin line (DESIGN.md). */
+/** An ink square with three ruled lines, beside the name (DESIGN.md, Iconography). */
 export function Logo() {
   return (
     <a className="logo" href="/">
-      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-        <rect x="1" y="1" width="20" height="20" rx="3" stroke="var(--ink)" strokeWidth="1.5" />
-        <path d="M6 1v20" stroke="var(--acc)" strokeWidth="1.5" />
-        <path d="M9 7h8M9 11h8M9 15h6" stroke="var(--ink)" strokeWidth="1.2" />
-      </svg>
+      <span className="logo-mark" aria-hidden="true">
+        <svg width="12" height="12" viewBox="0 0 12 12">
+          <path d="M2 3h8M2 6h8M2 9h5" stroke="var(--card)" strokeWidth="1.6" />
+        </svg>
+      </span>
       Daily AI Notes
     </a>
   );

@@ -1,6 +1,7 @@
 ---
 import { Font } from "astro:assets";
 
+import { AskIcon, TodayIcon, TopicsIcon, YouIcon } from "../components/ui/Icons";
 import { Logo } from "../components/ui/Logo";
 import ThemeToggle from "../islands/ThemeToggle";
 import "../styles/global.css";
@@ -8,20 +9,32 @@ import "../styles/global.css";
 interface Props {
   title: string;
   description?: string;
+  /** The note page draws its own top on a phone: the cover, with buttons over it. */
+  coverTop?: boolean;
 }
 
-const { title, description = "AI takes notes on what's happening, every day, on the things you care about." } =
-  Astro.props;
+const {
+  title,
+  description = "AI takes notes on what's happening, every day, on the things you care about.",
+  coverTop = false,
+} = Astro.props;
 const path = Astro.url.pathname;
+const reader = Astro.locals.reader;
+const you = reader ? "/account" : "/sign-in";
 const nav = [
   ["/", "Today"],
   ["/topics", "Topics"],
   ["/ask", "Ask"],
   ["/how-it-works", "How it works"],
-];
+] as const;
 const current = (href: string) =>
-  (href === "/" ? path === "/" : path.startsWith(href)) ? "page" : undefined;
-const reader = Astro.locals.reader;
+  (href === "/" ? path === "/" || path.startsWith("/day/") : path.startsWith(href)) ? "page" : undefined;
+const tabs = [
+  ["/", "Today", TodayIcon],
+  ["/topics", "Topics", TopicsIcon],
+  ["/ask", "Ask", AskIcon],
+  [you, "You", YouIcon],
+] as const;
 ---
 
 <!doctype html>
@@ -49,34 +62,39 @@ const reader = Astro.locals.reader;
       )
     }
   </head>
-  <body>
+  <body class:list={{ "cover-top": coverTop }}>
     <header class="site-header">
-      <div class="inner">
-        <Logo />
-        <nav class="top-nav" aria-label="Main">
-          {nav.map(([href, label]) => <a href={href} aria-current={current(href!)}>{label}</a>)}
-        </nav>
-        <div class="header-end">
-          {
-            reader ? (
-              <a class="account-link" href="/account" aria-current={current("/account")}>
-                Account
-              </a>
-            ) : (
-              <a class="account-link" href="/sign-in" aria-current={current("/sign-in")}>
-                Sign in
-              </a>
-            )
-          }
-          <ThemeToggle client:load />
-        </div>
+      <Logo />
+      <nav class="pill-nav" aria-label="Main">
+        {nav.map(([href, label]) => <a href={href} aria-current={current(href)}>{label}</a>)}
+      </nav>
+      <div class="header-end">
+        <ThemeToggle client:load />
+        {
+          reader ? (
+            <a class="avatar" href="/account" aria-label="Your account" aria-current={current("/account")}>
+              {reader.email.slice(0, 1).toUpperCase()}
+            </a>
+          ) : (
+            <a class="sign-in-link" href="/sign-in" aria-current={current("/sign-in")}>
+              Sign in
+            </a>
+          )
+        }
       </div>
     </header>
     <main class="page">
       <slot />
     </main>
     <nav class="tab-bar" aria-label="Main">
-      {nav.slice(0, 3).map(([href, label]) => <a href={href} aria-current={current(href!)}>{label}</a>)}
+      {
+        tabs.map(([href, label, Icon]) => (
+          <a href={href} aria-current={current(href)}>
+            <Icon />
+            {label}
+          </a>
+        ))
+      }
     </nav>
   </body>
 </html>

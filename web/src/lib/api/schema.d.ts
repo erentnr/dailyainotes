@@ -549,6 +549,8 @@ export interface components {
             weak: number;
             /** Unsupported */
             unsupported: number;
+            /** Reports */
+            reports: number;
         };
         /** NoteDetail */
         NoteDetail: {
@@ -584,12 +586,12 @@ export interface components {
             weak: number;
             /** Unsupported */
             unsupported: number;
+            /** Reports */
+            reports: number;
             /** Body */
             body: string;
             /** Why It Matters */
             why_it_matters: string;
-            /** Reports */
-            reports: number;
             /** Independent Publishers */
             independent_publishers: number;
             /** Citations */
