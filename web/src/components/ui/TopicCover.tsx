@@ -53,7 +53,11 @@ export function TopicCover({
   const id = `cover${useId().replace(/[^\w-]/g, "")}`;
   if (variant === "circle") {
     return (
-      <span className="cover-circle" style={{ background: coverColor(motif, slot) }} aria-hidden="true" />
+      <span
+        className={motif === "space" ? "cover-circle cover-circle-night" : "cover-circle"}
+        style={{ background: coverColor(motif, slot) }}
+        aria-hidden="true"
+      />
     );
   }
   const { dx, dy } = nudge(seed);

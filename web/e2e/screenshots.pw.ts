@@ -74,6 +74,13 @@ test("topics", async ({ page }, info) => {
   await shoot(page, "topics", info.project.name);
 });
 
+test("topics with a search that finds nothing", async ({ page }, info) => {
+  await page.goto("/topics");
+  await hydrated(page);
+  await page.getByLabel("Search topics").fill("electric ferries");
+  await shoot(page, "topics-no-match", info.project.name);
+});
+
 test("ask", async ({ page }, info) => {
   await follow(page, FOLLOWED);
   await page.goto("/ask");

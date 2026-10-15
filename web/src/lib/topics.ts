@@ -68,3 +68,29 @@ export function samePicked(a: Picked[], b: Picked[]): boolean {
 export function savePicked(picked: Picked[], storage: Pick<Storage, "setItem"> = localStorage) {
   storage.setItem(KEY, JSON.stringify(picked));
 }
+
+/** The topic picker's groups, by category; topics without one come last. */
+export const GROUPS: { name: string; categories: (Category | null)[] }[] = [
+  { name: "Sport", categories: ["motorsport", "sport"] },
+  { name: "Science & space", categories: ["science"] },
+  { name: "Climate & energy", categories: ["climate"] },
+  { name: "Business", categories: ["business"] },
+  { name: "Technology", categories: ["technology"] },
+  { name: "Culture", categories: ["culture"] },
+  { name: "More topics", categories: [null] },
+];
+
+/** A page works best with 3 to 7 topics: enough for a day to have something, few enough to
+ * read. With fewer than 3 in the catalog, all of them will do. */
+export const MOST_PICKS = 7;
+
+export function pickStatus(count: number, available: number) {
+  const least = Math.min(3, available);
+  if (count > MOST_PICKS) {
+    return { ready: false, tone: "over", text: `${count} picked · remove ${count - MOST_PICKS}` } as const;
+  }
+  if (count < least) {
+    return { ready: false, tone: "short", text: `${count} picked · ${least - count} more to go` } as const;
+  }
+  return { ready: true, tone: "ok", text: `${count} picked · good to go` } as const;
+}

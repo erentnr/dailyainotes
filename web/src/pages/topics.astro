@@ -4,25 +4,30 @@ import TopicPicker from "../islands/TopicPicker";
 import Base from "../layouts/Base.astro";
 import { serverApi } from "../lib/api/server";
 
-const { data: topics } = await serverApi().GET("/api/v1/topics");
+const api = serverApi();
+const [{ data: topics }, { data: options }] = await Promise.all([
+  api.GET("/api/v1/topics"),
+  api.GET("/api/v1/auth/options"),
+]);
+const signedIn = Astro.locals.reader !== null;
 ---
 
-<Base title="Your topics">
-  <header class="page-head">
-    <div class="label">Topics</div>
-    <h1 class="h1">What should we take notes on?</h1>
-  </header>
-  {topics ? <TopicPicker client:load topics={topics} signedIn={Astro.locals.reader !== null} /> : <ErrorState>The catalog could not be loaded.</ErrorState>}
-  <p class="muted measure section">
-    Missing a topic?{" "}
-    <a href={Astro.locals.reader ? "/account#suggest" : "/sign-in?next=/account%23suggest"}>Suggest one</a>.
-  </p>
-  {topics && (
-    <section class="section">
-      <div class="label">Every note on a topic</div>
-      <ul class="chips" style="list-style: none; padding: 0">
-        {topics.map((t) => <li><a class="topic-chip" href={`/topics/${t.slug}`}>{t.name}</a></li>)}
-      </ul>
-    </section>
-  )}
+<Base title="Your topics" tabBar={false}>
+  {
+    topics ? (
+      <TopicPicker client:load topics={topics} signedIn={signedIn} twoSteps={!signedIn && Boolean(options?.sign_in)} />
+    ) : (
+      <ErrorState>The catalog could not be loaded.</ErrorState>
+    )
+  }
+  {
+    topics && (
+      <section class="section timelines" aria-labelledby="timelines-title">
+        <h2 class="section-title" id="timelines-title">Every note on a topic</h2>
+        <div class="chips">
+          {topics.map((t) => <a class="chip" href={`/topics/${t.slug}`}>{t.name}</a>)}
+        </div>
+      </section>
+    )
+  }
 </Base>

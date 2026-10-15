@@ -11,12 +11,15 @@ interface Props {
   description?: string;
   /** The note page draws its own top on a phone: the cover, with buttons over it. */
   coverTop?: boolean;
+  /** The topic picker has its own bar at the bottom of a phone instead of the tab bar. */
+  tabBar?: boolean;
 }
 
 const {
   title,
   description = "AI takes notes on what's happening, every day, on the things you care about.",
   coverTop = false,
+  tabBar = true,
 } = Astro.props;
 const path = Astro.url.pathname;
 const reader = Astro.locals.reader;
@@ -62,7 +65,7 @@ const tabs = [
       )
     }
   </head>
-  <body class:list={{ "cover-top": coverTop }}>
+  <body class:list={{ "cover-top": coverTop, "own-bottom-bar": !tabBar }}>
     <header class="site-header">
       <Logo />
       <nav class="pill-nav" aria-label="Main">
@@ -86,15 +89,17 @@ const tabs = [
     <main class="page">
       <slot />
     </main>
-    <nav class="tab-bar" aria-label="Main">
-      {
-        tabs.map(([href, label, Icon]) => (
-          <a href={href} aria-current={current(href)}>
-            <Icon />
-            {label}
-          </a>
-        ))
-      }
-    </nav>
+    {
+      tabBar && (
+        <nav class="tab-bar" aria-label="Main">
+          {tabs.map(([href, label, Icon]) => (
+            <a href={href} aria-current={current(href)}>
+              <Icon />
+              {label}
+            </a>
+          ))}
+        </nav>
+      )
+    }
   </body>
 </html>

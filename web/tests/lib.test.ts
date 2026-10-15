@@ -5,12 +5,14 @@ import { parseEvents } from "../src/lib/sse";
 import { safeNext } from "../src/lib/account";
 import {
   addTopic,
+  GROUPS,
   homeSlot,
   loadPicked,
   mergePicked,
   type Picked,
   removeTopic,
   SLOTS,
+  pickStatus,
   samePicked,
   slotFor,
 } from "../src/lib/topics";
@@ -83,6 +85,29 @@ describe("topics", () => {
   it("reads nothing from broken storage", () => {
     expect(loadPicked({ getItem: () => "{not json" })).toEqual([]);
     expect(loadPicked({ getItem: () => '[{"slug": 1}]' })).toEqual([]);
+  });
+});
+
+describe("the topic picker", () => {
+  it("lets a reader continue with 3 to 7 topics, and says what is missing", () => {
+    expect(pickStatus(0, 12)).toEqual({ ready: false, tone: "short", text: "0 picked · 3 more to go" });
+    expect(pickStatus(2, 12).ready).toBe(false);
+    expect(pickStatus(3, 12)).toEqual({ ready: true, tone: "ok", text: "3 picked · good to go" });
+    expect(pickStatus(7, 12).ready).toBe(true);
+    expect(pickStatus(8, 12)).toEqual({ ready: false, tone: "over", text: "8 picked · remove 1" });
+  });
+
+  it("asks for fewer when the catalog has fewer than 3 topics", () => {
+    expect(pickStatus(2, 2).ready).toBe(true);
+    expect(pickStatus(1, 2).text).toBe("1 picked · 1 more to go");
+  });
+
+  it("puts every category in exactly one group, and topics without one last", () => {
+    const categories = GROUPS.flatMap((g) => g.categories);
+
+    expect(new Set(categories).size).toBe(categories.length);
+    expect(categories).toHaveLength(8);
+    expect(GROUPS.at(-1)?.categories).toEqual([null]);
   });
 });
 
