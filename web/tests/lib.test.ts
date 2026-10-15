@@ -3,24 +3,54 @@ import { describe, expect, it } from "vitest";
 import { formatDay, plural, verdictOf } from "../src/lib/format";
 import { parseEvents } from "../src/lib/sse";
 import { safeNext } from "../src/lib/account";
-import { addTopic, loadPicked, mergePicked, removeTopic, SLOTS, samePicked } from "../src/lib/topics";
+import {
+  addTopic,
+  homeSlot,
+  loadPicked,
+  mergePicked,
+  type Picked,
+  removeTopic,
+  SLOTS,
+  samePicked,
+  slotFor,
+} from "../src/lib/topics";
 
 describe("topics", () => {
-  it("gives each topic the first free slot and keeps slots when one is removed", () => {
-    let picked = ["f1", "tennis", "astronomy"].reduce(addTopic, []);
-    picked = removeTopic(picked, "tennis");
-    picked = addTopic(picked, "film");
+  it("gives a topic its home slot when free, else the next free one, and keeps slots", () => {
+    let picked = addTopic([], "f1", homeSlot("motorsport"));
+    picked = addTopic(picked, "ai-models", homeSlot("technology"));
+    picked = addTopic(picked, "security", homeSlot("technology"));
+    picked = removeTopic(picked, "ai-models");
+    picked = addTopic(picked, "suggested", homeSlot(null));
 
     expect(picked).toEqual([
       { slug: "f1", slot: 1 },
-      { slug: "astronomy", slot: 3 },
-      { slug: "film", slot: 2 },
+      { slug: "security", slot: 5 },
+      { slug: "suggested", slot: 7 },
     ]);
+  });
+
+  it("wraps around to the first free slot after the last one", () => {
+    let picked = addTopic([], "film", homeSlot("culture"));
+    picked = addTopic(picked, "games", homeSlot("culture"));
+
+    expect(picked).toEqual([
+      { slug: "film", slot: 8 },
+      { slug: "games", slot: 1 },
+    ]);
+  });
+
+  it("shows a topic not followed in the slot it would take", () => {
+    const picked = [{ slug: "f1", slot: 1 }];
+
+    expect(slotFor(picked, "f1", "motorsport")).toBe(1);
+    expect(slotFor(picked, "motogp", "motorsport")).toBe(2);
+    expect(slotFor(picked, "climate", "climate")).toBe(2);
   });
 
   it("allows eight topics and ignores a repeat", () => {
     const slugs = Array.from({ length: SLOTS + 1 }, (_, i) => `t${i}`);
-    const picked = [...slugs, "t0"].reduce(addTopic, []);
+    const picked = [...slugs, "t0"].reduce<Picked[]>((all, slug) => addTopic(all, slug), []);
 
     expect(picked).toHaveLength(SLOTS);
   });

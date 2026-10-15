@@ -852,3 +852,19 @@ textarea.input {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* Covers (DESIGN.md, Covers): the art fills its box; a circle stands in for it in chips. */
+
+.cover {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.cover-circle {
+  display: inline-block;
+  flex: none;
+  width: var(--circle, 26px);
+  height: var(--circle, 26px);
+  border-radius: 50%;
+}
