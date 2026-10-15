@@ -153,7 +153,7 @@ The editor signs in through Cloudflare Access ([ADR 0003](docs/adr/0003-sign-in-
 
 ### Reader sign-in
 
-Readers sign in with a code sent by email ([ADR 0003](docs/adr/0003-sign-in-and-reader-accounts.md)); sign-in stays off until `RESEND_API_KEY` is set. On Resend's free plan (3,000 emails a month, 100 a day), add the domain, put the DNS records it shows (SPF and DKIM) in Cloudflare, and add a DMARC record (`_dmarc`, `v=DMARC1; p=none;`). Create an API key with sending access only. `EMAIL_FROM` must use the verified domain. For the bot check, add a Turnstile widget for the domain in Cloudflare's dashboard and put its two keys in `.env`; without them the form has no bot check. Compose sets `SITE_URL` from `DOMAIN`.
+Readers sign in with a code sent by email ([ADR 0003](docs/adr/0003-sign-in-and-reader-accounts.md)); sign-in stays off until `RESEND_API_KEY` is set. On Resend's free plan (3,000 emails a month, 100 a day), add the domain and put the DNS records it shows in Cloudflare: an MX and an SPF record on its `send` subdomain, and a DKIM record at `resend._domainkey`. A domain set up to send no email (an SPF of `-all`, a blank DKIM record under `*._domainkey`, a DMARC of `p=reject`) can keep those records: the specific DKIM record wins over the blank one, and DMARC passes on Resend's DKIM signature. Without a DMARC record, add one (`_dmarc`, `v=DMARC1; p=none;`). Create an API key with sending access only. `EMAIL_FROM` must use the verified domain. For the bot check, add a Turnstile widget for the domain in Cloudflare's dashboard and put its two keys in `.env`; without them the form has no bot check. Compose sets `SITE_URL` from `DOMAIN`.
 
 ### GitHub settings
 
