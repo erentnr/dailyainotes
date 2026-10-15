@@ -1,29 +1,52 @@
-"""The minimal /admin page's API: the notes waiting for approval, and the decision on one.
-Every request carries `Authorization: Bearer <ADMIN_TOKEN>`."""
+"""The /admin page's API: the notes waiting for approval, and the decision on one. Cloudflare
+Access signs the editor in before a request gets here (ADR 0003)."""
 
-import hmac
 from datetime import date
 from typing import Annotated, Literal
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
+from dailyainotes.api.access import HEADER, AccessDeniedError, AccessVerifier
 from dailyainotes.api.deps import story_deps
 from dailyainotes.db import editorial as db
 from dailyainotes.graphs.edition import NotAwaitingApprovalError, decide_note
 from dailyainotes.graphs.story import StoryDeps
 
-
-def require_admin(request: Request) -> None:
-    token = request.app.state.settings.admin_token
-    if token is None:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Admin is off: no ADMIN_TOKEN.")
-    sent = request.headers.get("authorization", "").encode()
-    if not hmac.compare_digest(sent, f"Bearer {token.get_secret_value()}".encode()):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Wrong or missing admin token.")
+log = structlog.get_logger(__name__)
 
 
-router = APIRouter(dependencies=[Depends(require_admin)])
+async def editor(request: Request) -> str:
+    """The signed-in editor's email, from the token Cloudflare Access adds to the request."""
+    verifier: AccessVerifier | None = request.app.state.access
+    if verifier is None:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Admin is off: Cloudflare Access is not set up."
+        )
+    token = request.headers.get(HEADER)
+    if not token:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sign in through Cloudflare Access.")
+    try:
+        return await verifier.email(token)
+    except AccessDeniedError as error:
+        log.warning("access_token_refused", reason=str(error))
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "Sign in through Cloudflare Access."
+        ) from error
+
+
+Editor = Annotated[str, Depends(editor)]
+router = APIRouter(dependencies=[Depends(editor)])
+
+
+class Me(BaseModel):
+    email: str
+
+
+@router.get("/me")
+async def me(email: Editor) -> Me:
+    return Me(email=email)
 
 
 class Citation(BaseModel):
@@ -86,12 +109,12 @@ async def decide(
     request: Request,
     note_id: int,
     body: Decision,
+    email: Editor,
     deps: Annotated[StoryDeps, Depends(story_deps)],
 ) -> dict[str, str]:
+    database_url = request.app.state.settings.database_url
     try:
-        await decide_note(
-            deps, request.app.state.settings.database_url, note_id, body.decision, body.comment
-        )
+        await decide_note(deps, database_url, note_id, body.decision, body.comment, by=email)
     except NotAwaitingApprovalError as error:
         raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from error
     return {"status": "published" if body.decision == "approve" else "rejected"}

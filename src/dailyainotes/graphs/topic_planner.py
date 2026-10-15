@@ -62,6 +62,8 @@ class ProfileDraft(BaseModel):
 
 class Decision(TypedDict):
     decision: Literal["approve", "reject"]
+    # Who decided: the editor's email from /admin, or "dan review".
+    by: str
     comment: str
 
 
@@ -147,9 +149,9 @@ def build_planner(
     async def apply(state: PlannerState) -> PlannerState:
         decision = state["decision"]
         if decision["decision"] == "approve":
-            await db.approve(deps.engine, state["proposal_id"], decision["comment"])
+            await db.approve(deps.engine, state["proposal_id"], decision["comment"], decision["by"])
         else:
-            await db.reject(deps.engine, state["proposal_id"], decision["comment"])
+            await db.reject(deps.engine, state["proposal_id"], decision["comment"], decision["by"])
         return {}
 
     graph = StateGraph(PlannerState)

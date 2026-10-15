@@ -276,6 +276,24 @@
     }
    }
   },
+  "/api/v1/admin/me": {
+   "get": {
+    "summary": "Me",
+    "operationId": "me_api_v1_admin_me_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Me"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/admin/notes": {
    "get": {
     "summary": "Waiting",
@@ -521,6 +539,19 @@
      "database"
     ],
     "title": "Health"
+   },
+   "Me": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "title": "Email"
+     }
+    },
+    "type": "object",
+    "required": [
+     "email"
+    ],
+    "title": "Me"
    },
    "NoteCard": {
     "properties": {

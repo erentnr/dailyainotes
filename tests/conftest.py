@@ -9,14 +9,18 @@ import hashlib
 import math
 import re
 import socket
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import httpx2
+import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
 from langchain_core.embeddings import Embeddings
 
+from dailyainotes.api.access import AccessVerifier
 from dailyainotes.domain.embedding import EMBEDDING_DIMENSIONS
 from dailyainotes.sources.http import Http
 
@@ -78,6 +82,43 @@ def fixture() -> Callable[[str], bytes]:
 @pytest.fixture
 def web() -> Callable[[dict[str, Recording]], RecordedWeb]:
     return RecordedWeb
+
+
+class AccessKeys:
+    """Signs tokens the way Cloudflare Access does, with a key made for the test, and serves
+    its public half to the verifier in place of the team's certs URL."""
+
+    TEAM = "test.cloudflareaccess.com"
+    AUD = "test-application-aud"
+
+    def __init__(self) -> None:
+        self.private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        self.verifier = AccessVerifier(self.TEAM, self.AUD, self)
+
+    def get_signing_key_from_jwt(self, token: str) -> jwt.PyJWK:
+        public = jwt.algorithms.RSAAlgorithm.to_jwk(self.private.public_key(), as_dict=True)
+        return jwt.PyJWK({**public, "kid": "test", "alg": "RS256"})
+
+    def token(
+        self, email: str | None = "editor@example.com", *, key: Any = None, **claims: Any
+    ) -> str:
+        """A token as Access issues it; a claim set to None is left out."""
+        now = int(time.time())
+        payload = {
+            "aud": [self.AUD],
+            "iss": f"https://{self.TEAM}",
+            "iat": now,
+            "exp": now + 600,
+            "email": email,
+            **claims,
+        }
+        payload = {name: value for name, value in payload.items() if value is not None}
+        return jwt.encode(payload, key or self.private, algorithm="RS256", headers={"kid": "test"})
+
+
+@pytest.fixture(scope="session")
+def access() -> AccessKeys:
+    return AccessKeys()
 
 
 @pytest.fixture

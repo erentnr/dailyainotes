@@ -1,4 +1,4 @@
-import { type SubmitEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ErrorState } from "../components/ui/States";
 import { VerdictBadge } from "../components/ui/VerdictBadge";
@@ -6,68 +6,61 @@ import type { Review } from "../lib/api/client";
 import { api } from "../lib/api/client";
 import { formatDay } from "../lib/format";
 
-const KEY = "dan.admin";
 const VERDICT = { supported: "verdict-ok", weak: "verdict-warn" } as Record<string, string>;
+// Cloudflare Access signs the editor in before this page loads (ADR 0003); this ends that session.
+const SIGN_OUT = "/cdn-cgi/access/logout";
 
-/** The minimal approval page: the token stays in this tab's session storage. */
+/** Why the queue could not load, from the API's status; a failed request most often means
+ * Access sent it to its sign-in page because the session ended. */
+function problem(status: number | undefined): string {
+  if (status === 503) return "Admin is off: Cloudflare Access is not set up. Approve with dan review on the server.";
+  if (status === 401) return "Sign in through Cloudflare Access: reload this page.";
+  if (status === undefined) return "Your sign-in has ended. Reload this page to sign in again.";
+  return "Admin is unavailable.";
+}
+
+/** The approval page. Cloudflare Access has signed the editor in; the API checks its token. */
 export default function AdminQueue() {
-  const [token, setToken] = useState(() => sessionStorage.getItem(KEY) ?? "");
+  const [email, setEmail] = useState("");
   const [reviews, setReviews] = useState<Review[] | null>(null);
   const [error, setError] = useState("");
   const [comments, setComments] = useState<Record<number, string>>({});
-  const headers = { Authorization: `Bearer ${token}` };
 
-  async function load() {
-    setError("");
-    const { data, response } = await api().GET("/api/v1/admin/notes", { headers });
-    if (!data) {
-      setReviews(null);
-      setError(response.status === 401 ? "That token is not right." : "Admin is unavailable.");
-      return;
-    }
-    sessionStorage.setItem(KEY, token);
-    setReviews(data);
-  }
-
-  // Once, with a token saved earlier in this tab.
   useEffect(() => {
-    if (token) void load();
+    void (async () => {
+      try {
+        const me = await api().GET("/api/v1/admin/me");
+        if (!me.data) return setError(problem(me.response.status));
+        setEmail(me.data.email);
+        const { data, response } = await api().GET("/api/v1/admin/notes");
+        if (!data) return setError(problem(response.status));
+        setReviews(data);
+      } catch {
+        setError(problem(undefined));
+      }
+    })();
   }, []);
 
   async function decide(id: number, decision: "approve" | "reject") {
-    const { error: failed } = await api().POST("/api/v1/admin/notes/{note_id}/decision", {
-      params: { path: { note_id: id } },
-      body: { decision, comment: comments[id] ?? "" },
-      headers,
-    });
-    if (failed) setError(`note-${id} could not be ${decision}d.`);
-    else setReviews((all) => (all ?? []).filter((r) => r.id !== id));
+    try {
+      const { error: failed } = await api().POST("/api/v1/admin/notes/{note_id}/decision", {
+        params: { path: { note_id: id } },
+        body: { decision, comment: comments[id] ?? "" },
+      });
+      if (failed) return setError(`note-${id} could not be ${decision}d.`);
+      setReviews((all) => (all ?? []).filter((r) => r.id !== id));
+    } catch {
+      setError(problem(undefined));
+    }
   }
-
-  const signIn = (event: SubmitEvent) => {
-    event.preventDefault();
-    void load();
-  };
 
   return (
     <div className="measure stack">
-      <form className="ask-form" onSubmit={signIn}>
-        <label className="sr-only" htmlFor="token">
-          Admin token
-        </label>
-        <input
-          id="token"
-          className="input"
-          type="password"
-          autoComplete="off"
-          value={token}
-          placeholder="Admin token"
-          onChange={(e) => setToken(e.target.value)}
-        />
-        <button className="button button-secondary" type="submit">
-          Load
-        </button>
-      </form>
+      {email && (
+        <p className="meta">
+          Signed in as {email} · <a href={SIGN_OUT}>Sign out</a>
+        </p>
+      )}
       {error && <ErrorState>{error}</ErrorState>}
       {reviews?.length === 0 && <p className="muted">Nothing waits for approval.</p>}
       {reviews?.map((r) => {

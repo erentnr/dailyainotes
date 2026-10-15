@@ -101,7 +101,7 @@ async def proposals(engine: AsyncEngine, *, status: str | None = None) -> list[P
         return [Proposal(*row) for row in await connection.execute(statement)]
 
 
-async def approve(engine: AsyncEngine, proposal_id: int, comment: str) -> None:
+async def approve(engine: AsyncEngine, proposal_id: int, comment: str, by: str) -> None:
     """Add the proposed sources, activate the topic and mark the proposal approved."""
     async with engine.begin() as connection:
         topic_id, profile = (
@@ -123,17 +123,19 @@ async def approve(engine: AsyncEngine, proposal_id: int, comment: str) -> None:
                 ),
             )
         await connection.execute(update(Topic).where(Topic.id == topic_id).values(status="active"))
-        await decide(connection, proposal_id, "approved", comment)
+        await decide(connection, proposal_id, "approved", comment, by)
 
 
-async def reject(engine: AsyncEngine, proposal_id: int, comment: str) -> None:
+async def reject(engine: AsyncEngine, proposal_id: int, comment: str, by: str) -> None:
     async with engine.begin() as connection:
-        await decide(connection, proposal_id, "rejected", comment)
+        await decide(connection, proposal_id, "rejected", comment, by)
 
 
-async def decide(connection: AsyncConnection, proposal_id: int, status: str, comment: str) -> None:
+async def decide(
+    connection: AsyncConnection, proposal_id: int, status: str, comment: str, by: str
+) -> None:
     await connection.execute(
         update(TopicProfile)
         .where(TopicProfile.id == proposal_id)
-        .values(status=status, decision_comment=comment, decided_at=func.now())
+        .values(status=status, decision_comment=comment, decided_at=func.now(), decided_by=by)
     )

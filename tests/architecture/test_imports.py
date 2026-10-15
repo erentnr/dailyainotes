@@ -32,6 +32,7 @@ SEAMS = {
     "langchain_ollama": "llm",
     "langchain_openrouter": "llm",
     "procrastinate": "worker",
+    "jwt": "api",
 }
 
 

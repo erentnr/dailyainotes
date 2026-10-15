@@ -75,6 +75,10 @@ One VPS runs everything with Docker Compose: a Cloudflare Tunnel, Caddy, the Ast
 
 Self-hosted Langfuse needs ClickHouse, Redis and object storage, more than a 4 GB server can spare, so tracing uses Langfuse Cloud's free plan.
 
+## Sign-in
+
+The editor signs in through Cloudflare Access ([ADR 0003](adr/0003-sign-in-and-reader-accounts.md)), which stands in front of `/admin` and the admin API and sends each request on with a signed token. The API checks that token itself (signature against the team's published keys, audience, issuer, expiry) rather than trusting a path rule at the edge, and records the editor's email with every decision. Our code never handles the editor's password or code, and Cloudflare logs every sign-in. The cost is a second sign-in system next to readers' accounts, and a dependency on Access being up; without it, `dan review` on the server still decides.
+
 ## The site
 
 Astro renders pages on the server; React islands handle the interactive parts: the topic picker, the daily feed, citation chips, Ask and the admin page. UI components take props and never fetch. The API client is generated from FastAPI's OpenAPI schema, and CI fails when either drifts. The fonts DESIGN.md names are downloaded at build time and served from our own origin, so a visit sends nothing to Google.

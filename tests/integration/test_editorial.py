@@ -6,6 +6,7 @@ from typing import Any
 import anyio
 import httpx2
 import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
 from langchain_core.embeddings import Embeddings
 from langgraph.types import Command
 from pydantic import BaseModel
@@ -275,7 +276,9 @@ async def test_a_planted_number_is_rewritten_and_the_note_waits_for_approval(
         # Planted and caught by code, so no model checked the first draft.
         assert router.calls == {"researcher": 1, "writer": 2, "extractor": 1, "verifier": 1}
 
-        await graph.ainvoke(Command(resume={"decision": "approve", "comment": "ok"}), config)
+        await graph.ainvoke(
+            Command(resume={"decision": "approve", "comment": "ok", "by": "dan review"}), config
+        )
 
     note = await note_row(engine, note_id)
     assert (note.status, note.published_version) == ("published", 2)
@@ -285,7 +288,11 @@ async def test_a_planted_number_is_rewritten_and_the_note_waits_for_approval(
     assert note.embedding is not None
     async with engine.connect() as connection:
         approval = (await connection.execute(select(Approval))).one()
-    assert (approval.decision, approval.version) == ("approve", 2)
+    assert (approval.decision, approval.version, approval.decided_by) == (
+        "approve",
+        2,
+        "dan review",
+    )
 
 
 async def test_a_weak_claim_reaches_review_after_two_rewrites_and_can_be_rejected(
@@ -314,7 +321,9 @@ async def test_a_weak_claim_reaches_review_after_two_rewrites_and_can_be_rejecte
         assert [c.verdict for c in claims] == ["supported", "supported", "weak"]
         assert (await note_row(engine, note_id)).status == "awaiting_approval"
 
-        await graph.ainvoke(Command(resume={"decision": "reject", "comment": "weak"}), config)
+        await graph.ainvoke(
+            Command(resume={"decision": "reject", "comment": "weak", "by": "dan review"}), config
+        )
 
     note = await note_row(engine, note_id)
     assert (note.status, note.published_version) == ("rejected", None)
@@ -417,8 +426,8 @@ async def test_the_owner_reads_and_approves_a_note_with_dan_review(
     assert (note.status, note.published_version) == ("published", 3)
 
 
-async def test_the_owner_approves_a_note_at_admin_and_the_site_shows_it(
-    engine: AsyncEngine, database_url: str, embeddings: Embeddings
+async def test_the_editor_approves_a_note_at_admin_and_the_site_shows_it(
+    engine: AsyncEngine, database_url: str, embeddings: Embeddings, access: Any
 ) -> None:
     topic_id = await seed(engine, embeddings)
     story_id, note_id = await verstappen_note(engine, topic_id)
@@ -435,16 +444,19 @@ async def test_the_owner_approves_a_note_at_admin_and_the_site_shows_it(
         await build_story_graph(deps, saver).ainvoke(
             {"story_id": story_id, "note_id": note_id}, {"configurable": {"thread_id": "note:1"}}
         )
-    settings = Settings(_env_file=None, database_url=database_url, admin_token="sesame")
-    site = create_app(settings)
+    site = create_app(Settings(_env_file=None, database_url=database_url))
     site.state.engine = engine  # ASGITransport does not run the lifespan
+    site.state.access = access.verifier  # the team's keys, without the network
     site.dependency_overrides[story_deps] = lambda: deps
-    owner = {"Authorization": "Bearer sesame"}
+    owner = {"Cf-Access-Jwt-Assertion": access.token("Editor@Example.com")}
+    stranger = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    forged = {"Cf-Access-Jwt-Assertion": access.token(key=stranger)}
 
     transport = httpx2.ASGITransport(app=site)
     async with httpx2.AsyncClient(transport=transport, base_url="http://test") as c:
         anonymous = await c.get("/api/v1/admin/notes")
-        wrong = await c.get("/api/v1/admin/notes", headers={"Authorization": "Bearer guess"})
+        refused = await c.get("/api/v1/admin/notes", headers=forged)
+        me = (await c.get("/api/v1/admin/me", headers=owner)).json()
         (waiting,) = (await c.get("/api/v1/admin/notes", headers=owner)).json()
         decided = await c.post(
             f"/api/v1/admin/notes/{note_id}/decision", json={"decision": "approve"}, headers=owner
@@ -454,7 +466,8 @@ async def test_the_owner_approves_a_note_at_admin_and_the_site_shows_it(
         )
         published = (await c.get("/api/v1/notes?date=2026-10-13")).json()
 
-    assert (anonymous.status_code, wrong.status_code) == (401, 401)
+    assert (anonymous.status_code, refused.status_code) == (401, 401)
+    assert me == {"email": "editor@example.com"}
     assert waiting["title"] == "Verstappen wins in Austin"
     assert [c["verdict"] for c in waiting["claims"]] == ["supported"] * 3
     assert decided.json() == {"status": "published"}
@@ -462,6 +475,20 @@ async def test_the_owner_approves_a_note_at_admin_and_the_site_shows_it(
     (card,) = published["notes"]
     assert (card["sources"], card["supported"], card["claims"]) == (3, 3, 3)
     assert sorted(card["publishers"]) == ["Blog", "Fia", "Wire"]
+    async with engine.connect() as connection:
+        approval = (await connection.execute(select(Approval))).one()
+    assert approval.decided_by == "editor@example.com"
+
+
+async def test_admin_is_off_without_cloudflare_access(database_url: str) -> None:
+    site = create_app(Settings(_env_file=None, database_url=database_url))
+
+    transport = httpx2.ASGITransport(app=site)
+    async with httpx2.AsyncClient(transport=transport, base_url="http://test") as c:
+        response = await c.get("/api/v1/admin/notes")
+
+    assert response.status_code == 503
+    assert "Cloudflare Access is not set up" in response.json()["detail"]
 
 
 async def test_a_story_from_one_publisher_asks_the_writer_to_attribute_every_fact(

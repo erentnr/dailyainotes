@@ -118,6 +118,8 @@ class Verdicts(BaseModel):
 class Decision(TypedDict):
     decision: Literal["approve", "reject"]
     comment: str
+    # Who decided: the editor's email from /admin, or "dan review".
+    by: str
 
 
 class StoryState(TypedDict, total=False):
@@ -335,6 +337,7 @@ def build_story_graph(
             state["version"],
             decision["decision"],
             decision["comment"],
+            decision["by"],
         )
         if decision["decision"] == "approve":
             draft = state["draft"]

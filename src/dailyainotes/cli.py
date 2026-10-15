@@ -50,6 +50,8 @@ catalog_app = typer.Typer(no_args_is_help=True, help="The topic catalog.")
 topics_app = typer.Typer(no_args_is_help=True, help="Topic planning.")
 edition_app = typer.Typer(no_args_is_help=True, help="Daily editions.")
 review_app = typer.Typer(no_args_is_help=True, help="Approve or reject what waits for you.")
+# Recorded as who decided; /admin records the editor's email instead.
+BY = "dan review"
 llm_app = typer.Typer(no_args_is_help=True, help="Model providers.")
 evals_app = typer.Typer(no_args_is_help=True, help="The eval set in evals/.")
 app.add_typer(db_app, name="db")
@@ -389,7 +391,7 @@ def review_reject(
 
 async def _decide(item: str, decision: str, comment: str) -> None:
     kind, number = parse_item(item)
-    resume: Command[Any] = Command(resume={"decision": decision, "comment": comment})
+    resume: Command[Any] = Command(resume={"decision": decision, "comment": comment, "by": BY})
     settings = get_settings()
     if kind == "plan":
         proposal = await _proposal(number)
@@ -407,7 +409,7 @@ async def _decide(item: str, decision: str, comment: str) -> None:
             build_router(settings, DbLedger(engine)),
             LocalEmbeddings(settings.embedding_cache_dir),
         )
-        await decide_note(deps, settings.database_url, number, decision, comment)
+        await decide_note(deps, settings.database_url, number, decision, comment, by=BY)
     except NotAwaitingApprovalError as error:
         raise typer.BadParameter(str(error)) from error
     finally:

@@ -382,13 +382,13 @@ async def set_status(engine: AsyncEngine, note_id: int, status: str) -> None:
 
 
 async def decide(
-    engine: AsyncEngine, note_id: int, version: int, decision: str, comment: str
+    engine: AsyncEngine, note_id: int, version: int, decision: str, comment: str, by: str
 ) -> None:
     """Record the approval or rejection and publish or reject the note, in one transaction."""
     async with engine.begin() as connection:
         await connection.execute(
             insert(Approval).values(
-                note_id=note_id, version=version, decision=decision, comment=comment
+                note_id=note_id, version=version, decision=decision, comment=comment, decided_by=by
             )
         )
         values: dict[str, Any] = {"status": "rejected"}

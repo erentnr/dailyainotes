@@ -134,7 +134,8 @@ Then write `/srv/dailyainotes/.env`, owned by `deploy`, mode 600. It takes the s
 IMAGE=ghcr.io/<owner>/dailyainotes   # lower case
 DOMAIN=dailyainotes.com
 POSTGRES_PASSWORD=                   # openssl rand -hex 32
-ADMIN_TOKEN=                         # openssl rand -hex 32; the /admin page asks for it
+CF_ACCESS_TEAM_DOMAIN=               # <team>.cloudflareaccess.com, below
+CF_ACCESS_AUD=                       # the Access application's AUD tag, below
 IP_HASH_KEY=                         # openssl rand -hex 32
 TUNNEL_TOKEN=                        # from Cloudflare, below
 ```
@@ -142,6 +143,10 @@ TUNNEL_TOKEN=                        # from Cloudflare, below
 ### Cloudflare Tunnel
 
 The domain's DNS must be on Cloudflare; the free plan is enough. In the dashboard, under Networking, Tunnels, create a tunnel and put its token in `.env` as `TUNNEL_TOKEN`. Add two published application routes, the domain and `www.` before it, both with the service URL `http://caddy:80`; Cloudflare creates their DNS records, so delete any A or AAAA records for those names first. Turn on Always Use HTTPS (SSL/TLS, Edge Certificates). Caddy sends `www` to the bare domain, and passes Cloudflare's `CF-Connecting-IP` to the API as the visitor's address, which Ask's rate limits use.
+
+### Cloudflare Access for /admin
+
+The editor signs in through Cloudflare Access ([ADR 0003](docs/adr/0003-sign-in-and-reader-accounts.md)); its free plan is enough. In the Zero Trust dashboard, choose a team name, then under Access, Applications, add a self-hosted application with two destinations, `<domain>/admin` and `<domain>/api/v1/admin`, and a policy that allows only the editor's email; the one-time PIN login sends a code by email. Put the team domain (`<team>.cloudflareaccess.com`) in `.env` as `CF_ACCESS_TEAM_DOMAIN` and the application's AUD tag as `CF_ACCESS_AUD`. The API checks Access's signed token on every admin request; without these two settings admin is off, and `dan review` on the server still works.
 
 ### GitHub settings
 

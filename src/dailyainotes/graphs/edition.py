@@ -178,7 +178,7 @@ async def write_note(
 
 
 async def decide_note(
-    deps: StoryDeps, database_url: str, note_id: int, decision: str, comment: str
+    deps: StoryDeps, database_url: str, note_id: int, decision: str, comment: str, *, by: str
 ) -> None:
     """Resume the note's paused story graph with the owner's decision: `dan review` and
     /admin both come here. Approving publishes the note and indexes it for Ask."""
@@ -188,7 +188,7 @@ async def decide_note(
         raise NotAwaitingApprovalError(f"note-{note_id} is {status}, not awaiting approval")
     thread_id = found[1]
     async with checkpointer(database_url) as saver:
-        resume: Command[Any] = Command(resume={"decision": decision, "comment": comment})
+        resume: Command[Any] = Command(resume={"decision": decision, "comment": comment, "by": by})
         await build_story_graph(deps, saver).ainvoke(
             resume, {"configurable": {"thread_id": thread_id}}
         )

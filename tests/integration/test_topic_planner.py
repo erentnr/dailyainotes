@@ -106,7 +106,9 @@ async def test_a_plan_waits_for_approval_then_activates_the_topic(
         assert not any("insecure" in str(r.url) for r in recorded.requests)
         assert not any("theguardian" in str(r.url) for r in recorded.requests)
 
-        await graph.ainvoke(Command(resume={"decision": "approve", "comment": "ok"}), config)
+        await graph.ainvoke(
+            Command(resume={"decision": "approve", "comment": "ok", "by": "dan review"}), config
+        )
 
     async with engine.connect() as connection:
         status = (
@@ -139,7 +141,10 @@ async def test_a_rejected_plan_leaves_the_topic_as_it_was(
         graph = build_planner(PlannerDeps(engine, router, web(site(fixture)).http, NOW), saver)
         await graph.ainvoke(state, config)
 
-        await graph.ainvoke(Command(resume={"decision": "reject", "comment": "too broad"}), config)
+        await graph.ainvoke(
+            Command(resume={"decision": "reject", "comment": "too broad", "by": "dan review"}),
+            config,
+        )
 
     async with engine.connect() as connection:
         status = (

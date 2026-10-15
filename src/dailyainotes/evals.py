@@ -110,7 +110,7 @@ async def load_corpus(engine: AsyncEngine, deps: AskDeps, notes: list[CorpusNote
             why_it_matters=note.why_it_matters,
             citations=[],
         )
-        await db.decide(engine, note_id, 1, "approve", "eval corpus")
+        await db.decide(engine, note_id, 1, "approve", "eval corpus", "evals")
         await db.index_note(engine, note_id, text, vector)
 
 
