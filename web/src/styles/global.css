@@ -3132,3 +3132,199 @@ textarea.input {
     line-height: 26px;
   }
 }
+
+/* One story's night, on How it works: a diagram that plays the steps, beside the list of them. */
+
+.night {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.night-stage {
+  margin: 0;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.night-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.night-view {
+  overflow: hidden;
+}
+
+.night-svg {
+  display: block;
+  width: 160%;
+  height: auto;
+  transform: translateX(var(--pan, 0%));
+  transition:
+    opacity 0.5s,
+    transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (min-width: 760px) {
+  .night-svg {
+    width: 100%;
+    transform: none;
+  }
+}
+
+.night-svg.is-fading {
+  opacity: 0;
+}
+
+.night-part {
+  transition:
+    transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 0.45s;
+}
+
+.night-report {
+  fill: var(--bg);
+}
+
+.night-ink {
+  fill: var(--ink);
+}
+
+.night-on-ink {
+  fill: var(--card);
+  opacity: 0.7;
+}
+
+.night-initial,
+.night-chip-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-anchor: middle;
+}
+
+.night-initial {
+  fill: var(--card);
+}
+
+.night-line {
+  fill: var(--line2);
+}
+
+.night-grow {
+  transform-box: fill-box;
+  transform-origin: left center;
+  transition: transform 0.7s ease-out;
+}
+
+.night-chip {
+  fill: var(--acc-soft);
+  transition: fill 0.3s;
+}
+
+.night-chip.is-checked {
+  fill: var(--acc);
+}
+
+.night-chip-text {
+  fill: var(--acc);
+}
+
+.night-chip-text.is-checked {
+  fill: var(--acc-ink);
+}
+
+.night-ok {
+  fill: var(--ok-soft);
+}
+
+.night-ok-mark {
+  fill: none;
+  stroke: var(--ok);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.night-approve {
+  fill: transparent;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  transition: fill 0.3s;
+}
+
+.night-approve.is-approved {
+  fill: var(--ink);
+}
+
+.night-approve-text {
+  fill: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.night-approve-text.is-approved {
+  fill: var(--card);
+}
+
+.night-link {
+  fill: none;
+  stroke: var(--acc);
+  stroke-width: 2;
+  stroke-dasharray: 5 6;
+}
+
+.night-caption {
+  margin: 0;
+  min-height: 40px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ink2);
+}
+
+.night-caption b {
+  color: var(--ink);
+}
+
+/* The step playing, in the list: its number in an ink disc. */
+.pipeline li.is-active::before {
+  height: 24px;
+  padding-top: 0;
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: var(--card);
+  text-align: center;
+  line-height: 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .night-svg,
+  .night-part,
+  .night-grow,
+  .night-chip,
+  .night-approve {
+    transition: none;
+  }
+}
+
+@media (min-width: 960px) {
+  .night {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+  .night-stage {
+    flex: 1.3 1 0;
+    position: sticky;
+    top: var(--space-4);
+    padding: 20px 24px;
+  }
+  .night .pipeline {
+    flex: 1 1 0;
+  }
+}

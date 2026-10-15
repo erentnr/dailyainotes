@@ -169,6 +169,18 @@ test("ask when the notes fall short", async ({ page }, info) => {
   await shoot(page, "ask-not-enough", info.project.name);
 });
 
+test("how it works as the night plays", async ({ page }, info) => {
+  await page.clock.install();
+  await page.goto("/how-it-works");
+  await hydrated(page);
+  for (const [name, step] of [["merged", 0], ["writing", 2], ["checked", 4], ["asked", 6]] as const) {
+    await playUntil(page, `.night-stage[data-step="${step}"]`);
+    await page.clock.runFor(900);
+    await page.waitForTimeout(900);
+    await shoot(page, `how-it-works-${name}`, info.project.name);
+  }
+});
+
 for (const [name, path] of [
   ["timeline", "/topics/climate-tech"],
   ["how-it-works", "/how-it-works"],
@@ -177,6 +189,8 @@ for (const [name, path] of [
   ["not-found", "/notes/no-such-note"],
 ] as const) {
   test(name, async ({ page }, info) => {
+    // How it works plays a diagram; still, it looks the same on every run.
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await follow(page, FOLLOWED);
     await page.goto(path);
     await shoot(page, name, info.project.name);

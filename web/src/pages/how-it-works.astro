@@ -1,5 +1,6 @@
 ---
 import { StatTile } from "../components/ui/StatTile";
+import StoryNight, { type Stage } from "../islands/StoryNight";
 import Base from "../layouts/Base.astro";
 import { serverApi } from "../lib/api/server";
 import { formatDay } from "../lib/format";
@@ -15,7 +16,7 @@ const evals = [
   ['"Not enough" when no note covers the question', "not_enough_when_uncovered"],
 ] as const;
 const score = (value: unknown) => (typeof value === "number" ? value.toFixed(2) : "–");
-const stages = [
+const stages: Stage[] = [
   ["Scout", "code", "Fetches each topic's feeds and APIs, keeps what their publishers allow, and groups reports of the same event into stories. Independent coverage ranks a story; at most two a topic are picked."],
   ["Researcher", "model", "Reads the story's sources as data and lists the facts each one states."],
   ["Writer", "model", "Writes a short note in which every sentence cites its sources: [1], [2]."],
@@ -36,18 +37,7 @@ const stages = [
     </p>
   </header>
 
-  <ol class="card pipeline measure">
-    {
-      stages.map(([name, kind, text]) => (
-        <li>
-          <div>
-            <strong>{name}</strong> <span class="agent">{kind}</span>
-            <div class="muted">{text}</div>
-          </div>
-        </li>
-      ))
-    }
-  </ol>
+  <StoryNight client:visible stages={stages} />
 
   <section class="section">
     <div class="label">The last 14 days</div>
