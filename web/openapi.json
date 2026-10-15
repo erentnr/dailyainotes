@@ -1282,6 +1282,16 @@
       },
       "type": "array",
       "title": "Citations"
+     },
+     "trail": {
+      "$ref": "#/components/schemas/Trail"
+     },
+     "other_reports": {
+      "items": {
+       "$ref": "#/components/schemas/Report"
+      },
+      "type": "array",
+      "title": "Other Reports"
      }
     },
     "type": "object",
@@ -1303,7 +1313,9 @@
      "body",
      "why_it_matters",
      "independent_publishers",
-     "citations"
+     "citations",
+     "trail",
+     "other_reports"
     ],
     "title": "NoteDetail"
    },
@@ -1481,6 +1493,42 @@
      "question"
     ],
     "title": "Question"
+   },
+   "Report": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "url": {
+      "type": "string",
+      "title": "Url"
+     },
+     "publisher": {
+      "type": "string",
+      "title": "Publisher"
+     },
+     "published_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Published At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "title",
+     "url",
+     "publisher",
+     "published_at"
+    ],
+    "title": "Report"
    },
    "Review": {
     "properties": {
@@ -1784,6 +1832,58 @@
      "topics"
     ],
     "title": "Topics"
+   },
+   "Trail": {
+    "properties": {
+     "collected_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Collected At"
+     },
+     "researched_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Researched At"
+     },
+     "drafted_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Drafted At"
+     },
+     "drafts": {
+      "type": "integer",
+      "title": "Drafts"
+     },
+     "approved_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Approved At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "collected_at",
+     "researched_at",
+     "drafted_at",
+     "drafts",
+     "approved_at"
+    ],
+    "title": "Trail",
+    "description": "When each step happened: Scout's run on the topic, the Researcher, the Writer's first\ndraft, and the editor's approval. The fact-check keeps no time of its own."
    },
    "ValidationError": {
     "properties": {

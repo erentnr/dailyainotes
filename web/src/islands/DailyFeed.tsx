@@ -15,6 +15,7 @@ import {
   plural,
   readingMinutes,
 } from "../lib/format";
+import { orderDay } from "../lib/notes";
 import { loadPicked, type Picked, slotFor } from "../lib/topics";
 
 type Loaded = { day: string | null; notes: Note[]; topics: Topic[]; picked: Picked[] };
@@ -72,9 +73,7 @@ export default function DailyFeed({ date }: { date?: string | undefined }) {
   // Tabs for the followed topics; with none followed, for the topics this day covers.
   const tabSlugs = picked.length ? picked.map((p) => p.slug) : [...counts.keys()];
   const shown = tab && tabSlugs.includes(tab) ? notes.filter((n) => n.topic === tab) : notes;
-  // The biggest story of the day leads.
-  const lead = shown.reduce<Note | undefined>((best, n) => (!best || n.reports > best.reports ? n : best), undefined);
-  const rest = shown.filter((n) => n !== lead);
+  const [lead, ...rest] = orderDay(shown);
   const quiet = picked.filter((p) => !counts.has(p.slug));
   const today = new Date().toISOString().slice(0, 10);
 

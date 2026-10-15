@@ -9,16 +9,20 @@ from sqlalchemy import Select, and_, distinct, func, literal, select
 
 from dailyainotes.db.engine import AsyncEngine
 from dailyainotes.db.tables import (
+    Approval,
     Chunk,
     Citation,
     Claim,
     ClaimCheck,
     Document,
+    Edition,
     LlmCall,
     Note,
     NoteVersion,
+    Publisher,
     Source,
     Story,
+    StoryDocument,
     Topic,
 )
 
@@ -42,6 +46,25 @@ class PublishedNote:
     # What Scout merged into the story.
     reports: int
     independent_publishers: int
+
+
+@dataclass(frozen=True)
+class Trail:
+    """When each step of a note happened. The fact-check keeps no time of its own."""
+
+    collected_at: datetime
+    researched_at: datetime
+    drafted_at: datetime | None
+    drafts: int
+    approved_at: datetime | None
+
+
+@dataclass(frozen=True)
+class ReportOut:
+    title: str
+    url: str
+    publisher: str
+    published_at: datetime | None
 
 
 @dataclass(frozen=True)
@@ -194,6 +217,54 @@ async def note_by_slug(
     async with engine.connect() as connection:
         citations = [CitationOut(*row) for row in await connection.execute(statement)]
     return found[0], citations
+
+
+async def note_trail(engine: AsyncEngine, slug: str) -> tuple[Trail, list[ReportOut]] | None:
+    """How a published note was made, and the merged reports it did not cite."""
+    versions = select(NoteVersion.created_at).where(NoteVersion.note_id == Note.id)
+    approved = select(func.max(Approval.decided_at)).where(
+        Approval.note_id == Note.id, Approval.decision == "approve"
+    )
+    trail = (
+        select(
+            Edition.started_at,
+            Note.created_at,
+            versions.with_only_columns(func.min(NoteVersion.created_at)).scalar_subquery(),
+            versions.with_only_columns(func.count()).scalar_subquery(),
+            approved.scalar_subquery(),
+        )
+        .join(Story, Story.id == Note.story_id)
+        .join(Edition, Edition.id == Story.edition_id)
+        .where(Note.slug == slug, Note.status == "published")
+    )
+    cited = (
+        select(Citation.document_id)
+        .join(NoteVersion, NoteVersion.id == Citation.note_version_id)
+        .join(
+            Note,
+            and_(Note.id == NoteVersion.note_id, Note.published_version == NoteVersion.version),
+        )
+        .where(Note.slug == slug, Citation.document_id.is_not(None))
+    )
+    others = (
+        select(
+            Document.title,
+            Document.url,
+            func.coalesce(Publisher.name, ""),
+            Document.published_at,
+        )
+        .join(StoryDocument, StoryDocument.document_id == Document.id)
+        .join(Note, Note.story_id == StoryDocument.story_id)
+        .outerjoin(Publisher, Publisher.id == Document.publisher_id)
+        .where(Note.slug == slug, Document.id.not_in(cited))
+        .order_by(Document.published_at.desc().nulls_last(), Document.id)
+    )
+    async with engine.connect() as connection:
+        row = (await connection.execute(trail)).one_or_none()
+        if row is None:
+            return None
+        reports = [ReportOut(*r) for r in await connection.execute(others)]
+    return Trail(*row), reports
 
 
 async def active_topics(engine: AsyncEngine) -> list[TopicRow]:

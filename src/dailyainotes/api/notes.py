@@ -58,11 +58,33 @@ class Citation(BaseModel):
     quote: str
 
 
+class Trail(BaseModel):
+    """When each step happened: Scout's run on the topic, the Researcher, the Writer's first
+    draft, and the editor's approval. The fact-check keeps no time of its own."""
+
+    collected_at: datetime
+    researched_at: datetime
+    drafted_at: datetime | None
+    # The Writer's drafts, rewrites after the fact-check included.
+    drafts: int
+    approved_at: datetime | None
+
+
+class Report(BaseModel):
+    title: str
+    url: str
+    publisher: str
+    published_at: datetime | None
+
+
 class NoteDetail(NoteCard):
     body: str
     why_it_matters: str
     independent_publishers: int
     citations: list[Citation]
+    trail: Trail
+    # Reports merged into the story that no sentence cites: linked, never quoted.
+    other_reports: list[Report]
 
 
 class Timeline(BaseModel):
@@ -125,16 +147,21 @@ async def notes_of_day(
 
 @router.get("/notes/{slug}", responses={404: {"description": "No published note"}})
 async def note(request: Request, slug: str) -> NoteDetail:
-    found = await db.note_by_slug(request.app.state.engine, slug)
-    if found is None:
+    engine = request.app.state.engine
+    found = await db.note_by_slug(engine, slug)
+    made = await db.note_trail(engine, slug)
+    if found is None or made is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No published note with that slug.")
     published, citations = found
+    trail, others = made
     return NoteDetail(
         **card(published).model_dump(),
         body=published.body,
         why_it_matters=published.why_it_matters,
         independent_publishers=published.independent_publishers,
         citations=[Citation(**vars(c)) for c in citations],
+        trail=Trail(**vars(trail)),
+        other_reports=[Report(**vars(r)) for r in others],
     )
 
 

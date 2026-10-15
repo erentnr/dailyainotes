@@ -14,8 +14,14 @@ async function follow(page: Page, topics: typeof FOLLOWED) {
   await page.addInitScript((value) => localStorage.setItem("dan.topics", value), JSON.stringify(topics));
 }
 
+/** Islands render on the server first; wait until each can answer a click. */
+async function hydrated(page: Page) {
+  await page.waitForFunction(() => !document.querySelector("astro-island[ssr]"));
+}
+
 async function shoot(page: Page, name: string, project: string) {
   await page.waitForLoadState("networkidle");
+  await hydrated(page);
   await page.evaluate(() => document.fonts.ready);
   // The dev server's own toolbar is not part of the site.
   await page.evaluate(() => document.querySelector("astro-dev-toolbar")?.remove());
@@ -52,6 +58,14 @@ test("note", async ({ page }, info) => {
   await follow(page, FOLLOWED);
   await page.goto(`/notes/${await firstNote(page, "formula-1")}`);
   await shoot(page, "note", info.project.name);
+});
+
+test("note with a source open", async ({ page }, info) => {
+  await follow(page, FOLLOWED);
+  await page.goto(`/notes/${await firstNote(page, "formula-1")}`);
+  await hydrated(page);
+  await page.getByRole("button", { name: "Source 1" }).first().click();
+  await shoot(page, "note-source", info.project.name);
 });
 
 test("topics", async ({ page }, info) => {

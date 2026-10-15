@@ -596,6 +596,9 @@ export interface components {
             independent_publishers: number;
             /** Citations */
             citations: components["schemas"]["dailyainotes__api__notes__Citation"][];
+            trail: components["schemas"]["Trail"];
+            /** Other Reports */
+            other_reports: components["schemas"]["Report"][];
         };
         /** Options */
         Options: {
@@ -660,6 +663,17 @@ export interface components {
             question: string;
             /** Topics */
             topics?: string[];
+        };
+        /** Report */
+        Report: {
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+            /** Publisher */
+            publisher: string;
+            /** Published At */
+            published_at: string | null;
         };
         /** Review */
         Review: {
@@ -769,6 +783,29 @@ export interface components {
         Topics: {
             /** Topics */
             topics: components["schemas"]["FollowedTopic"][];
+        };
+        /**
+         * Trail
+         * @description When each step happened: Scout's run on the topic, the Researcher, the Writer's first
+         *     draft, and the editor's approval. The fact-check keeps no time of its own.
+         */
+        Trail: {
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /**
+             * Researched At
+             * Format: date-time
+             */
+            researched_at: string;
+            /** Drafted At */
+            drafted_at: string | null;
+            /** Drafts */
+            drafts: number;
+            /** Approved At */
+            approved_at: string | null;
         };
         /** ValidationError */
         ValidationError: {

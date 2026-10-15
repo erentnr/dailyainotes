@@ -1,71 +1,33 @@
 ---
-import { Publishers } from "../../components/ui/Publishers";
-import { VerdictBadge } from "../../components/ui/VerdictBadge";
-import NoteText from "../../islands/NoteText";
+import NoteView from "../../islands/NoteView";
 import Base from "../../layouts/Base.astro";
-import { formatDay, plural } from "../../lib/format";
 import { serverApi } from "../../lib/api/server";
 
-const { data: note, response } = await serverApi().GET("/api/v1/notes/{slug}", {
+const api = serverApi();
+const { data: note, response } = await api.GET("/api/v1/notes/{slug}", {
   params: { path: { slug: Astro.params.slug ?? "" } },
 });
 if (!note) {
   if (response.status === 404) return Astro.rewrite("/404");
   throw new Error(`The API answered ${response.status}`);
 }
+const reader = Astro.locals.reader;
+const [topics, earlier, day] = await Promise.all([
+  api.GET("/api/v1/topics"),
+  api.GET("/api/v1/topics/{slug}/notes", {
+    params: { path: { slug: note.topic }, query: { before: note.edition_date, limit: 3 } },
+  }),
+  api.GET("/api/v1/notes", { params: { query: { date: note.edition_date } } }),
+]);
 ---
 
-<Base title={note.title} description={note.summary}>
-  <article class="with-rail">
-    <div class="measure">
-      <header class="page-head">
-        <div class="meta">
-          <a href={`/topics/${note.topic}`}>{note.topic_name}</a> · {formatDay(note.edition_date)}
-        </div>
-        <h1 class="h1" style="margin-top: var(--space-3)">{note.title}</h1>
-        <div class="chips" style="margin-top: var(--space-4); align-items: center">
-          <Publishers names={note.publishers} />
-          <span class="meta">{plural(note.sources, "source")}</span>
-          <VerdictBadge counts={note} />
-        </div>
-      </header>
-      <NoteText client:visible note={note} />
-
-      <section class="section" hidden={note.citations.length === 0}>
-        <div class="label">Sources</div>
-        <ol class="small">
-          {
-            note.citations.map((c) => (
-              <li>
-                [{c.marker}] {c.publisher}
-                {c.published_at ? `, ${formatDay(c.published_at)}` : ""}:{" "}
-                <a href={c.url} rel="noopener noreferrer">
-                  {c.title}
-                </a>
-              </li>
-            ))
-          }
-        </ol>
-      </section>
-    </div>
-
-    <aside>
-      <section class="section">
-        <div class="label">How this note was made</div>
-        <ul class="small stack" style="padding-left: 1em">
-          <li>
-            {`${plural(note.reports, "report")} from ${plural(note.independent_publishers, "publisher")} merged · ${note.sources} cited`}
-          </li>
-          <li>
-            Fact-check: {note.supported} supported · {note.weak} weak · {note.unsupported} unsupported
-          </li>
-          <li>Approved by the editor</li>
-        </ul>
-        <p class="small muted">
-          Our own summary, with quotes of at most 25 words. Follow the sources for the full
-          reporting. <a href="/how-it-works">How it works</a>
-        </p>
-      </section>
-    </aside>
-  </article>
+<Base title={note.title} description={note.summary} coverTop>
+  <NoteView
+    client:load
+    note={note}
+    topics={topics.data ?? []}
+    context={earlier.data?.notes ?? []}
+    day={day.data?.notes ?? []}
+    readerTopics={reader?.topics ?? null}
+  />
 </Base>

@@ -1,75 +1,79 @@
 import type { NoteDetail } from "../../lib/api/client";
 import { formatDay } from "../../lib/format";
-import { External } from "./Icons";
+import { splitMarkers } from "../../lib/notes";
+import { Cross, External } from "./Icons";
+import { initial } from "./Publishers";
 
 type Citation = NoteDetail["citations"][number];
 
-const MARKER = /\[(\d+)\]/g;
-
-/** A paragraph whose [n] markers are citation chips; the open one's source follows it. */
+/** Text whose [n] markers are citation chips. */
 export function CitedText({
   text,
-  citations,
-  open,
+  isOpen,
   onToggle,
 }: {
   text: string;
-  citations: Citation[];
-  open: number | null;
-  onToggle?: ((marker: number) => void) | undefined;
+  isOpen: (marker: number) => boolean;
+  onToggle: (marker: number) => void;
 }) {
-  const byMarker = new Map(citations.map((c) => [c.marker, c]));
-  const parts: (string | number)[] = [];
-  let last = 0;
-  for (const match of text.matchAll(MARKER)) {
-    parts.push(text.slice(last, match.index), Number(match[1]));
-    last = (match.index ?? 0) + match[0].length;
-  }
-  parts.push(text.slice(last));
-  const shown = open !== null && parts.includes(open) ? byMarker.get(open) : undefined;
   return (
     <>
-      <p>
-        {parts.map((part, i) =>
-          typeof part === "string" ? (
-            part
-          ) : (
-            <button
-              key={i}
-              type="button"
-              className="citation"
-              aria-expanded={open === part}
-              aria-label={`Source ${part}`}
-              onClick={() => onToggle?.(part)}
-            >
-              {part}
-            </button>
-          ),
-        )}
-      </p>
-      {shown && <CitationPanel citation={shown} />}
+      {splitMarkers(text).map((part, i) =>
+        typeof part === "string" ? (
+          part
+        ) : (
+          <button
+            key={i}
+            type="button"
+            className="citation"
+            aria-expanded={isOpen(part)}
+            aria-label={`Source ${part}`}
+            onClick={() => onToggle(part)}
+          >
+            {part}
+          </button>
+        ),
+      )}
     </>
   );
 }
 
-export function CitationPanel({ citation }: { citation: Citation }) {
+/** A cited source: who and when, its title, the quote the sentence rests on (at most 25 words,
+ * the only text shown from a source), and a link to the original. */
+export function CitationCard({ citation, onClose }: { citation: Citation; onClose?: () => void }) {
   return (
-    <div className="panel">
-      <div className="meta">
-        [{citation.marker}] {citation.publisher}
-        {citation.published_at ? ` · ${formatDay(citation.published_at)}` : ""}
+    <div className="citation-card" role="note" aria-label={`Source ${citation.marker}`}>
+      <div className="citation-card-top">
+        <span className="citation-card-who">
+          <span className="publisher">{initial(citation.publisher)}</span>
+          <span className="meta">
+            {citation.publisher}
+            {citation.published_at ? ` · ${formatDay(citation.published_at)}` : ""}
+          </span>
+        </span>
+        {onClose && (
+          <button type="button" className="close-button" onClick={onClose} aria-label="Close source">
+            <Cross />
+          </button>
+        )}
       </div>
-      <div className="small" style={{ marginTop: 4 }}>
-        {citation.title}
-      </div>
+      <SourceBody citation={citation} />
+    </div>
+  );
+}
+
+export function SourceBody({ citation, withTitle = true }: { citation: Citation; withTitle?: boolean }) {
+  return (
+    <>
+      {withTitle && <b className="citation-card-title">{citation.title}</b>}
       {citation.quote && (
-        <p className="quote">
+        <q className="quote">
           <mark>{citation.quote}</mark>
-        </p>
+        </q>
       )}
-      <a href={citation.url} rel="noopener noreferrer" target="_blank">
+      <a className="source-link" href={citation.url} rel="noopener noreferrer" target="_blank">
         Open source <External />
       </a>
-    </div>
+    </>
   );
 }

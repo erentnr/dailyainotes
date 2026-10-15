@@ -1136,21 +1136,21 @@ textarea.input {
   flex-wrap: wrap;
 }
 
-/* Citations */
+/* Citations: a chip in the text, and the source it opens. */
 
 .citation {
-  height: 22px;
-  min-width: 22px;
-  padding: 0 6px;
-  margin: 0 2px;
-  border-radius: var(--radius-control);
+  min-width: 26px;
+  height: 24px;
+  padding: 0 7px;
+  margin: 0 1px;
   border: 0;
+  border-radius: 7px;
   background: var(--acc-soft);
   color: var(--acc);
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 500;
-  line-height: 22px;
+  line-height: 24px;
   vertical-align: 2px;
   cursor: pointer;
   text-decoration: none;
@@ -1162,22 +1162,662 @@ textarea.input {
   color: var(--acc-ink);
 }
 
-.panel {
-  background: var(--card);
-  border: 1px solid var(--line2);
-  border-radius: var(--radius-control);
-  padding: var(--space-4);
-  margin: var(--space-3) 0;
+.citation-card {
+  padding: 14px;
+  border-radius: var(--radius-cover);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.citation-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.citation-card-who {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.citation-card-title {
+  font-weight: 750;
+  line-height: 20px;
+}
+
+.close-button {
+  width: 36px;
+  height: 36px;
+  margin: -8px -8px -8px 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink3);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
 }
 
 .quote {
   color: var(--ink2);
-  margin: var(--space-2) 0;
 }
 
 .quote mark {
   background: var(--acc-soft);
+  color: var(--ink);
+  padding: 1px 3px;
+  border-radius: 4px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.source-link {
+  align-self: flex-start;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--acc);
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+/* The note page. On a phone the cover is the top of the page, with buttons over it, and the
+   note is a sheet that overlaps it; wider, the cover is a banner card. */
+
+@media (max-width: 759px) {
+  body.cover-top .site-header {
+    display: none;
+  }
+}
+
+.caps {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.note-cover {
+  position: relative;
+  height: 270px;
+  margin: 0 calc(-1 * var(--gutter));
+}
+
+.note-cover-bar {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.float-group {
+  position: relative;
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Over the cover, which keeps its colors in both themes, so these do too. */
+.float-button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #121212;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.float-pill {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.92);
+  color: #121212;
+  font-weight: 700;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.float-tag {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.share-status {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-control);
+  background: var(--ink);
+  color: var(--card);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.share-status:empty {
+  display: none;
+}
+
+.note-sheet {
+  position: relative;
+  margin: -28px calc(-1 * var(--gutter)) 0;
+  padding: 22px 16px 0;
+  border-radius: 26px 26px 0 0;
+  background: var(--bg);
+}
+
+.note-layout,
+.note-rail,
+.note-context {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.note-head {
+  padding: 0 4px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.note-head-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.chip-small {
+  --circle: 20px;
+  min-height: 32px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.note-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.note-text {
+  padding: 20px 18px;
+  border-radius: var(--radius-card);
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  font-size: 18px;
+  line-height: 29px;
+  text-wrap: pretty;
+}
+
+.note-text p {
+  margin: 0;
+}
+
+.note-text b {
+  font-weight: 750;
+}
+
+@media (min-width: 760px) {
+  .note-cover {
+    height: 300px;
+    margin: var(--space-2) 0 0;
+    border-radius: var(--radius-card);
+    overflow: hidden;
+  }
+  .note-cover-bar {
+    top: var(--space-4);
+    left: var(--space-4);
+    right: var(--space-4);
+  }
+  .note-sheet {
+    margin: var(--space-4) 0 0;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .note-layout,
+  .note-rail {
+    gap: var(--space-4);
+  }
+  .note-article {
+    padding: 32px 36px 36px;
+    border-radius: var(--radius-card);
+    background: var(--card);
+  }
+  .note-head {
+    padding: 0 0 22px;
+    gap: 20px;
+  }
+  .chip-small {
+    background: var(--bg);
+  }
+  .note-text {
+    max-width: var(--measure);
+    padding: 0;
+    gap: 18px;
+    font-size: 19px;
+    line-height: 31px;
+  }
+}
+
+@media (min-width: 960px) {
+  .note-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-areas: "article rail" "context rail";
+    align-items: start;
+  }
+  .note-article {
+    grid-area: article;
+    padding: 36px 44px 40px;
+  }
+  .note-rail {
+    grid-area: rail;
+  }
+  .note-context {
+    grid-area: context;
+  }
+  /* Beside the text, a citation opens in the Sources panel instead. */
+  .citation-inline {
+    display: none;
+  }
+}
+
+/* Panels in the rail */
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding-bottom: 6px;
+}
+
+.section-title {
+  font-size: 20px;
+  line-height: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.sources {
+  padding: var(--space-4) 18px var(--space-2);
+}
+
+.source-rows,
+.other-reports {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.source-row {
+  border-top: 1px solid var(--line);
+}
+
+.source-row > button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 26px;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.source-row-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.source-title {
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.source-number {
+  width: 26px;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--acc-soft);
+  color: var(--acc);
+  display: inline-grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.source-row.is-open .source-number {
+  background: var(--acc);
+  color: var(--acc-ink);
+}
+
+.source-detail {
+  margin: 0 0 var(--space-3) 38px;
+  padding: var(--space-3) 14px;
+  border-radius: var(--space-3);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 14px;
+  line-height: 21px;
+}
+
+.link-button {
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+  color: var(--acc);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.other-reports li {
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.other-reports a {
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 19px;
+  text-decoration: none;
+}
+
+.other-reports a:hover {
+  text-decoration: underline;
+}
+
+.how-made {
+  padding: var(--space-1) 18px;
+}
+
+.disclosure {
+  width: 100%;
+  min-height: 60px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: left;
+  cursor: pointer;
+}
+
+.disclosure-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.disclosure-title {
+  font-weight: 800;
+  font-size: 17px;
+}
+
+.disclosure-glyph {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg);
+  display: inline-grid;
+  place-items: center;
+  font-weight: 700;
+}
+
+.stepper {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 var(--space-2);
+}
+
+.stepper li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+/* The line from one step to the next. */
+.stepper li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 30px;
+  bottom: 2px;
+  width: 2px;
+  background: var(--line);
+}
+
+.step-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--card);
+  display: inline-grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0 14px;
+}
+
+.step-top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: 15px;
+}
+
+.step-what {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ink2);
+}
+
+.result-bar {
+  margin: 0 0 14px;
+  padding: 10px var(--space-3);
+  border-radius: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.result-ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.result-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.result-bad {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.follow-up {
+  padding: var(--space-4) 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.follow-up a {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--acc);
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.follow-up p {
+  margin: 0;
+}
+
+/* Earlier notes on the topic: a row that scrolls sideways on a phone, a grid when wider. */
+
+.note-context .section-title {
+  padding: 6px 4px 0;
+}
+
+.context-row {
+  display: flex;
+  gap: 10px;
+  margin: 0 -16px;
+  padding: 0 16px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.context-row::-webkit-scrollbar {
+  display: none;
+}
+
+.context-card {
+  flex: none;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.context-cover {
+  display: block;
+  height: 90px;
+}
+
+.context-body {
+  padding: var(--space-3) 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.context-title {
+  font-weight: 750;
+  font-size: 15px;
+  line-height: 19px;
+}
+
+.next-card {
+  margin-top: 14px;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  background: var(--ink);
+  color: var(--card);
+  text-decoration: none;
+}
+
+.next-cover {
+  display: block;
+  min-height: 96px;
+}
+
+.next-body {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.next-card .meta {
   color: inherit;
+  opacity: 0.7;
+}
+
+.next-title {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 21px;
+}
+
+@media (min-width: 760px) {
+  .context-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+  .context-card {
+    width: auto;
+  }
+  .next-card {
+    margin-top: var(--space-4);
+    grid-template-columns: 160px minmax(0, 1fr);
+  }
+  .next-title {
+    font-size: 21px;
+    line-height: 25px;
+  }
 }
 
 /* Timeline */
@@ -1444,6 +2084,11 @@ textarea.input {
 .cover {
   display: block;
   width: 100%;
+  height: 100%;
+}
+
+.cover-box {
+  display: block;
   height: 100%;
 }
 

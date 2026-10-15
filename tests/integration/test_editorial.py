@@ -20,9 +20,18 @@ from dailyainotes.cli import app
 from dailyainotes.db import editorial as db
 from dailyainotes.db.checkpoints import checkpointer
 from dailyainotes.db.ingest import NewDocument, save_document
-from dailyainotes.db.tables import Approval, Document, Note, Publisher, Source, Story, Topic
+from dailyainotes.db.tables import (
+    Approval,
+    Document,
+    Note,
+    Publisher,
+    Source,
+    Story,
+    StoryDocument,
+    Topic,
+)
 from dailyainotes.domain.chunking import heading_chunk
-from dailyainotes.graphs.edition import run_edition
+from dailyainotes.graphs.edition import decide_note, run_edition
 from dailyainotes.graphs.scout import ScoutDeps, build_scout
 from dailyainotes.graphs.story import (
     Brief,
@@ -478,6 +487,51 @@ async def test_the_editor_approves_a_note_at_admin_and_the_site_shows_it(
     async with engine.connect() as connection:
         approval = (await connection.execute(select(Approval))).one()
     assert approval.decided_by == "editor@example.com"
+
+
+async def test_a_note_shows_how_it_was_made_and_the_reports_it_did_not_cite(
+    engine: AsyncEngine, database_url: str, embeddings: Embeddings
+) -> None:
+    topic_id = await seed(engine, embeddings)
+    story_id, note_id = await verstappen_note(engine, topic_id)
+    async with engine.begin() as connection:
+        # A link-only report merged into the story: no model reads it, so nothing cites it.
+        link_only = (
+            await connection.execute(select(Document.id).where(Document.title.startswith("Team")))
+        ).scalar_one()
+        await connection.execute(
+            StoryDocument.__table__.insert().values(story_id=story_id, document_id=link_only)
+        )
+    router = ScriptedRouter(
+        {
+            "researcher": [BRIEF],
+            "writer": [PLANTED, CORRECT],
+            "extractor": [CLAIMS],
+            "verifier": [verdicts([1, 2], [1, 2], [2, 3])],
+        }
+    )
+    deps = StoryDeps(engine, router, embeddings)
+    async with checkpointer(database_url) as saver:
+        await build_story_graph(deps, saver).ainvoke(
+            {"story_id": story_id, "note_id": note_id}, {"configurable": {"thread_id": "note:1"}}
+        )
+    await decide_note(deps, database_url, note_id, "approve", "", by="editor@example.com")
+    site = create_app(Settings(_env_file=None, database_url=database_url))
+    site.state.engine = engine  # ASGITransport does not run the lifespan
+
+    transport = httpx2.ASGITransport(app=site)
+    async with httpx2.AsyncClient(transport=transport, base_url="http://test") as c:
+        note = (await c.get("/api/v1/notes/slug")).json()
+
+    trail = note["trail"]
+    times = [trail[k] for k in ("collected_at", "researched_at", "drafted_at", "approved_at")]
+    assert times == sorted(times)
+    # The planted number went back to the Writer once.
+    assert trail["drafts"] == 2
+    assert [(r["title"], r["publisher"]) for r in note["other_reports"]] == [
+        ("Team principal leaves after ten years in charge", "Paper")
+    ]
+    assert "approved_by" not in str(note)
 
 
 async def test_admin_is_off_without_cloudflare_access(database_url: str) -> None:

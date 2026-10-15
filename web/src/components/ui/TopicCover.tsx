@@ -12,6 +12,18 @@ import {
 } from "../../lib/covers";
 
 const INK = "#111";
+// Grounds, bands and patterns reach past the 360 units of the art, for the wide hero.
+const WIDE = { x: -400, width: 1160 };
+
+/** A wave across the whole width: a crest every 90 units, `amp` above the line at `y`. */
+function wave(y: number, amp: number): string {
+  let d = `M${WIDE.x} ${y} Q${WIDE.x + 45} ${y - amp} ${WIDE.x + 90} ${y}`;
+  for (let x = WIDE.x + 180; x <= WIDE.x + WIDE.width; x += 90) d += ` T${x} ${y}`;
+  return `${d} V200 H${WIDE.x}Z`;
+}
+
+/** Shapes that repeat to each side of the art, for the wide hero. */
+const REPEATS = [-360, 0, 360];
 
 interface Art {
   p: Palette;
@@ -52,7 +64,8 @@ export function TopicCover({
   return (
     <svg
       className="cover"
-      viewBox="0 0 360 200"
+      // A hero is a wide banner: it shows more of the art to each side instead of zooming in.
+      viewBox={variant === "hero" ? "-220 0 800 200" : "0 0 360 200"}
       preserveAspectRatio="xMidYMid slice"
       aria-hidden="true"
       focusable="false"
@@ -74,24 +87,28 @@ const DRAW: Record<Motif, (art: Art) => ReactNode> = {
             <rect x="12" y="12" width="12" height="12" fill={INK} />
           </pattern>
         </defs>
-        <rect width="360" height="200" fill={p.base} />
-        <path d="M30 200 L170 0 H222 L82 200Z" fill={p.dark} />
-        <path d="M110 200 L250 0 H280 L140 200Z" fill={p.dark} />
-        <path d="M180 200 L320 0 H334 L194 200Z" fill={p.deep} />
+        <rect {...WIDE} height="200" fill={p.base} />
+        {REPEATS.map((shift) => (
+          <g key={shift} transform={`translate(${shift} 0)`}>
+            <path d="M30 200 L170 0 H222 L82 200Z" fill={p.dark} />
+            <path d="M110 200 L250 0 H280 L140 200Z" fill={p.dark} />
+            <path d="M180 200 L320 0 H334 L194 200Z" fill={p.deep} />
+          </g>
+        ))}
         <circle cx={cx} cy={84 + dy} r="46" fill="none" stroke={INK} strokeWidth="14" />
         <circle cx={cx} cy={84 + dy} r="15" fill={INK} />
-        <rect y="166" width="360" height="34" fill={`url(#${id})`} />
+        <rect x={WIDE.x} y="166" width={WIDE.width} height="34" fill={`url(#${id})`} />
       </>
     );
   },
 
   waves: ({ p, dy, x }) => (
     <>
-      <rect width="360" height="200" fill={p.base} />
+      <rect {...WIDE} height="200" fill={p.base} />
       <circle cx={x(236)} cy={66 + dy / 2} r="30" fill={p.glow} />
-      <path d="M0 118 Q45 92 90 118 T180 118 T270 118 T360 118 V200 H0Z" fill={p.light} />
-      <path d="M0 146 Q45 124 90 146 T180 146 T270 146 T360 146 V200 H0Z" fill={p.dark} />
-      <path d="M0 172 Q45 156 90 172 T180 172 T270 172 T360 172 V200 H0Z" fill={p.deep} />
+      <path d={wave(118, 26)} fill={p.light} />
+      <path d={wave(146, 22)} fill={p.dark} />
+      <path d={wave(172, 16)} fill={p.deep} />
     </>
   ),
 
@@ -100,7 +117,7 @@ const DRAW: Record<Motif, (art: Art) => ReactNode> = {
     const shift = x(174) - 174;
     return (
       <>
-        <rect width="360" height="200" fill={p.base} />
+        <rect {...WIDE} height="200" fill={p.base} />
         <g transform={`translate(${shift} 0)`}>
           <rect x="96" y="128" width="30" height="72" fill={p.light} />
           <rect x="138" y="104" width="30" height="96" fill={p.light} />
@@ -136,8 +153,8 @@ const DRAW: Record<Motif, (art: Art) => ReactNode> = {
             <circle cx="10" cy="10" r="2.2" fill={INK} opacity=".28" />
           </pattern>
         </defs>
-        <rect width="360" height="200" fill={p.base} />
-        <rect width="360" height="200" fill={`url(#${id})`} />
+        <rect {...WIDE} height="200" fill={p.base} />
+        <rect {...WIDE} height="200" fill={`url(#${id})`} />
         <polyline
           points={moved.map((pt) => pt.join(",")).join(" ")}
           fill="none"
@@ -158,7 +175,7 @@ const DRAW: Record<Motif, (art: Art) => ReactNode> = {
 
   pitch: ({ p, dy, x }) => (
     <>
-      <rect width="360" height="200" fill={p.base} />
+      <rect {...WIDE} height="200" fill={p.base} />
       <g fill="none" stroke="#fff" strokeWidth="3">
         <rect x="70" y="20" width="220" height="160" />
         <line x1="180" y1="20" x2="180" y2="180" />
@@ -176,7 +193,7 @@ const DRAW: Record<Motif, (art: Art) => ReactNode> = {
     const hy = 76 + dy / 2;
     return (
       <>
-        <rect width="360" height="200" fill={NIGHT} />
+        <rect {...WIDE} height="200" fill={NIGHT} />
         <ellipse
           cx="180"
           cy="104"
@@ -190,11 +207,13 @@ const DRAW: Record<Motif, (art: Art) => ReactNode> = {
         <path d={`M${hx - 120} ${hy + 88} L${hx - 4} ${hy - 4} L${hx + 4} ${hy + 4}Z`} fill="#FFE08A" opacity=".3" />
         <path d={`M${hx - 74} ${hy + 74} L${hx - 4} ${hy - 2} L${hx + 1} ${hy + 3}Z`} fill="#FFE08A" opacity=".55" />
         <circle cx={hx} cy={hy} r="10" fill="#FFE08A" />
-        <g fill="#fff">
-          {STARS.map(([cx, cy, r]) => (
-            <circle key={`${cx},${cy}`} cx={cx} cy={cy} r={r} />
-          ))}
-        </g>
+        {REPEATS.map((shift) => (
+          <g key={shift} fill="#fff" transform={`translate(${shift} 0)`}>
+            {STARS.map(([cx, cy, r]) => (
+              <circle key={`${cx},${cy}`} cx={cx} cy={cy} r={r} />
+            ))}
+          </g>
+        ))}
       </>
     );
   },
@@ -204,7 +223,7 @@ const DRAW: Record<Motif, (art: Art) => ReactNode> = {
     const cy = 100 + dy / 2;
     return (
       <>
-        <rect width="360" height="200" fill={p.base} />
+        <rect {...WIDE} height="200" fill={p.base} />
         <circle cx={cx - 32} cy={cy} r="58" fill={p.light} />
         <circle cx={cx + 32} cy={cy} r="58" fill="none" stroke={INK} strokeWidth="12" />
         <circle cx={cx} cy={cy} r="14" fill="#fff" />
@@ -226,7 +245,7 @@ const DRAW: Record<Motif, (art: Art) => ReactNode> = {
           <rect width="5" height="14" fill={p.dark} />
         </pattern>
       </defs>
-      <rect width="360" height="200" fill={`url(#${id})`} />
+      <rect {...WIDE} height="200" fill={`url(#${id})`} />
       <circle cx="180" cy="100" r="62" fill={p.base} />
       <text
         x="180"

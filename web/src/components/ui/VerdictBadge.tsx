@@ -22,7 +22,7 @@ export function VerdictBadge({ counts, detail = false }: { counts: Counts; detai
     <span className={className} title={`${counts.supported} of ${counts.claims} claims supported`}>
       {icon}
       {word}
-      {detail && ` · ${counts.supported}/${counts.claims} claims`}
+      {detail && ` · ${counts.supported}/${counts.claims} supported`}
     </span>
   );
 }
