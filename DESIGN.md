@@ -372,7 +372,7 @@ A 4 px base. Phone first: cards sit 12 px from the screen edge, text blocks 20 p
 | 760 px and up | Top pill navigation; the other notes in a grid of `minmax(300px, 1fr)` cards with a 160 px cover |
 | 960 px and up | The lead note becomes a split card (cover left, text right); note pages get a 340 px right rail |
 
-Content is at most 1240 px wide; a note's text at most 660 px. Nothing scrolls sideways at 360 px except chip rows, which hide their scrollbars.
+On a phone, the topic picker and Ask put their own bar at the bottom (the picks tray, the question box) in place of the tab bar. Content is at most 1240 px wide; a note's text at most 660 px. Nothing scrolls sideways at 360 px except chip rows, which hide their scrollbars.
 
 ## Elevation & Depth
 
@@ -401,7 +401,7 @@ The reader's chat question has one sharp corner: 20 px on three corners and 6 px
 - **Sources panel:** "Sources" with "N cited of M merged", one row per cited source, and a button that lists the other merged reports by title and publisher.
 - **How this note was made:** a disclosure card, open by default. It shows a numbered stepper of the five real steps (Scout, Researcher, Writer, Fact-checker, Editor), each with its time in UTC where one is kept and one line on what it did, ending with a bar in the verdict's color: "✓ 6 supported · 0 weak · 0 unsupported".
 - **Context row:** earlier notes on the topic as small cover cards, 220 px wide and scrolling sideways on a phone, a grid on desktop.
-- **Chat:** the reader's question right-aligned on ink; the answer on a card with a mono "FROM THE NOTES · scope" label, citation chips that open the cited note (its cover, date, title and opening line, "Open note →"), and a footer with Copy and Share. *Not enough:* an empty-page icon tile, "Not enough in the notes to answer that.", the reason when we know it, and a way to widen the search.
+- **Chat:** the reader's question right-aligned on ink; the answer on a card with a mono "FROM THE NOTES · scope" label, citation chips that open the cited note (its cover, topic and day, title and opening lines, "Open note →", and "Follow" when the reader doesn't follow its topic), and a footer with the number of notes cited and Copy. While it streams: "Searching the notes…", then "✓ Found N notes › Writing an answer with citations…" over skeleton lines. *Not enough:* an empty-page icon tile, "Not enough in the notes to answer that.", the reason when we know it, and a way to widen the search.
 - **Catalog tile:** a button (`aria-pressed`) with a cover on top (78 px phone, 96 px desktop), the name, the description and the notes so far. Selected: a 3 px ink outline and an ink check disc at the top right.
 - **Stat tile:** a mono label and a big weight-900 number. Real numbers only.
 - **States:** skeleton cards (a cover block and three bars, pulsing unless reduced motion is set); "nothing new" with its explanation; an error card with a `bad` outline, "Couldn't load today. Your notes are safe." and "Try again"; a source-unreachable notice.

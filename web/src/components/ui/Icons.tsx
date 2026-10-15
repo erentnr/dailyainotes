@@ -79,6 +79,14 @@ export const Share = () => (
   </Icon>
 );
 
+/** A page with nothing on it, for "not enough". */
+export const EmptyPage = () => (
+  <Icon size={24} width={1.8}>
+    <rect x="3.5" y="2.5" width="13" height="15" rx="2.5" />
+    <path d="M7 8h6M7 11.5h4" strokeDasharray="1.7 2.5" />
+  </Icon>
+);
+
 /** The tab bar's icons. */
 export const TodayIcon = () => (
   <Icon size={20} width={1.8}>

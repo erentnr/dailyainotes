@@ -1,13 +1,20 @@
 ---
 import AskChat from "../islands/AskChat";
 import Base from "../layouts/Base.astro";
+import { serverApi } from "../lib/api/server";
+
+const { data: topics } = await serverApi().GET("/api/v1/topics");
+// From the daily page's Ask box (?q=) or a note's "Ask a follow-up" (?topic=).
+const question = Astro.url.searchParams.get("q")?.trim().slice(0, 300) ?? "";
+const topic = Astro.url.searchParams.get("topic");
 ---
 
-<Base title="Ask your notes">
-  <header class="page-head">
-    <div class="label">Ask</div>
-    <h1 class="h1">Ask your notes</h1>
-    <p class="muted">Questions are answered from published notes only, or not at all.</p>
-  </header>
-  <AskChat client:load />
+<Base title="Ask your notes" tabBar={false}>
+  <AskChat
+    client:load
+    topics={topics ?? []}
+    signedIn={Astro.locals.reader !== null}
+    initialQuestion={question}
+    initialTopic={topic && topics?.some((t) => t.slug === topic) ? topic : null}
+  />
 </Base>

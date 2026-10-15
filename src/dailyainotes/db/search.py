@@ -103,16 +103,30 @@ class NoteRecord:
     text: str
 
 
-def published[*Ts](query: Select[*Ts], topic_slugs: list[str] | None) -> Select[*Ts]:
-    """Only published notes, of these topics when given."""
+@dataclass(frozen=True)
+class NoteFilter:
+    """Which published notes a search reads: these topics, and these days (inclusive)."""
+
+    topic_slugs: list[str] | None = None
+    since: date | None = None
+    until: date | None = None
+
+
+def published[*Ts](query: Select[*Ts], where: NoteFilter) -> Select[*Ts]:
     query = query.where(Note.status == "published")
-    if topic_slugs:
-        query = query.join(Topic, Topic.id == Note.topic_id).where(Topic.slug.in_(topic_slugs))
+    if where.topic_slugs:
+        query = query.join(Topic, Topic.id == Note.topic_id).where(
+            Topic.slug.in_(where.topic_slugs)
+        )
+    if where.since:
+        query = query.where(Note.edition_date >= where.since)
+    if where.until:
+        query = query.where(Note.edition_date <= where.until)
     return query
 
 
 async def note_full_text_candidates(
-    engine: AsyncEngine, query: str, *, topic_slugs: list[str] | None, limit: int
+    engine: AsyncEngine, query: str, *, where: NoteFilter, limit: int
 ) -> list[int]:
     tsquery = func.websearch_to_tsquery("english", query)
     statement = published(
@@ -120,20 +134,20 @@ async def note_full_text_candidates(
         .where(Note.tsv.bool_op("@@")(tsquery))
         .order_by(func.ts_rank_cd(Note.tsv, tsquery).desc(), Note.id)
         .limit(limit),
-        topic_slugs,
+        where,
     )
     async with engine.connect() as connection:
         return list((await connection.execute(statement)).scalars())
 
 
 async def note_vector_candidates(
-    engine: AsyncEngine, embedding: list[float], *, topic_slugs: list[str] | None, limit: int
+    engine: AsyncEngine, embedding: list[float], *, where: NoteFilter, limit: int
 ) -> list[tuple[int, float]]:
     """Note ids with their cosine similarity to the query, best first."""
     distance = Note.embedding.cosine_distance(embedding)
     statement = published(
         select(Note.id).add_columns(1 - distance).order_by(distance, Note.id).limit(limit),
-        topic_slugs,
+        where,
     )
     async with engine.begin() as connection:
         # As for chunks: keep scanning the HNSW index until enough rows pass the filter.

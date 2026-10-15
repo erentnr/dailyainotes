@@ -663,6 +663,10 @@ export interface components {
             question: string;
             /** Topics */
             topics?: string[];
+            /** Since */
+            since?: string | null;
+            /** Until */
+            until?: string | null;
         };
         /** Report */
         Report: {

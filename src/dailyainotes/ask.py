@@ -93,9 +93,21 @@ def is_strong(hit: NoteHit) -> bool:
     return hit.full_text_rank is not None or (hit.similarity or 0.0) >= STRONG_SIMILARITY
 
 
-async def find_sources(deps: AskDeps, question: str, topics: list[str]) -> list[Source]:
+async def find_sources(
+    deps: AskDeps,
+    question: str,
+    topics: list[str],
+    since: date | None = None,
+    until: date | None = None,
+) -> list[Source]:
     hits = await search_notes(
-        deps.engine, deps.embeddings, question, topic_slugs=topics or None, limit=2 * MAX_SOURCES
+        deps.engine,
+        deps.embeddings,
+        question,
+        topic_slugs=topics or None,
+        since=since,
+        until=until,
+        limit=2 * MAX_SOURCES,
     )
     strong = [hit.note for hit in hits if is_strong(hit)][:MAX_SOURCES]
     return [
@@ -132,10 +144,17 @@ async def answer(deps: AskDeps, question: str, sources: list[Source]) -> AsyncIt
 
 
 async def ask(
-    deps: AskDeps, question: str, topics: list[str], *, ip_hash: str | None = None
+    deps: AskDeps,
+    question: str,
+    topics: list[str],
+    *,
+    since: date | None = None,
+    until: date | None = None,
+    ip_hash: str | None = None,
 ) -> AsyncIterator[Event]:
-    """`answer` for one question, logged when it comes from a visitor (`ip_hash`)."""
-    sources = await find_sources(deps, question, topics)
+    """`answer` for one question, over the notes of these topics and days, logged when it comes
+    from a visitor (`ip_hash`)."""
+    sources = await find_sources(deps, question, topics, since, until)
     done: dict[str, Any] = {"insufficient": True, "cited": []}
     try:
         async for event in answer(deps, question, sources):

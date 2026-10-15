@@ -87,6 +87,49 @@ test("ask", async ({ page }, info) => {
   await shoot(page, "ask", info.project.name);
 });
 
+/** A canned answer stream, so screenshots never spend a model's free quota. */
+function answer(events: [string, unknown][]) {
+  return { status: 200, contentType: "text/event-stream", body: events.map(([e, d]) => `event: ${e}\ndata: ${JSON.stringify(d)}\n\n`).join("") };
+}
+
+test("ask with an answer open at its citation", async ({ page }, info) => {
+  await follow(page, FOLLOWED);
+  const slug = await firstNote(page, "formula-1");
+  const note = (await (await page.request.get(`/api/v1/notes/${slug}`)).json()) as { title: string; edition_date: string };
+  await page.route("**/api/v1/ask", (route) =>
+    route.fulfill(
+      answer([
+        ["sources", [{ marker: 1, slug, topic: "formula-1", title: note.title, edition_date: note.edition_date }]],
+        ["text", "The notes cover one Formula 1 story that day [1]."],
+        ["done", { cited: [1], insufficient: false }],
+      ]),
+    ),
+  );
+  await page.goto("/ask");
+  await hydrated(page);
+  await page.getByLabel("Your question").fill("What happened in Formula 1 this week?");
+  await page.getByLabel("Your question").press("Enter");
+  await page.getByRole("button", { name: "Source 1" }).click();
+  await page.getByRole("link", { name: "Open note →" }).waitFor();
+  await shoot(page, "ask-answer", info.project.name);
+});
+
+test("ask when the notes fall short", async ({ page }, info) => {
+  await follow(page, FOLLOWED);
+  await page.route("**/api/v1/ask", (route) =>
+    route.fulfill(
+      answer([
+        ["sources", []],
+        ["text", "Not enough in the notes to answer that."],
+        ["done", { cited: [], insufficient: true }],
+      ]),
+    ),
+  );
+  await page.goto("/ask?topic=formula-1&q=Who+won+the+Istanbul+derby%3F");
+  await page.getByText("Not enough in the notes to answer that.").waitFor();
+  await shoot(page, "ask-not-enough", info.project.name);
+});
+
 for (const [name, path] of [
   ["timeline", "/topics/climate-tech"],
   ["how-it-works", "/how-it-works"],

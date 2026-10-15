@@ -1,5 +1,5 @@
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import httpx2
@@ -103,6 +103,24 @@ async def test_an_uncovered_question_gets_not_enough_without_a_model_call(
     assert row.insufficient
 
 
+async def test_a_question_reads_only_the_notes_of_the_days_asked_about(
+    engine: AsyncEngine, embeddings: Embeddings
+) -> None:
+    await corpus(engine, embeddings)
+    router = StreamingRouter(["Yes [1]."])
+    deps = AskDeps(engine, embeddings, router)
+
+    async def found(since: date | None, until: date | None) -> list[str]:
+        result = [event async for event in ask(deps, COVERED, [], since=since, until=until)]
+        return [s["edition_date"].isoformat() for s in result[0][1]]
+
+    # The Brightwater note is from 2026-09-02.
+    assert await found(date(2026, 9, 2), date(2026, 9, 2)) == ["2026-09-02"]
+    assert await found(date(2026, 9, 3), None) == []
+    assert await found(None, date(2026, 9, 1)) == []
+    assert len(router.prompts) == 1
+
+
 async def test_a_model_that_finds_the_notes_lacking_is_shown_as_not_enough(
     engine: AsyncEngine, embeddings: Embeddings
 ) -> None:
@@ -147,6 +165,10 @@ async def test_the_api_streams_events_and_allows_ten_questions_per_ip_a_day(
         ]
         refused = await client.post("/api/v1/ask", json={"question": UNCOVERED})
         too_short = await client.post("/api/v1/ask", json={"question": "?"})
+        backwards = await client.post(
+            "/api/v1/ask",
+            json={"question": UNCOVERED, "since": "2026-10-02", "until": "2026-10-01"},
+        )
 
     assert {a.status_code for a in answers} == {200}
     assert answers[0].headers["content-type"].startswith("text/event-stream")
@@ -158,6 +180,7 @@ async def test_the_api_streams_events_and_allows_ten_questions_per_ip_a_day(
     assert refused.status_code == 429
     assert "10 questions" in refused.json()["detail"]
     assert too_short.status_code == 422
+    assert backwards.status_code == 422
     assert len(await logged(engine)) == 10
 
 

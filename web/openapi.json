@@ -1486,6 +1486,30 @@
       "type": "array",
       "maxItems": 20,
       "title": "Topics"
+     },
+     "since": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Since"
+     },
+     "until": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Until"
      }
     },
     "type": "object",

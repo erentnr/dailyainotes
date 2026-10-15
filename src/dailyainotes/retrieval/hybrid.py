@@ -2,6 +2,7 @@
 an optional reranker."""
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Protocol
 
 from langchain_core.embeddings import Embeddings
@@ -72,16 +73,16 @@ async def search_notes(
     query: str,
     *,
     topic_slugs: list[str] | None = None,
+    since: date | None = None,
+    until: date | None = None,
     limit: int = 8,
 ) -> list[NoteHit]:
-    """Published notes, by the same fusion of full text and vectors as source search."""
+    """Published notes, of these topics and days when given, by the same fusion of full text
+    and vectors as source search."""
+    where = db.NoteFilter(topic_slugs, since, until)
     vector = await embeddings.aembed_query(query)
-    full_text = await db.note_full_text_candidates(
-        engine, query, topic_slugs=topic_slugs, limit=CANDIDATES
-    )
-    nearest = await db.note_vector_candidates(
-        engine, vector, topic_slugs=topic_slugs, limit=CANDIDATES
-    )
+    full_text = await db.note_full_text_candidates(engine, query, where=where, limit=CANDIDATES)
+    nearest = await db.note_vector_candidates(engine, vector, where=where, limit=CANDIDATES)
     similarity = dict(nearest)
     fused = reciprocal_rank_fusion(
         {"full_text": full_text, "vector": [note_id for note_id, _ in nearest]}
