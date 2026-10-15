@@ -2,3 +2,7 @@ node_modules
 dist
 .astro
 tests
+e2e
+playwright.config.ts
+screenshots
+test-results

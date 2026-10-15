@@ -1,3 +1,7 @@
 node_modules/
 dist/
 .astro/
+
+# Playwright: screenshots for a person to look at, and its run output.
+screenshots/
+test-results/
