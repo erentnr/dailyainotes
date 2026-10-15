@@ -65,6 +65,17 @@ make api     # the API on http://localhost:8000; try /api/v1/health
 
 Every setting is listed, with what it does, in [`.env.example`](.env.example). After a change to the API, `make api-types` regenerates the site's typed client.
 
+### The site
+
+The site in `web/` is Astro, rendered on the server, with React islands for the parts you interact with; its look is [DESIGN.md](DESIGN.md). It reads the real API through the generated client in `web/src/lib/api/`, so there is no sample data in the site itself: it shows what the database holds. To look at it with data without touching the development database, copy that database into a throwaway one, load the fictional eval corpus into the copy, and run `make api` with `DATABASE_URL` pointing at it (the steps are in [MEMORY.md](MEMORY.md), Procedural Memory).
+
+```sh
+(cd web && npx --yes pnpm@12.8.1 exec playwright install chromium)   # once
+(cd web && npx --yes pnpm@12.8.1 screenshots)   # every page at 390x844 and 1280x900, light and dark
+```
+
+`pnpm screenshots` needs the dev server and the API running. It saves full-page screenshots to `web/screenshots/` for a person to look at and fails when a page scrolls sideways, also at 360 px wide. It answers Ask with a canned stream, so it spends no model quota. It is not part of `make check`.
+
 ## Running the pipeline
 
 ```sh

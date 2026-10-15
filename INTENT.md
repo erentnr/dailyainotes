@@ -250,7 +250,7 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - [x] The Topic Planner checks a candidate source's pages with the policy gate before proposing it, so it never proposes only link-only sources (found 2026-10-13: film and TV; done 2026-10-15 with M9: four pages per feed, at least half readable).
 - [ ] After 2026-10-15: move the Postgres image to `pgvector/pgvector:0.8.7-pg18-trixie`.
 - [ ] After 2026-10-28: move to Node 26 LTS.
-- [ ] Revise DESIGN.md when the v1 screens (Admin, How it works, Archive, Topic) are redesigned; until then they are layout reference only.
+- [ ] Redesign the screens the canvas's D page does not draw (topic timeline, How it works, sign-in, account, /admin) once the owner draws them, and revise DESIGN.md with them; until then they use D's components.
 - [ ] Keep the README's Next steps in line with ADR 0001.
 
 ### Recurring

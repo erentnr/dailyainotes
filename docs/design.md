@@ -83,4 +83,4 @@ Readers sign in with a six-digit code or a link, sent together by email through 
 
 ## The site
 
-Astro renders pages on the server; React islands handle the interactive parts: the topic picker, the daily feed, citation chips, Ask and the admin page. UI components take props and never fetch. The API client is generated from FastAPI's OpenAPI schema, and CI fails when either drifts. The fonts DESIGN.md names are downloaded at build time and served from our own origin, so a visit sends nothing to Google.
+Astro renders pages on the server; React islands handle the interactive parts: the topic picker, the daily feed, citation chips, Ask and the admin page. UI components take props and never fetch. The API client is generated from FastAPI's OpenAPI schema, and CI fails when either drifts. The fonts DESIGN.md names are downloaded at build time and served from our own origin, so a visit sends nothing to Google. Topic covers are inline SVG drawn from the topic's category and the reader's color slot: the site needs no news photos, which we would not own, and makes no image requests.
