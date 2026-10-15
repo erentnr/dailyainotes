@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
-/** Empty and "not enough" states sit on graph paper; errors reassure. */
+/** Empty and "not enough" states explain themselves; errors reassure. */
 export function EmptyState({ children }: { children: ReactNode }) {
-  return <div className="state graph-paper">{children}</div>;
+  return <div className="state">{children}</div>;
 }
 
 export function ErrorState({ children }: { children: ReactNode }) {

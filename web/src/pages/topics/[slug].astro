@@ -21,7 +21,7 @@ for (const note of data.notes) {
 
 <Base title={data.topic.name} description={data.topic.description}>
   <div class="measure">
-    <header class="page-head graph-paper">
+    <header class="page-head">
       <div class="label">Topic timeline</div>
       <h1 class="h1">{data.topic.name}</h1>
       <p class="muted">{data.topic.description} · {plural(data.topic.notes, "note")}</p>
@@ -36,7 +36,7 @@ for (const note of data.notes) {
               <li class="timeline-item">
                 <span class="meta">{formatDay(note.edition_date)}</span>
                 <span class="stem">
-                  <span class="tag-square" style="background: var(--ink-3)" />
+                  <span class="tag-square" style="background: var(--ink3)" />
                 </span>
                 <span>
                   <a href={`/notes/${note.slug}`}>{note.title}</a>

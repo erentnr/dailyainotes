@@ -106,8 +106,8 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - **Every UI follows DESIGN.md:** the site, the /admin page and diagrams in docs.
 - **A change to the visual system updates DESIGN.md's tokens and prose in the same commit.**
   `npx --yes @google/design.md@latest lint DESIGN.md` stays at 0 errors; the only expected
-  warnings are `orphaned-tokens` for tokens applied through CSS (the `dark-` tokens, `t1` to `t8`,
-  `line`, `line-2`, `ink-2`, `ink-3`, `grid`).
+  warnings are `orphaned-tokens` for tokens applied through CSS (the `dark-` tokens, `s1` to `s8`,
+  `line`, `line2`, `ink2`).
 
 ## Architectural Constraints
 

@@ -41,7 +41,7 @@ export default function DailyFeed() {
 
   return (
     <>
-      <header className="page-head graph-paper">
+      <header className="page-head">
         <div className="label">{day ? "Notes for" : "Today"}</div>
         <h1 className="display">{day ? formatDay(day) : "No notes yet"}</h1>
         <p className="muted">
@@ -72,7 +72,7 @@ export default function DailyFeed() {
               type="button"
               className="topic-tab"
               aria-pressed={tab === p.slug}
-              style={{ ["--tab-color" as string]: `var(--t${p.slot})` }}
+              style={{ ["--tab-color" as string]: `var(--s${p.slot})` }}
               onClick={() => setTab(p.slug)}
             >
               <TopicTag name={names.get(p.slug) ?? p.slug} slot={p.slot} />

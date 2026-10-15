@@ -26,20 +26,12 @@ export default defineConfig({
   fonts: [
     {
       provider: google,
-      name: "Newsreader",
-      cssVariable: "--font-serif",
-      weights: [400, 500, 600],
-      styles: ["normal", "italic"],
-      subsets: ["latin"],
-      fallbacks: ["Georgia", "serif"],
-    },
-    {
-      provider: google,
-      name: "Hanken Grotesk",
+      name: "Schibsted Grotesk",
       cssVariable: "--font-sans",
-      weights: [400, 500, 600],
+      // A variable font: one file covers every weight the design uses, 750 and 850 included.
+      weights: ["400 900"],
       subsets: ["latin"],
-      fallbacks: ["system-ui", "sans-serif"],
+      fallbacks: ["ui-sans-serif", "system-ui", "sans-serif"],
     },
     {
       provider: google,
@@ -47,7 +39,7 @@ export default defineConfig({
       cssVariable: "--font-mono",
       weights: [400, 500],
       subsets: ["latin"],
-      fallbacks: ["ui-monospace", "monospace"],
+      fallbacks: ["ui-monospace", "Menlo", "monospace"],
     },
   ],
   // `pnpm dev` sends the browser's /api calls to `make api`.

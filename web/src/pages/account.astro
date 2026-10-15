@@ -11,7 +11,7 @@ const names = new Map((topics ?? []).map((t) => [t.slug, t.name]));
 ---
 
 <Base title="Your account">
-  <header class="page-head graph-paper">
+  <header class="page-head">
     <div class="label">Account</div>
     <h1 class="h1">Your account</h1>
     <p class="meta">{reader.email}</p>
@@ -26,7 +26,7 @@ const names = new Map((topics ?? []).map((t) => [t.slug, t.name]));
               <li>
                 {/* TopicTag's markup: Astro reserves the `slot` prop for its own slots. */}
                 <span class="tag">
-                  <span class="tag-square" style={`background: var(--t${t.slot})`} aria-hidden="true" />
+                  <span class="tag-square" style={`background: var(--s${t.slot})`} aria-hidden="true" />
                   {names.get(t.slug) ?? t.slug}
                 </span>
               </li>

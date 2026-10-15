@@ -198,10 +198,10 @@ Started 2026-10-12; consolidated 2026-10-13 after M6 (Episodic entries up to the
 
 ### Design
 
-- #decision **DESIGN.md comes from the v2 page of the owner's Claude Design canvas** (2026-10-12). Admin, How it works, Archive and Topic are v1 screens marked "to revise", used as layout reference only.
+- #decision **DESIGN.md comes from the "D · Covers" page of the owner's Claude Design canvas** (tokens v3.0, 2026-10-15; adopted 2026-10-16), which replaced the v2 page (rejected on the canvas). Schibsted Grotesk and IBM Plex Mono; white cards on a warm grey ground; a drawn cover per topic, its motif from the topic's category and its colors from the reader's slot. Topic timeline, How it works and /admin are not on the D page; they are restyled with its tokens until revised.
 - #decision **The note screen says "Approved by the editor"** instead of "Published automatically", because every note is approved.
-- #insight **The design's account features wait for phase 2:** feedback buttons, custom topics, delivery time and settings.
-- #fact **DESIGN.md lint** (@google/design.md 0.4.0, 2026-10-12): 0 errors, 39 `orphaned-tokens` warnings, all expected: 26 `dark-` tokens, `t1` to `t8`, and `line`, `line-2`, `ink-2`, `ink-3`, `grid`, which CSS applies outside component definitions. The spec requires a `primary` color, so `primary` aliases `accent`; component `padding` takes a single dimension.
+- #decision **Designed features with no backend are left out** (owner, 2026-10-16): the More, Less and Not relevant buttons, a delivery time, live first-day progress and custom topics. "Something more specific?" sends a topic suggestion; onboarding's step 2 is signing in. Copy never promises a delivery time.
+- #fact **DESIGN.md lint** (@google/design.md 0.4.0, 2026-10-16): 0 errors, 36 `orphaned-tokens` warnings, all expected: 25 `dark-` tokens, `s1` to `s8`, and `line`, `line2`, `ink2`, which CSS applies outside component definitions. The spec requires a `primary` color, so `primary` aliases `acc`; component `padding` takes a single dimension.
 
 ### Infrastructure
 

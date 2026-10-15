@@ -29,7 +29,7 @@ export function Sparkline({ values }: { values: number[] }) {
     .join(" ");
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
-      <polyline points={points} fill="none" stroke="var(--accent)" strokeWidth="1.5" />
+      <polyline points={points} fill="none" stroke="var(--acc)" strokeWidth="1.5" />
     </svg>
   );
 }

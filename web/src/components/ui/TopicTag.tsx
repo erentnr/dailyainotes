@@ -4,7 +4,7 @@ export function TopicTag({ name, slot }: { name: string; slot?: number | undefin
     <span className="tag">
       <span
         className="tag-square"
-        style={{ background: slot ? `var(--t${slot})` : "var(--line-2)" }}
+        style={{ background: slot ? `var(--s${slot})` : "var(--line2)" }}
         aria-hidden="true"
       />
       {name}
