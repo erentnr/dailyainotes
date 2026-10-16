@@ -1,0 +1,29 @@
+name: Uptime
+
+# Checks the live site every 15 minutes from GitHub's runners. A failed run is the alert:
+# GitHub notifies the user who created this workflow. Scheduled runs can be delayed or dropped
+# under load, and GitHub turns the schedule off after 60 days without repository activity.
+on:
+  schedule:
+    # Off the hour, when GitHub's scheduled runs crowd together.
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  site:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # Retries ride out a deploy's restart, which takes under a minute.
+      - name: The API and its database answer
+        run: >-
+          curl --fail --silent --show-error --max-time 20
+          --retry 2 --retry-delay 30 --retry-all-errors
+          https://dailyainotes.com/api/v1/health
+      - name: The site answers
+        run: >-
+          curl --fail --silent --show-error --max-time 20
+          --retry 2 --retry-delay 30 --retry-all-errors --output /dev/null
+          https://dailyainotes.com/

@@ -216,6 +216,12 @@ docker compose -f compose.prod.yml exec -T db pg_restore -U dan -d dailyainotes 
 docker compose -f compose.prod.yml start api worker
 ```
 
+The dumps stay on the server; copies elsewhere wait until the site has real readers (Next steps).
+
+### Uptime
+
+`.github/workflows/uptime.yml` checks the API with its database, and the home page, every 15 minutes from GitHub's runners. A failed run is the alert: GitHub notifies the user who created the workflow, by email when Actions notifications are on in that user's settings. Scheduled runs can be delayed under load, and GitHub turns the schedule off after 60 days without repository activity; `gh workflow enable uptime.yml` turns it back on.
+
 To go back to an earlier release, run `./deploy.sh <commit sha>`. Logs: `TAG=$(cat .deployed) docker compose -f compose.prod.yml logs -f worker`.
 
 ## Next steps
@@ -226,7 +232,7 @@ Deferred by [ADR 0001](docs/adr/0001-proof-of-concept-scope.md) and still open a
 - A per-reader preference memory fed by "more like this" and "less like this" (accounts came first, ADR 0003).
 - A full review UI: request a rewrite, edit a draft (topic plans are reviewed at /admin since ADR 0003).
 - An MCP server with `search_notes`, `get_note` and `list_topics`.
-- Offsite backups, uptime monitoring and alerts.
+- Offsite backups, once the site has real readers (the nightly dumps stay on the server).
 
 ## How this repository is run
 
