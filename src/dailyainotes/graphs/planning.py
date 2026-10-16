@@ -28,6 +28,10 @@ class NotProposedError(Exception):
     """The plan was already approved or rejected, or does not exist."""
 
 
+class EmptyPlanError(Exception):
+    """The plan keeps no source: approving it would make a topic active with nothing to read."""
+
+
 @asynccontextmanager
 async def planner(settings: Settings, engine: AsyncEngine) -> AsyncIterator[Any]:
     """The Topic Planner graph with its models, HTTP client and checkpointer."""
@@ -74,6 +78,10 @@ async def decide_plan(
     if proposal is None or proposal.status != "proposed":
         status = proposal.status if proposal else "missing"
         raise NotProposedError(f"plan-{proposal_id} is {status}, not waiting for review")
+    if decision == "approve" and not proposal.profile["sources"]:
+        raise EmptyPlanError(
+            f"plan-{proposal_id} has no sources: reject it, or plan the topic again"
+        )
     resume: Command[Any] = Command(resume={"decision": decision, "comment": comment, "by": by})
     await graph.ainvoke(resume, {"configurable": {"thread_id": proposal.thread_id}})
     await finish_waiting_runs(engine, proposal.thread_id, "done")

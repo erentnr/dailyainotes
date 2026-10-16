@@ -28,6 +28,7 @@ from dailyainotes.graphs.edition import (
     run_editions,
 )
 from dailyainotes.graphs.planning import (
+    EmptyPlanError,
     NotProposedError,
     UnknownTopicError,
     decide_plan,
@@ -383,7 +384,7 @@ async def _decide(item: str, decision: str, comment: str) -> None:
             LocalEmbeddings(settings.embedding_cache_dir),
         )
         await decide_note(deps, settings.database_url, number, decision, comment, by=BY)
-    except (NotAwaitingApprovalError, NotProposedError) as error:
+    except (NotAwaitingApprovalError, NotProposedError, EmptyPlanError) as error:
         raise typer.BadParameter(str(error)) from error
     finally:
         await engine.dispose()

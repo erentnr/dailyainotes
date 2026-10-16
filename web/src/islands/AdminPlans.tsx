@@ -116,7 +116,12 @@ export default function AdminPlans() {
             onChange={(e) => setComments({ ...comments, [p.id]: e.target.value })}
           />
           <div className="chips">
-            <button className="button button-primary" type="button" onClick={() => decide(p.id, "approve")}>
+            <button
+              className="button button-primary"
+              type="button"
+              disabled={p.sources.length === 0}
+              onClick={() => decide(p.id, "approve")}
+            >
               Approve and activate
             </button>
             <button className="button button-secondary" type="button" onClick={() => decide(p.id, "reject")}>

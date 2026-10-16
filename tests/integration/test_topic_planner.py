@@ -14,6 +14,7 @@ from dailyainotes.api.app import create_app
 from dailyainotes.db import planner as planner_db
 from dailyainotes.db.checkpoints import checkpointer
 from dailyainotes.db.tables import Source, Topic, TopicProfile, TopicSource
+from dailyainotes.graphs.planning import EmptyPlanError, decide_plan
 from dailyainotes.graphs.topic_planner import MoreSites, PlannerDeps, ProfileDraft, build_planner
 from dailyainotes.ingestion.catalog import Catalog, sync_catalog
 from dailyainotes.settings import Settings
@@ -254,6 +255,27 @@ async def test_the_planner_stops_after_its_second_round(
         NO_FEED,
         "https://elsewhere.example.net/",
     }
+
+
+async def test_a_plan_without_sources_can_be_rejected_but_not_approved(
+    engine: AsyncEngine,
+    database_url: str,
+    web: Callable[..., Any],
+) -> None:
+    state, config = await start(engine)
+    async with checkpointer(database_url) as saver:
+        graph = build_planner(
+            PlannerDeps(engine, FakeRouter(SITES_ONLY), web(unusable()).http, NOW), saver
+        )
+        await graph.ainvoke(state, config)
+        (proposal,) = await planner_db.proposals(engine, status="proposed")
+
+        with pytest.raises(EmptyPlanError):
+            await decide_plan(engine, graph, proposal.id, "approve", "", by="dan review")
+        await decide_plan(engine, graph, proposal.id, "reject", "nothing usable", by="dan review")
+
+    (rejected,) = await planner_db.proposals(engine, status="rejected")
+    assert rejected.id == proposal.id
 
 
 async def test_the_editor_reviews_a_plan_at_admin(

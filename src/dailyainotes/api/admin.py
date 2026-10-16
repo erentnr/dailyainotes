@@ -16,7 +16,7 @@ from dailyainotes.db import editorial as db
 from dailyainotes.db import planner as planner_db
 from dailyainotes.db import suggestions as suggestions_db
 from dailyainotes.graphs.edition import NotAwaitingApprovalError, decide_note
-from dailyainotes.graphs.planning import NotProposedError, decide_plan, planner
+from dailyainotes.graphs.planning import EmptyPlanError, NotProposedError, decide_plan, planner
 from dailyainotes.graphs.story import StoryDeps
 
 log = structlog.get_logger(__name__)
@@ -183,7 +183,10 @@ async def plans(request: Request) -> list[Plan]:
     return [plan_of(p) for p in proposals]
 
 
-@router.post("/plans/{plan_id}/decision", responses={409: {"description": "Not waiting"}})
+@router.post(
+    "/plans/{plan_id}/decision",
+    responses={409: {"description": "Not waiting, or approving a plan without sources"}},
+)
 async def decide_on_plan(
     request: Request, plan_id: int, body: PlanDecision, email: Editor
 ) -> dict[str, str]:
@@ -192,7 +195,7 @@ async def decide_on_plan(
     try:
         async with planner(request.app.state.settings, engine) as graph:
             await decide_plan(engine, graph, plan_id, body.decision, body.comment, by=email)
-    except NotProposedError as error:
+    except (NotProposedError, EmptyPlanError) as error:
         raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from error
     return {"status": "approved" if body.decision == "approve" else "rejected"}
 

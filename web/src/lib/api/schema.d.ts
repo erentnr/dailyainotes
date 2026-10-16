@@ -1539,7 +1539,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description Not waiting */
+            /** @description Not waiting, or approving a plan without sources */
             409: {
                 headers: {
                     [name: string]: unknown;
