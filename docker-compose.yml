@@ -3,8 +3,7 @@ name: dailyainotes
 
 services:
   db:
-    # pgvector 0.8.7 is under two weeks old on 2026-10-12; MEMORY.md has the reason.
-    image: pgvector/pgvector:0.8.6-pg18-trixie
+    image: pgvector/pgvector:0.8.7-pg18-trixie
     environment:
       POSTGRES_USER: dan
       POSTGRES_PASSWORD: dan # local development only
