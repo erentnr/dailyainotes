@@ -47,15 +47,16 @@ def parse_feed(content: bytes, url: str) -> list[RawItem]:
     # version tells them apart.
     if not feed.version:
         raise NotAFeedError(url)
-    return [item for entry in feed.entries if (item := to_item(entry))]
+    return [item for entry in feed.entries if (item := to_item(entry, url))]
 
 
-def to_item(entry: Any) -> RawItem | None:
+def to_item(entry: Any, feed_url: str) -> RawItem | None:
     link, title = entry.get("link"), entry.get("title")
     if not link or not title:
         return None
     return RawItem(
-        url=link,
+        # Some feeds give item links relative to their own address.
+        url=urljoin(feed_url, link),
         title=html_to_text(title),
         lead=clean_lead(entry.get("summary", "")),
         published_at=from_struct_time(entry.get("published_parsed") or entry.get("updated_parsed")),

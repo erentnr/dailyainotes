@@ -30,6 +30,14 @@ async def test_an_rss_feed_becomes_plain_text_items(fixture: Fixture, web: Web) 
     assert undated.published_at is None
 
 
+async def test_relative_item_links_are_read_against_the_feed_url(
+    fixture: Fixture, web: Web
+) -> None:
+    (item,) = (await fetch_feed(web({FEED: fixture("rss/relative-links.xml")}).http, FEED)).items
+
+    assert item.url == "https://news.example.com/article/151036/an-update-adds-a-character-respec"
+
+
 async def test_a_feed_is_fetched_conditionally_and_304_means_no_items(web: Web) -> None:
     recorded = web({FEED: (304, b"", {})})
 
