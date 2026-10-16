@@ -2,11 +2,23 @@
 
 AI takes notes on what's happening, every day, on the things you care about.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/daily-dark.webp">
+  <img alt="The daily page at dailyainotes.com on a desktop and on a phone: the date, the number of stories and minutes to read them, an Ask box, a tab for each topic, and the day's biggest story on its topic's cover." src="docs/images/daily-light.webp">
+</picture>
+
 Every night, LangGraph agents collect coverage for each topic in a fixed catalog, group reports of the same event into stories, research them, write short notes in which every sentence cites its sources, and fact-check every claim. A person approves each note before it is published. Visitors pick topics, read the day's notes and ask questions answered only from the notes, with citations, or told plainly that the notes don't cover it.
 
 **Status:** a proof of concept ([ADR 0001](docs/adr/0001-proof-of-concept-scope.md)); the milestones and what each one waits for are in [INTENT.md](INTENT.md). The design and its trade-offs are in [docs/design.md](docs/design.md).
 
 ## How it works
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/how-it-works-dark.gif">
+  <img alt="One story's night, as the site's How it works page plays it: four reports arrive and three merge into a story, the facts are listed with their source numbers, a note is written with a citation on each line, the citations and claims are checked, the editor approves the note, and an Ask answer links to it." src="docs/images/how-it-works-light.gif">
+</picture>
+
+One story's night, from the site's [How it works](https://dailyainotes.com/how-it-works) page. The pictures come from the live site with `make readme-media`. Underneath, the parts:
 
 ```mermaid
 flowchart LR

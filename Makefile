@@ -1,6 +1,6 @@
 # The gate before every commit is `make check` (INTENT.md, Testing Requirements).
 
-.PHONY: check lint types test fmt up down api api-types web-check
+.PHONY: check lint types test fmt up down api api-types web-check readme-media
 
 check: lint types test web-check
 
@@ -37,3 +37,7 @@ api-types:
 # The site's checks: astro check (types) and vitest. `cd web && npx --yes pnpm@12.8.1 install` first.
 web-check:
 	cd web && npx --yes pnpm@12.8.1 run check
+
+# The README's pictures, taken from the live site (needs ffmpeg and ImageMagick 7).
+readme-media:
+	web/e2e/readme-media.sh
