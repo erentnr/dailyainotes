@@ -1,7 +1,7 @@
 """Sends email through Resend's HTTPS API (resend.com/docs, 2026-10-15). The free plan sends
 3,000 emails a month and 100 a day."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import httpx2
 
@@ -23,7 +23,8 @@ class Email:
 @dataclass(frozen=True)
 class ResendMailer:
     client: httpx2.AsyncClient
-    api_key: str
+    # Out of the repr, so no error message or log line can carry it.
+    api_key: str = field(repr=False)
     sender: str
 
     async def send(self, email: Email) -> None:

@@ -30,7 +30,11 @@ def configure_logging(level: LogLevel) -> None:
         foreign_pre_chain=shared,
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-            structlog.processors.dict_tracebacks,
+            # Without frames' local variables: they hold keys, session tokens and visitors'
+            # addresses, and logs never keep those (INTENT.md). dict_tracebacks shows them.
+            structlog.processors.ExceptionRenderer(
+                structlog.tracebacks.ExceptionDictTransformer(show_locals=False)
+            ),
             structlog.processors.JSONRenderer(),
         ],
     )

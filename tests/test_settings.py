@@ -41,3 +41,14 @@ def test_langfuse_keys_in_their_right_places_are_accepted(monkeypatch: pytest.Mo
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-2")
 
     assert Settings(_env_file=None).langfuse_public_key == "pk-lf-1"
+
+
+def test_the_database_password_and_github_token_stay_out_of_the_repr() -> None:
+    settings = Settings(
+        _env_file=None,
+        database_url="postgresql+psycopg://dan:not-a-real-password@db:5432/dailyainotes",
+        github_token="ghp_not_a_real_token",
+    )
+
+    assert "not-a-real-password" not in repr(settings)
+    assert "ghp_not_a_real_token" not in repr(settings)

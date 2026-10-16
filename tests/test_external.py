@@ -91,3 +91,12 @@ async def test_turnstile_fails_closed() -> None:
     assert await garbled.passed("token", "203.0.113.7") is False
     assert await empty.passed("", "203.0.113.7") is False
     assert len(seen) == 1  # an empty token is refused without asking
+
+
+def test_the_keys_stay_out_of_reprs() -> None:
+    client = httpx2.AsyncClient()
+    mailer = ResendMailer(client, "re_not_a_real_key", "sign-in@example.com")
+    check = TurnstileCheck(client, "0x4_not_a_real_secret", "dailyainotes.com")
+
+    assert "re_not_a_real_key" not in repr(mailer)
+    assert "0x4_not_a_real_secret" not in repr(check)

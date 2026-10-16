@@ -6,7 +6,7 @@ not, with its reasons, so the ranking can be audited. Each picked story then get
 story graph (graphs/story.py).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, TypedDict
 
@@ -47,7 +47,7 @@ class ScoutDeps:
     embeddings: Embeddings
     now: datetime
     collect: bool = True
-    github_token: str | None = None
+    github_token: str | None = field(default=None, repr=False)
 
 
 def build_scout(

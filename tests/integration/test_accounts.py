@@ -10,12 +10,14 @@ from typing import Any
 import httpx2
 import pytest
 from sqlalchemy import func, insert, select, update
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from dailyainotes import accounts
 from dailyainotes.accounts import AccountDeps
 from dailyainotes.api.accounts import COOKIE
 from dailyainotes.api.app import create_app
+from dailyainotes.db import accounts as accounts_db
 from dailyainotes.db.tables import Reader, ReaderSession, ReaderTopic, SignInCode, Topic
 from dailyainotes.external.resend import Email, EmailNotSentError
 from dailyainotes.settings import Settings
@@ -179,6 +181,17 @@ async def test_five_wrong_codes_void_the_code_and_its_link(
     assert answers[3]["detail"] == "That code is not right. 1 try left."
     assert answers[4]["detail"] == "Too many wrong codes. Ask for a new one."
     assert right_after.status_code == link_after.status_code == 400
+
+
+async def test_a_database_error_does_not_carry_the_readers_email(engine: AsyncEngine) -> None:
+    """Error messages reach the logs, and logs keep no personal data (INTENT.md)."""
+    # Postgres text cannot hold a NUL, so the query fails while binding the address.
+    email = "someone.private\x00@example.com"
+
+    with pytest.raises(DBAPIError) as raised:
+        await accounts_db.live_code_for_email(engine, email, datetime.now(UTC), 5)
+
+    assert "someone.private" not in str(raised.value)
 
 
 async def test_a_code_expires_after_ten_minutes(

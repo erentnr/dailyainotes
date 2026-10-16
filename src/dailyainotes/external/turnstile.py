@@ -2,7 +2,7 @@
 person solved the challenge on our site (developers.cloudflare.com/turnstile, 2026-10-15). A
 token works once, for five minutes."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import httpx2
 
@@ -13,7 +13,8 @@ MAX_TOKEN_LENGTH = 2048
 @dataclass(frozen=True)
 class TurnstileCheck:
     client: httpx2.AsyncClient
-    secret: str
+    # Out of the repr, so no error message or log line can carry it.
+    secret: str = field(repr=False)
     # The hostname the widget ran on; a token solved on another site is refused.
     hostname: str
 

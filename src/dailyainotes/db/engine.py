@@ -13,8 +13,12 @@ log = structlog.get_logger(__name__)
 
 def create_engine(database_url: str) -> AsyncEngine:
     # A short connect timeout keeps the health check from hanging when the database is gone.
+    # Error messages leave out bound values (emails, questions), since errors reach the logs.
     return create_async_engine(
-        database_url, pool_pre_ping=True, connect_args={"connect_timeout": 3}
+        database_url,
+        pool_pre_ping=True,
+        connect_args={"connect_timeout": 3},
+        hide_parameters=True,
     )
 
 

@@ -6,7 +6,7 @@ Every setting here also appears in `.env.example`.
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
@@ -19,9 +19,12 @@ class Settings(BaseSettings):
     )
 
     log_level: LogLevel = "INFO"
-    database_url: str = "postgresql+psycopg://dan:dan@localhost:5432/dailyainotes"
+    # Out of the repr: it holds the database password.
+    database_url: str = Field(
+        default="postgresql+psycopg://dan:dan@localhost:5432/dailyainotes", repr=False
+    )
     # Optional: raises GitHub's API limit from 60 to 5,000 requests an hour.
-    github_token: str | None = None
+    github_token: str | None = Field(default=None, repr=False)
     # Where the local embedding model (64 MB) is downloaded once.
     embedding_cache_dir: str = ".cache/fastembed"
 

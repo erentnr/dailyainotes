@@ -55,6 +55,27 @@ def test_uvicorn_access_lines_are_dropped_as_they_start_with_the_client_address(
     assert "203.0.113.7" not in captured.out + captured.err
 
 
+def test_tracebacks_keep_the_error_but_not_the_frames_local_variables(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    configure_logging("INFO")
+    key = "re_not_a_real_key_0123456789"
+
+    def handler(api_key: str) -> None:
+        raise ValueError("the database said no")
+
+    try:
+        handler(key)
+    except ValueError as error:
+        # The call uvicorn makes for an unhandled exception in a request.
+        logging.getLogger("uvicorn.error").error("Exception in ASGI application", exc_info=error)
+
+    out = capsys.readouterr().out
+    line = json.loads(out.strip().splitlines()[-1])
+    assert line["exception"][0]["exc_type"] == "ValueError"
+    assert key not in out
+
+
 def test_events_below_the_configured_level_are_dropped(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
