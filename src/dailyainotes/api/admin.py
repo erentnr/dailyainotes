@@ -171,7 +171,7 @@ def plan_of(proposal: planner_db.Proposal) -> Plan:
         negative_keywords=profile["negative_keywords"],
         entities=profile["entities"],
         sources=[PlanSource(**s) for s in profile["sources"]],
-        # Plans made before 2026-10-17 kept no record of what they dropped.
+        # Plans made before the planner kept this record have none.
         dropped=[DroppedSource(**d) for d in profile.get("dropped", [])],
     )
 
