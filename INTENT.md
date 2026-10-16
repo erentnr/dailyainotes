@@ -30,9 +30,9 @@ Phase 1 is done when, on dailyainotes.com: a visitor picks topics from the 12-to
 reads today's approved notes for them, each with inline citations and a "how this note was made"
 trail; the daily run drafts notes that the owner approves or rejects with `dan review` (M2) or the
 minimal /admin page; Ask the notes answers with citations or says the notes don't cover the
-question; topic timelines and the How it works page (pipeline, live stats, eval scores, cost per
-day) work; CI runs the gate and the 30-question eval on Python 3.14; a merge to `main` deploys,
-and a nightly `pg_dump` runs.
+question; topic timelines and the How it works page (the pipeline and what was published) work;
+CI runs the gate and the 30-question eval on Python 3.14; a merge to `main` deploys, and a nightly
+`pg_dump` runs.
 
 ## Working Agreement
 
@@ -210,6 +210,9 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
   `CF-Connecting-IP`, never a header a visitor can write. Postgres is never exposed. Admin
   endpoints require the token. Ask requires a signed-in reader and is rate-limited per reader,
   per hashed IP and globally.
+- **The site and its public API show nothing internal** (owner, 2026-10-16): no cost, model
+  calls or tokens, model names, eval scores or index sizes. They stay in `llm_calls`,
+  `eval_runs` and the README.
 
 ## Performance and Cost
 
@@ -222,7 +225,7 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
   each document embedded once; no new note for a story already covered unless new reports arrive.
 - **Every container has a memory limit;** the embedding model loads once per process.
 - **Cost is tracked per run, topic and day** in the `llm_calls` table (M2), the source of truth
-  for the How it works page.
+  for cost. It stays internal (Security).
 
 ## Standing Tasks
 

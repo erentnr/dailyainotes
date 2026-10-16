@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import delete, insert, select
+from sqlalchemy import delete, insert
 from sqlalchemy.dialects.postgresql import insert as upsert
 
 from dailyainotes.db.engine import AsyncEngine
@@ -56,16 +56,3 @@ async def record_eval_run(
         await connection.execute(
             insert(EvalRun).values(suite=suite, git_sha=git_sha, metrics=metrics)
         )
-
-
-async def latest_eval_run(engine: AsyncEngine, suite: str) -> dict[str, Any] | None:
-    async with engine.connect() as connection:
-        metrics: dict[str, Any] | None = (
-            await connection.execute(
-                select(EvalRun.metrics)
-                .where(EvalRun.suite == suite)
-                .order_by(EvalRun.created_at.desc())
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-    return metrics

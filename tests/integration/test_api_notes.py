@@ -107,5 +107,12 @@ async def test_stats_count_what_exists_and_the_last_fourteen_days(
     assert stats["totals"]["topics_active"] == 2
     assert len(stats["days"]) == 14
     assert stats["days"][-1]["date"] == datetime.now(UTC).date().isoformat()
-    assert stats["models"]["ask"] == "ollama:gpt-oss:120b"
-    assert stats["eval"] is None
+
+
+async def test_stats_show_nothing_internal(site: httpx2.AsyncClient) -> None:
+    """No cost, model use, model names, eval scores or index sizes: they are ours, not readers'."""
+    stats = await get(site, "/api/v1/stats")
+
+    assert set(stats) == {"totals", "days"}
+    assert set(stats["totals"]) == {"notes_published", "topics_active", "documents"}
+    assert set(stats["days"][-1]) == {"date", "notes"}

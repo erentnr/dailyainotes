@@ -2,13 +2,12 @@
 and the numbers for How it works. No model is called here."""
 
 from datetime import UTC, date, datetime
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel
 
 from dailyainotes.db import notes as db
-from dailyainotes.db.asks import latest_eval_run
 from dailyainotes.domain.editorial import without_markers
 from dailyainotes.domain.topics import TopicCategory
 
@@ -95,17 +94,14 @@ class Timeline(BaseModel):
 class DayStats(BaseModel):
     date: date
     notes: int
-    model_calls: int
-    tokens: int
-    cost_usd: float
 
 
 class Stats(BaseModel):
+    """What readers see on How it works. Cost, model use, model names and eval scores stay ours:
+    they are in llm_calls, eval_runs and the logs."""
+
     totals: dict[str, int]
     days: list[DayStats]
-    models: dict[str, str]
-    eval: dict[str, Any] | None
-    eval_judged: dict[str, Any] | None
 
 
 def card(note: db.PublishedNote) -> NoteCard:
@@ -183,18 +179,5 @@ async def timeline(
 @router.get("/stats")
 async def stats(request: Request) -> Stats:
     engine = request.app.state.engine
-    settings = request.app.state.settings
     days = await db.daily_stats(engine, datetime.now(UTC).date(), STATS_DAYS)
-    return Stats(
-        totals=await db.totals(engine),
-        days=[DayStats(**vars(d)) for d in days],
-        models={
-            "researcher": settings.llm_researcher,
-            "writer": settings.llm_writer,
-            "extractor": settings.llm_extractor,
-            "verifier": settings.llm_verifier,
-            "ask": settings.llm_ask,
-        },
-        eval=await latest_eval_run(engine, "ask"),
-        eval_judged=await latest_eval_run(engine, "ask-judged"),
-    )
+    return Stats(totals=await db.totals(engine), days=[DayStats(**vars(d)) for d in days])

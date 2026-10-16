@@ -951,27 +951,12 @@
      "notes": {
       "type": "integer",
       "title": "Notes"
-     },
-     "model_calls": {
-      "type": "integer",
-      "title": "Model Calls"
-     },
-     "tokens": {
-      "type": "integer",
-      "title": "Tokens"
-     },
-     "cost_usd": {
-      "type": "number",
-      "title": "Cost Usd"
      }
     },
     "type": "object",
     "required": [
      "date",
-     "notes",
-     "model_calls",
-     "tokens",
-     "cost_usd"
+     "notes"
     ],
     "title": "DayStats"
    },
@@ -1646,48 +1631,15 @@
       },
       "type": "array",
       "title": "Days"
-     },
-     "models": {
-      "additionalProperties": {
-       "type": "string"
-      },
-      "type": "object",
-      "title": "Models"
-     },
-     "eval": {
-      "anyOf": [
-       {
-        "additionalProperties": true,
-        "type": "object"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Eval"
-     },
-     "eval_judged": {
-      "anyOf": [
-       {
-        "additionalProperties": true,
-        "type": "object"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Eval Judged"
      }
     },
     "type": "object",
     "required": [
      "totals",
-     "days",
-     "models",
-     "eval",
-     "eval_judged"
+     "days"
     ],
-    "title": "Stats"
+    "title": "Stats",
+    "description": "What readers see on How it works. Cost, model use, model names and eval scores stay ours:\nthey are in llm_calls, eval_runs and the logs."
    },
    "Suggestion": {
     "properties": {

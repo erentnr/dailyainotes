@@ -449,12 +449,6 @@ export interface components {
             date: string;
             /** Notes */
             notes: number;
-            /** Model Calls */
-            model_calls: number;
-            /** Tokens */
-            tokens: number;
-            /** Cost Usd */
-            cost_usd: number;
         };
         /** Decision */
         Decision: {
@@ -711,7 +705,11 @@ export interface components {
             /** Email */
             email: string;
         };
-        /** Stats */
+        /**
+         * Stats
+         * @description What readers see on How it works. Cost, model use, model names and eval scores stay ours:
+         *     they are in llm_calls, eval_runs and the logs.
+         */
         Stats: {
             /** Totals */
             totals: {
@@ -719,18 +717,6 @@ export interface components {
             };
             /** Days */
             days: components["schemas"]["DayStats"][];
-            /** Models */
-            models: {
-                [key: string]: string;
-            };
-            /** Eval */
-            eval: {
-                [key: string]: unknown;
-            } | null;
-            /** Eval Judged */
-            eval_judged: {
-                [key: string]: unknown;
-            } | null;
         };
         /** Suggestion */
         Suggestion: {

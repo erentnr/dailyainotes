@@ -42,7 +42,7 @@ The 30-question set in [`evals/`](evals/README.md) (40 fictional notes; 22 quest
 | Mean reciprocal rank of the expected note | 1.00 |
 | "Not enough", with no model call, when no note covers the question | 1.00 |
 
-The worker also runs it nightly with the Ask model and a judge from another model family; the How it works page shows the latest scores.
+The worker also runs it nightly with the Ask model and a judge from another model family, and records the scores in the `eval_runs` table.
 
 ## Cost per day
 

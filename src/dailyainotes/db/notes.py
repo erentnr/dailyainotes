@@ -10,17 +10,14 @@ from sqlalchemy import Select, and_, distinct, func, literal, select
 from dailyainotes.db.engine import AsyncEngine
 from dailyainotes.db.tables import (
     Approval,
-    Chunk,
     Citation,
     Claim,
     ClaimCheck,
     Document,
     Edition,
-    LlmCall,
     Note,
     NoteVersion,
     Publisher,
-    Source,
     Story,
     StoryDocument,
     Topic,
@@ -90,9 +87,6 @@ class CitationOut:
 class DayStats:
     date: date
     notes: int
-    model_calls: int
-    tokens: int
-    cost_usd: float
 
 
 def published_notes() -> Select[*tuple[Any, ...]]:
@@ -297,35 +291,19 @@ async def totals(engine: AsyncEngine) -> dict[str, int]:
                 select(
                     select(func.count()).where(Note.status == "published").scalar_subquery(),
                     select(func.count()).where(Topic.status == "active").scalar_subquery(),
-                    select(func.count()).select_from(Source).scalar_subquery(),
                     select(func.count()).select_from(Document).scalar_subquery(),
-                    select(func.count()).select_from(Chunk).scalar_subquery(),
                 )
             )
         ).one()
-    names = ["notes_published", "topics_active", "sources", "documents", "chunks"]
+    names = ["notes_published", "topics_active", "documents"]
     return dict(zip(names, row, strict=True))
 
 
 async def daily_stats(engine: AsyncEngine, today: date, days: int) -> list[DayStats]:
-    """Notes published and model use per UTC day, oldest first, zeros included."""
+    """Notes published per UTC day, oldest first, zeros included."""
     since = today - timedelta(days=days - 1)
-    call_day = func.date(func.timezone("UTC", LlmCall.created_at))
     note_day = func.date(func.timezone("UTC", Note.published_at))
     async with engine.connect() as connection:
-        calls = {
-            row[0]: row[1:]
-            for row in await connection.execute(
-                select(
-                    call_day,
-                    func.count(),
-                    func.sum(LlmCall.input_tokens + LlmCall.output_tokens),
-                    func.sum(LlmCall.cost_usd),
-                )
-                .where(call_day >= since)
-                .group_by(call_day)
-            )
-        }
         notes: dict[date, int] = dict(
             (
                 await connection.execute(
@@ -335,9 +313,7 @@ async def daily_stats(engine: AsyncEngine, today: date, days: int) -> list[DaySt
                 )
             ).all()
         )
-    stats = []
-    for offset in range(days):
-        day = since + timedelta(days=offset)
-        count, tokens, cost = calls.get(day, (0, 0, 0.0))
-        stats.append(DayStats(day, notes.get(day, 0), count, int(tokens), float(cost)))
-    return stats
+    return [
+        DayStats(day, notes.get(day, 0))
+        for day in (since + timedelta(days=offset) for offset in range(days))
+    ]
