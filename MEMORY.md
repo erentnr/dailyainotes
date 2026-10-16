@@ -71,6 +71,7 @@ Started 2026-10-12; consolidated 2026-10-13 after M6 (Episodic entries up to the
 - [2026-10-16] #insight **SQLAlchemy puts bound parameters in its error messages** unless the engine has `hide_parameters=True`, so a database error logged readers' emails.
 - [2026-10-16] #insight **A read, compare, then update attempt counter does not hold under concurrency:** 25 wrong codes sent together with `asyncio.gather` were all compared, each told "4 tries left". Count the try first in one conditional `UPDATE ... RETURNING`; Postgres rechecks the condition on the locked row.
 - [2026-10-16] #insight **Browsers drop tabs and line breaks from URLs,** so a redirect check that only rejects a leading `//` lets `/%09/evil.example` through.
+- [2026-10-16] #event **pgvector 0.8.7 deployed:** CI run 38919553210 deployed 04a6060 at about 15:00 UTC, after a check that no worker job was queued or running. On the server: PostgreSQL 18.6, `extversion` 0.8.6 with 0.8.7 installed, a vector query over 1,867 chunks ran, health ok. The old 0.8.6 image (651 MB) is still on the server; `deploy.sh` removes only this project's own images.
 - [2026-10-16] #fact **@playwright/test 1.63.0** (2026-09-04, Apache-2.0) is the newest past the floor; 1.64.1 came out 2026-10-14. Its Chromium headless shell is a 94 MiB download into `~/Library/Caches/ms-playwright`, on development machines only. **Schibsted Grotesk** is a variable font; Astro's Fonts API takes `weights: ["400 900"]` and ships one file.
 
 ## Semantic Memory
