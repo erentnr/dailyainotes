@@ -118,6 +118,10 @@ describe("accounts", () => {
     for (const bad of [null, "", "https://evil.example", "//evil.example", "/\\evil.example", "topics"]) {
       expect(safeNext(bad)).toBe("/");
     }
+    // Browsers drop tabs and line breaks from URLs, so these become //evil.example.
+    for (const bad of ["/\t/evil.example", "/\n/evil.example", "/\r/evil.example", "/\u0000/x"]) {
+      expect(safeNext(bad)).toBe("/");
+    }
   });
 });
 
