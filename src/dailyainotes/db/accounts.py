@@ -58,23 +58,38 @@ async def save_code(
         )
 
 
-async def live_code_for_email(
+async def spend_try(
     engine: AsyncEngine, email: str, now: datetime, max_attempts: int
 ) -> LiveCode | None:
-    """The newest code sent to the address that is unused, unexpired and not voided by too many
-    wrong tries."""
-    async with engine.connect() as connection:
+    """Count one try at the newest code sent to the address that is unused, unexpired and not
+    voided by too many wrong tries, and return it with the tries counted so far; None when no
+    code is left. Counting before the code is compared, in one conditional statement, keeps
+    the limit when tries arrive together: Postgres checks `attempts` again on the locked row."""
+    newest = (
+        select(SignInCode.id)
+        .where(
+            SignInCode.email == email,
+            SignInCode.used_at.is_(None),
+            SignInCode.expires_at > now,
+            SignInCode.attempts < max_attempts,
+        )
+        .order_by(SignInCode.created_at.desc(), SignInCode.id.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+    async with engine.begin() as connection:
         row = (
             await connection.execute(
-                select(SignInCode.id, SignInCode.email, SignInCode.code_digest, SignInCode.attempts)
+                update(SignInCode)
                 .where(
-                    SignInCode.email == email,
+                    SignInCode.id == newest,
                     SignInCode.used_at.is_(None),
-                    SignInCode.expires_at > now,
                     SignInCode.attempts < max_attempts,
                 )
-                .order_by(SignInCode.created_at.desc(), SignInCode.id.desc())
-                .limit(1)
+                .values(attempts=SignInCode.attempts + 1)
+                .returning(
+                    SignInCode.id, SignInCode.email, SignInCode.code_digest, SignInCode.attempts
+                )
             )
         ).one_or_none()
     return LiveCode(*row) if row else None
@@ -96,15 +111,6 @@ async def live_code_for_link(
             )
         ).scalar_one_or_none()
     return email
-
-
-async def count_wrong_code(engine: AsyncEngine, code_id: int) -> None:
-    async with engine.begin() as connection:
-        await connection.execute(
-            update(SignInCode)
-            .where(SignInCode.id == code_id)
-            .values(attempts=SignInCode.attempts + 1)
-        )
 
 
 async def sign_in(

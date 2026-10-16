@@ -171,12 +171,11 @@ async def sign_in_with_code(engine: AsyncEngine, email: str, code: str, now: dat
     email = normalize_email(email)
     if not is_valid_email(email):
         raise InvalidEmailError("That does not look like an email address.")
-    live = await db.live_code_for_email(engine, email, now, MAX_CODE_ATTEMPTS)
+    live = await db.spend_try(engine, email, now, MAX_CODE_ATTEMPTS)
     if live is None:
         raise CodeUsedUpError("That code has expired or was used. Ask for a new one.")
     if not hmac.compare_digest(live.code_digest, code_digest(email, code.strip())):
-        await db.count_wrong_code(engine, live.id)
-        left = MAX_CODE_ATTEMPTS - live.attempts - 1
+        left = MAX_CODE_ATTEMPTS - live.attempts
         if left == 0:
             raise CodeUsedUpError("Too many wrong codes. Ask for a new one.")
         raise WrongCodeError(

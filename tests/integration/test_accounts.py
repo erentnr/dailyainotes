@@ -1,6 +1,7 @@
 """Reader accounts (ADR 0003): sign-in by an emailed code or link, sessions, limits, the topics a
 reader follows, and deleting an account. Exhaustive, as sign-in guards readers' data."""
 
+import asyncio
 import re
 from collections.abc import AsyncIterator
 from dataclasses import replace
@@ -183,13 +184,39 @@ async def test_five_wrong_codes_void_the_code_and_its_link(
     assert right_after.status_code == link_after.status_code == 400
 
 
+async def test_wrong_codes_sent_together_still_get_five_tries_in_all(
+    engine: AsyncEngine, deps: AccountDeps, mailbox: Mailbox
+) -> None:
+    now = datetime.now(UTC)
+    await accounts.send_code(deps, READER, ip="203.0.113.7", ip_hash="h", bot_token="", now=now)
+    right = mailbox.code()
+    wrong = [code for code in (f"{n:06d}" for n in range(26)) if code != right][:25]
+
+    results = await asyncio.gather(
+        *(accounts.sign_in_with_code(engine, READER, code, now) for code in wrong),
+        return_exceptions=True,
+    )
+    compared = [
+        r
+        for r in results
+        if isinstance(r, accounts.WrongCodeError) or "Too many wrong codes" in str(r)
+    ]
+    async with engine.connect() as connection:
+        attempts = (await connection.execute(select(SignInCode.attempts))).scalar_one()
+
+    assert len(compared) == 5
+    assert attempts == 5
+    with pytest.raises(accounts.CodeUsedUpError):
+        await accounts.sign_in_with_code(engine, READER, right, now)
+
+
 async def test_a_database_error_does_not_carry_the_readers_email(engine: AsyncEngine) -> None:
     """Error messages reach the logs, and logs keep no personal data (INTENT.md)."""
     # Postgres text cannot hold a NUL, so the query fails while binding the address.
     email = "someone.private\x00@example.com"
 
     with pytest.raises(DBAPIError) as raised:
-        await accounts_db.live_code_for_email(engine, email, datetime.now(UTC), 5)
+        await accounts_db.spend_try(engine, email, datetime.now(UTC), 5)
 
     assert "someone.private" not in str(raised.value)
 
