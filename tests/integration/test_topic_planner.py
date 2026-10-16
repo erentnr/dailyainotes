@@ -14,7 +14,7 @@ from dailyainotes.api.app import create_app
 from dailyainotes.db import planner as planner_db
 from dailyainotes.db.checkpoints import checkpointer
 from dailyainotes.db.tables import Source, Topic, TopicProfile, TopicSource
-from dailyainotes.graphs.topic_planner import PlannerDeps, ProfileDraft, build_planner
+from dailyainotes.graphs.topic_planner import MoreSites, PlannerDeps, ProfileDraft, build_planner
 from dailyainotes.ingestion.catalog import Catalog, sync_catalog
 from dailyainotes.settings import Settings
 
@@ -35,14 +35,24 @@ DRAFT = ProfileDraft(
 
 
 class FakeRouter:
-    def __init__(self) -> None:
-        self.calls = 0
+    """Drafts `draft`; asked for more sites, answers `more`."""
+
+    def __init__(self, draft: ProfileDraft = DRAFT, more: list[str] | None = None) -> None:
+        self.draft = draft
+        self.more = more or []
+        self.asked: list[tuple[str, str]] = []
+
+    @property
+    def calls(self) -> int:
+        return len(self.asked)
 
     async def structured[T: BaseModel](
         self, role: str, schema: type[T], *, system: str, user: str, run_id: int | None = None
     ) -> T:
-        self.calls += 1
-        return schema.model_validate(DRAFT.model_dump())
+        self.asked.append((system, user))
+        if schema is MoreSites:
+            return schema.model_validate({"candidate_sites": self.more})
+        return schema.model_validate(self.draft.model_dump())
 
 
 def site(fixture: Callable[[str], bytes]) -> dict[str, Any]:
@@ -129,7 +139,8 @@ async def test_a_plan_waits_for_approval_then_activates_the_topic(
         assert set(linked) == {locator for _, locator in sources}
     (approved,) = await planner_db.proposals(engine, status="approved")
     assert approved.id == proposal.id
-    assert router.calls == 1
+    # One readable feed is fewer than three, so the planner asked once more for sites.
+    assert router.calls == 2
 
 
 async def test_a_rejected_plan_leaves_the_topic_as_it_was(
@@ -181,6 +192,68 @@ async def test_a_feed_whose_pages_a_model_may_not_read_is_not_proposed(
     assert kinds == ["arxiv", "github_releases", "hackernews"]
     # The policy gate decided from robots.txt alone: no article page was fetched.
     assert not any("/2026/10/" in str(r.url) for r in recorded.requests)
+
+
+BLOCKED = "https://blocked.example.net/"
+NO_FEED = "https://nofeed.example.net/"
+SITES_ONLY = ProfileDraft(keywords=DRAFT.keywords, candidate_sites=[BLOCKED, NO_FEED])
+
+
+def unusable() -> dict[str, Any]:
+    """A site whose robots.txt blocks us, and one that advertises no feed."""
+    return {
+        f"{BLOCKED}robots.txt": b"User-agent: *\nDisallow: /\n",
+        f"{NO_FEED}robots.txt": (404, b"", {}),
+        NO_FEED: (200, b"<html><body>No feed here</body></html>", {"Content-Type": "text/html"}),
+    }
+
+
+async def test_too_few_readable_feeds_ask_the_model_for_other_sites_with_the_reasons(
+    engine: AsyncEngine,
+    database_url: str,
+    web: Callable[..., Any],
+    fixture: Callable[[str], bytes],
+) -> None:
+    router = FakeRouter(SITES_ONLY, more=[BLOCKED, SITE])
+    state, config = await start(engine)
+    async with checkpointer(database_url) as saver:
+        graph = build_planner(
+            PlannerDeps(engine, router, web({**unusable(), **site(fixture)}).http, NOW), saver
+        )
+        await graph.ainvoke(state, config)
+
+    (first_system, _), (_, second_user) = router.asked
+    assert "block AI crawlers" in first_system
+    assert f"- {BLOCKED}: its robots.txt disallows us" in second_user
+    assert f"- {NO_FEED}: advertises no feed" in second_user
+    (proposal,) = await planner_db.proposals(engine, status="proposed")
+    assert [s["locator"] for s in proposal.profile["sources"]] == [f"{SITE}blog/feed.xml"]
+    dropped = {d["locator"]: d["reason"] for d in proposal.profile["dropped"]}
+    assert dropped[BLOCKED] == "its robots.txt disallows us"
+    assert dropped[NO_FEED] == "advertises no feed"
+    assert dropped[f"{SITE}atom.xml"].startswith("off topic")
+
+
+async def test_the_planner_stops_after_its_second_round(
+    engine: AsyncEngine,
+    database_url: str,
+    web: Callable[..., Any],
+) -> None:
+    router = FakeRouter(SITES_ONLY, more=[NO_FEED, "https://elsewhere.example.net/"])
+    state, config = await start(engine)
+    async with checkpointer(database_url) as saver:
+        graph = build_planner(PlannerDeps(engine, router, web(unusable()).http, NOW), saver)
+        paused = await graph.ainvoke(state, config)
+
+    assert "__interrupt__" in paused
+    assert router.calls == 2
+    (proposal,) = await planner_db.proposals(engine, status="proposed")
+    assert proposal.profile["sources"] == []
+    assert {d["locator"] for d in proposal.profile["dropped"]} == {
+        BLOCKED,
+        NO_FEED,
+        "https://elsewhere.example.net/",
+    }
 
 
 async def test_the_editor_reviews_a_plan_at_admin(

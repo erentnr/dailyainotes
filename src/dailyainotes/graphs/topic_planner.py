@@ -2,9 +2,12 @@
 then waits for the owner's approval.
 
     draft_profile → discover → validate → propose → review (interrupt) → apply
+                       ↑           ↓
+                       more_sites ←  (fewer than MIN_FEEDS readable feeds, once)
 
-One model call drafts the profile; everything else is code. Graph state holds plain JSON
-(dicts and lists), so checkpoints never deserialize our own classes.
+One model call drafts the profile; a second asks for other sites, with the reasons the first
+ones failed, only when too few feeds can be used. Everything else is code. Graph state holds
+plain JSON (dicts and lists), so checkpoints never deserialize our own classes.
 """
 
 from dataclasses import dataclass
@@ -35,11 +38,20 @@ Propose:
 - keywords: 5 to 15 lower-case words or phrases that headlines about this topic use.
 - negative_keywords: up to 10 phrases that mean a different subject with similar words.
 - entities: up to 15 names of the people, teams, organisations and products at its centre.
-- candidate_sites: 5 to 10 https home pages or section pages of established publishers,
-  official bodies and specialist sites that cover the topic in English and publish often.
+- candidate_sites: 10 to 15 https section pages or feed URLs of specialist publishers,
+  independent sites and official bodies' press releases that cover the topic in English and
+  publish often. Many big news outlets block AI crawlers in robots.txt, which makes their
+  stories unusable here, so prefer smaller and official sources.
 - arxiv_query: an arXiv API search query, only if the topic is scientific research; else null.
-- github_repos: up to 3 owner/repo names, only if the topic is software; else [].
+  Name a category with its subcategory or a wildcard, as in cat:q-bio.* or cat:cs.CL.
+- github_repos: up to 3 owner/repo names you know exist, only if the topic is software; else [].
 - hackernews_query: a short Hacker News search, only if the topic is technology; else null."""
+
+MORE_PROMPT = """You find news sources for one topic of an English-language notebook. The
+pages listed were tried already: some were kept, the others could not be used, each with the
+reason. Propose 10 to 15 other https section pages or feed URLs of specialist publishers,
+independent sites and official bodies' press releases that cover the topic in English and
+publish often. Do not repeat a page from the list or another page of the same publisher."""
 
 # What a proposal keeps, at most.
 MAX_FEEDS = 8
@@ -53,16 +65,24 @@ MIN_MATCH_SHARE = 0.2
 READABLE_SAMPLE = 4
 MIN_READABLE_SHARE = 0.5
 RECENT = timedelta(days=30)
+# With fewer readable feeds than this, the model is asked once more for other sites.
+MIN_FEEDS = 3
+ROUNDS = 2
+MAX_SITES = 16
 
 
 class ProfileDraft(BaseModel):
     keywords: list[str] = Field(min_length=3, max_length=20)
     negative_keywords: list[str] = Field(default_factory=list, max_length=10)
     entities: list[str] = Field(default_factory=list, max_length=20)
-    candidate_sites: list[str] = Field(default_factory=list, max_length=12)
+    candidate_sites: list[str] = Field(default_factory=list, max_length=MAX_SITES)
     arxiv_query: str | None = None
     github_repos: list[str] = Field(default_factory=list, max_length=3)
     hackernews_query: str | None = None
+
+
+class MoreSites(BaseModel):
+    candidate_sites: list[str] = Field(default_factory=list, max_length=MAX_SITES)
 
 
 class Decision(TypedDict):
@@ -81,7 +101,13 @@ class PlannerState(TypedDict, total=False):
     thread_id: str
     run_id: int
     draft: dict[str, Any]
+    # The round of site discovery (1 or 2) and the sites it tries.
+    round: int
+    sites: list[str]
     candidates: list[dict[str, Any]]
+    # Every candidate checked in any round, and the sites that gave no feed, with the reason.
+    checked: list[dict[str, Any]]
+    dropped_sites: list[dict[str, str]]
     sources: list[dict[str, Any]]
     proposal_id: int
     decision: Decision
@@ -114,25 +140,52 @@ def build_planner(
             user=f"Topic: {state['name']}\nWhat it covers: {state['description']}",
             run_id=state.get("run_id"),
         )
-        return {"draft": draft.model_dump()}
+        return {"draft": draft.model_dump(), "round": 1, "sites": draft.candidate_sites}
 
     async def discover(state: PlannerState) -> PlannerState:
         draft = ProfileDraft.model_validate(state["draft"])
-        feeds = await site_feeds(deps.http, fetcher, draft.candidate_sites)
+        feeds, dropped_sites = await site_feeds(deps.http, fetcher, state["sites"])
+        # Query sources come from the first draft; a later round only looks for sites.
+        queries = query_sources(draft) if state["round"] == 1 else []
+        seen = {c["locator"] for c in state.get("checked", [])}
         # A site may advertise a feed on another domain.
         candidates = [
-            c for c in feeds + query_sources(draft) if not is_excluded(c["publisher_domain"])
+            c
+            for c in feeds + queries
+            if not is_excluded(c["publisher_domain"]) and c["locator"] not in seen
         ]
-        return {"candidates": candidates}
+        return {
+            "candidates": candidates,
+            "dropped_sites": state.get("dropped_sites", []) + dropped_sites,
+        }
 
     async def validate(state: PlannerState) -> PlannerState:
         draft = ProfileDraft.model_validate(state["draft"])
         terms = draft.keywords + draft.entities
-        checked = [
+        checked = state.get("checked", []) + [
             await check(deps.http, fetcher, candidate, terms, deps.now)
             for candidate in state["candidates"]
         ]
-        return {"sources": keep(checked)}
+        return {"checked": checked, "sources": keep(checked)}
+
+    def enough(state: PlannerState) -> str:
+        feeds = [s for s in state["sources"] if s["type"] == "rss"]
+        return "propose" if len(feeds) >= MIN_FEEDS or state["round"] >= ROUNDS else "more_sites"
+
+    async def more_sites(state: PlannerState) -> PlannerState:
+        kept = [f"- {s['locator']}: kept" for s in state["sources"]]
+        failed = [f"- {d['locator']}: {d['reason']}" for d in dropped(state)]
+        found = await deps.router.structured(
+            "planner",
+            MoreSites,
+            system=MORE_PROMPT,
+            user=f"Topic: {state['name']}\nWhat it covers: {state['description']}\n"
+            "Tried:\n" + "\n".join(kept + failed),
+            run_id=state.get("run_id"),
+        )
+        tried = set(state["sites"]) | {d["locator"] for d in state.get("dropped_sites", [])}
+        sites = [s for s in found.candidate_sites if s not in tried]
+        return {"round": state["round"] + 1, "sites": sites}
 
     async def propose(state: PlannerState) -> PlannerState:
         draft = ProfileDraft.model_validate(state["draft"])
@@ -141,6 +194,8 @@ def build_planner(
             "negative_keywords": draft.negative_keywords,
             "entities": draft.entities,
             "sources": state["sources"],
+            # For the editor: what was tried and could not be used, and why.
+            "dropped": dropped(state),
         }
         proposal_id = await db.save_proposal(
             deps.engine, state["topic_id"], state["version"], profile, state["thread_id"]
@@ -161,34 +216,54 @@ def build_planner(
         return {}
 
     graph = StateGraph(PlannerState)
-    graph.add_sequence([draft_profile, discover, validate, propose, review, apply])
+    for node in (draft_profile, discover, validate, more_sites, propose, review, apply):
+        graph.add_node(node)
     graph.add_edge(START, "draft_profile")
+    graph.add_edge("draft_profile", "discover")
+    graph.add_edge("discover", "validate")
+    graph.add_conditional_edges("validate", enough, ["more_sites", "propose"])
+    graph.add_edge("more_sites", "discover")
+    graph.add_edge("propose", "review")
+    graph.add_edge("review", "apply")
     graph.add_edge("apply", END)
     return graph.compile(checkpointer=checkpointer)
 
 
-async def site_feeds(http: Http, fetcher: ArticleFetcher, sites: list[str]) -> list[dict[str, Any]]:
-    """Feeds each site advertises, found by reading its `<link rel="alternate">` tags."""
+async def site_feeds(
+    http: Http, fetcher: ArticleFetcher, sites: list[str]
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    """Feeds each site advertises, found by reading its `<link rel="alternate">` tags, and the
+    sites that gave none, each with the reason."""
     found: list[dict[str, Any]] = []
-    for site in dict.fromkeys(s for s in sites if s.startswith("https://")):
-        if is_excluded(registrable_domain(site)):
-            continue
-        robots = await fetcher.robots(site)
-        if not robots.allows(site):
-            continue
-        try:
-            response = await http.get(site)
-        except Exception as error:
-            log.info("site_unreachable", site=site, error=type(error).__name__)
-            continue
-        if response.status_code != 200:
-            continue
-        if is_feed(response.content):
-            feeds = [site]
-        else:
-            feeds = discover_feeds(response.text, str(response.url))[:MAX_FEEDS_PER_SITE]
+    dropped_sites: list[dict[str, str]] = []
+    for site in dict.fromkeys(sites):
+        feeds, reason = await one_site(http, fetcher, site)
         found += [feed_source(url) for url in feeds]
-    return found
+        if not feeds:
+            dropped_sites.append({"locator": site, "reason": reason})
+    return found, dropped_sites
+
+
+async def one_site(http: Http, fetcher: ArticleFetcher, site: str) -> tuple[list[str], str]:
+    """The feeds one site advertises, or why it gave none."""
+    if not site.startswith("https://"):
+        return [], "not an https address"
+    if is_excluded(registrable_domain(site)):
+        return [], "an excluded publisher"
+    robots = await fetcher.robots(site)
+    if not robots.allows(site):
+        return [], "its robots.txt disallows us"
+    try:
+        response = await http.get(site)
+    except Exception as error:
+        log.info("site_unreachable", site=site, error=type(error).__name__)
+        return [], f"unreachable ({type(error).__name__})"
+    if response.status_code != 200:
+        return [], f"answered {response.status_code}"
+    if is_feed(response.content):
+        return [site], ""
+    feeds = discover_feeds(response.text, str(response.url))[:MAX_FEEDS_PER_SITE]
+    return feeds, "" if feeds else "advertises no feed"
 
 
 def feed_source(url: str) -> dict[str, Any]:
@@ -250,11 +325,16 @@ async def check(
     share = match_share([f"{i.title} {i.lead}" for i in recent[:20]], terms)
     checked = {**candidate, "recent_items": len(recent), "match_share": round(share, 2), "note": ""}
     if candidate["type"] == "rss" and recent and share >= MIN_MATCH_SHARE:
-        sample = [await fetcher.decide(i.url) for i in recent[:READABLE_SAMPLE]]
+        try:
+            sample = [await fetcher.decide(i.url) for i in recent[:READABLE_SAMPLE]]
+        except Exception as error:
+            # One odd page must not stop the plan; the feed counts as unreadable.
+            note = f"its pages could not be checked ({type(error).__name__})"
+            return {**checked, "readable_share": 0.0, "note": note}
         readable = sum(d.text_policy != "link_only" for d in sample) / len(sample)
         checked["readable_share"] = round(readable, 2)
         if readable < MIN_READABLE_SHARE:
-            checked["note"] = sample[0].reason
+            checked["note"] = next(d.reason for d in sample if d.text_policy == "link_only")
     return checked
 
 
@@ -275,3 +355,24 @@ def keep(checked: list[dict[str, Any]]) -> list[dict[str, Any]]:
     # Query sources (arXiv, GitHub, HN) are on topic by construction.
     others = [c for c in checked if c["type"] != "rss" and c["recent_items"]]
     return feeds[:MAX_FEEDS] + others
+
+
+def dropped(state: PlannerState) -> list[dict[str, str]]:
+    """Everything tried that the plan does not keep, with the reason."""
+    kept = {s["locator"] for s in state.get("sources", [])}
+    return state.get("dropped_sites", []) + [
+        {"locator": c["locator"], "reason": drop_reason(c)}
+        for c in state.get("checked", [])
+        if c["locator"] not in kept
+    ]
+
+
+def drop_reason(candidate: dict[str, Any]) -> str:
+    if not candidate["recent_items"]:
+        note = candidate["note"]
+        return f"could not be read ({note})" if note else "nothing in the last 30 days"
+    if candidate["type"] == "rss" and candidate["match_share"] < MIN_MATCH_SHARE:
+        return f"off topic: {candidate['match_share']:.0%} of recent items match"
+    if candidate["type"] == "rss" and candidate.get("readable_share", 0.0) < MIN_READABLE_SHARE:
+        return f"its pages are link-only: {candidate['note']}"
+    return "more readable feeds were kept"
