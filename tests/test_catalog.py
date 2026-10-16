@@ -38,11 +38,15 @@ def test_every_committed_topic_has_a_category() -> None:
     }
 
 
-def test_the_three_starter_topics_have_sources() -> None:
+def test_every_topic_but_the_two_the_planner_activated_has_sources() -> None:
     catalog = load_catalog()
 
     with_sources = {topic.slug for topic in catalog.topics if topic.sources}
-    assert with_sources == {"formula-1", "open-weight-ai-models", "film-and-tv"}
+    # Astronomy and cybersecurity got their sources from approved Topic Planner plans.
+    assert with_sources == {topic.slug for topic in catalog.topics} - {
+        "astronomy-and-spaceflight",
+        "cybersecurity",
+    }
 
 
 def test_each_source_type_has_a_locator_and_a_publisher() -> None:

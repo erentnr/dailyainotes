@@ -91,6 +91,224 @@ domain = "filmstories.co.uk"
 name = "Film Stories"
 kind = "specialist"
 
+[[publishers]]
+domain = "federalreserve.gov"
+name = "Federal Reserve"
+kind = "primary"
+
+[[publishers]]
+domain = "europa.eu"
+name = "European Union institutions (ECB, EMA)"
+kind = "primary"
+
+[[publishers]]
+domain = "bankofengland.co.uk"
+name = "Bank of England"
+kind = "primary"
+
+[[publishers]]
+domain = "boj.or.jp"
+name = "Bank of Japan"
+kind = "primary"
+
+[[publishers]]
+domain = "wolfstreet.com"
+name = "Wolf Street"
+kind = "specialist"
+
+[[publishers]]
+domain = "econbrowser.com"
+name = "Econbrowser"
+kind = "specialist"
+
+[[publishers]]
+domain = "canarymedia.com"
+name = "Canary Media"
+kind = "editorial"
+
+[[publishers]]
+domain = "carbonbrief.org"
+name = "Carbon Brief"
+kind = "editorial"
+
+[[publishers]]
+domain = "cleantechnica.com"
+name = "CleanTechnica"
+kind = "specialist"
+
+[[publishers]]
+domain = "pv-magazine.com"
+name = "pv magazine"
+kind = "specialist"
+owner_group = "pv-magazine-group"
+
+[[publishers]]
+domain = "trellis.net"
+name = "Trellis"
+kind = "specialist"
+
+[[publishers]]
+domain = "ctvc.co"
+name = "CTVC"
+kind = "specialist"
+
+[[publishers]]
+domain = "electrek.co"
+name = "Electrek"
+kind = "specialist"
+owner_group = "9to5-network"
+
+[[publishers]]
+domain = "caranddriver.com"
+name = "Car and Driver"
+kind = "editorial"
+owner_group = "hearst"
+
+[[publishers]]
+domain = "thedrive.com"
+name = "The Drive"
+kind = "editorial"
+owner_group = "recurrent-ventures"
+
+[[publishers]]
+domain = "thedriven.io"
+name = "The Driven"
+kind = "specialist"
+owner_group = "reneweconomy"
+
+[[publishers]]
+domain = "carscoops.com"
+name = "Carscoops"
+kind = "specialist"
+owner_group = "static-media"
+
+[[publishers]]
+domain = "fda.gov"
+name = "U.S. Food and Drug Administration"
+kind = "primary"
+
+[[publishers]]
+domain = "gov.uk"
+name = "GOV.UK (UK government, MHRA)"
+kind = "primary"
+
+[[publishers]]
+domain = "sciencedaily.com"
+name = "ScienceDaily"
+kind = "specialist"
+
+[[publishers]]
+domain = "medicalxpress.com"
+name = "Medical Xpress"
+kind = "specialist"
+owner_group = "science-x"
+
+[[publishers]]
+domain = "kffhealthnews.org"
+name = "KFF Health News"
+kind = "editorial"
+owner_group = "kff"
+
+[[publishers]]
+domain = "clinicaltrialsarena.com"
+name = "Clinical Trials Arena"
+kind = "specialist"
+owner_group = "globaldata"
+
+[[publishers]]
+domain = "nbcsports.com"
+name = "NBC Sports"
+kind = "editorial"
+owner_group = "nbcuniversal"
+
+[[publishers]]
+domain = "standard.co.uk"
+name = "Evening Standard"
+kind = "editorial"
+owner_group = "lebedev"
+
+[[publishers]]
+domain = "planetfootball.com"
+name = "Planet Football"
+kind = "specialist"
+owner_group = "planet-sport"
+
+[[publishers]]
+domain = "arseblog.news"
+name = "Arseblog News"
+kind = "specialist"
+
+[[publishers]]
+domain = "tennismajors.com"
+name = "Tennis Majors"
+kind = "specialist"
+
+[[publishers]]
+domain = "ubitennis.net"
+name = "Ubitennis"
+kind = "specialist"
+
+[[publishers]]
+domain = "tennis365.com"
+name = "Tennis365"
+kind = "specialist"
+owner_group = "planet-sport"
+
+[[publishers]]
+domain = "tennisnow.com"
+name = "Tennis Now"
+kind = "specialist"
+
+[[publishers]]
+domain = "perfect-tennis.com"
+name = "Perfect Tennis"
+kind = "specialist"
+
+[[publishers]]
+domain = "xbox.com"
+name = "Xbox Wire"
+kind = "primary"
+
+[[publishers]]
+domain = "playstation.com"
+name = "PlayStation Blog"
+kind = "primary"
+
+[[publishers]]
+domain = "steampowered.com"
+name = "Steam"
+kind = "primary"
+
+[[publishers]]
+domain = "gamereactor.eu"
+name = "Gamereactor"
+kind = "editorial"
+
+[[publishers]]
+domain = "gamingbolt.com"
+name = "GamingBolt"
+kind = "specialist"
+
+[[publishers]]
+domain = "thesixthaxis.com"
+name = "TheSixthAxis"
+kind = "specialist"
+
+[[publishers]]
+domain = "noisypixel.net"
+name = "Noisy Pixel"
+kind = "specialist"
+
+[[publishers]]
+domain = "nintendo-insider.com"
+name = "Nintendo Insider"
+kind = "specialist"
+
+[[publishers]]
+domain = "gamingonlinux.com"
+name = "GamingOnLinux"
+kind = "specialist"
+
 [[topics]]
 slug = "formula-1"
 name = "Formula 1"
@@ -122,18 +340,39 @@ slug = "premier-league"
 name = "Premier League"
 description = "Results, transfers, injuries"
 category = "sport"
+sources = [
+  { type = "rss", url = "https://www.nbcsports.com/soccer/premier-league.atom" },
+  { type = "rss", url = "https://www.standard.co.uk/sport/football/rss" },
+  { type = "rss", url = "https://www.planetfootball.com/feed" },
+  { type = "rss", url = "https://arseblog.news/feed/" },
+]
 
 [[topics]]
 slug = "tennis"
 name = "Tennis"
 description = "Tour results, Grand Slams"
 category = "sport"
+sources = [
+  { type = "rss", url = "https://www.tennismajors.com/feed" },
+  { type = "rss", url = "https://www.ubitennis.net/feed/" },
+  { type = "rss", url = "https://www.tennis365.com/feed" },
+  { type = "rss", url = "https://tennisnow.com/feed/" },
+  { type = "rss", url = "https://www.perfect-tennis.com/feed/" },
+]
 
 [[topics]]
 slug = "climate-tech"
 name = "Climate tech"
 description = "Batteries, grids, carbon removal"
 category = "climate"
+sources = [
+  { type = "rss", url = "https://www.canarymedia.com/rss.rss" },
+  { type = "rss", url = "https://www.carbonbrief.org/feed/" },
+  { type = "rss", url = "https://cleantechnica.com/feed/" },
+  { type = "rss", url = "https://www.pv-magazine.com/feed/" },
+  { type = "rss", url = "https://trellis.net/feed/" },
+  { type = "rss", url = "https://www.ctvc.co/rss/" },
+]
 
 [[topics]]
 slug = "astronomy-and-spaceflight"
@@ -152,24 +391,60 @@ slug = "electric-vehicles"
 name = "Electric vehicles"
 description = "Cars, charging, batteries"
 category = "climate"
+sources = [
+  { type = "rss", url = "https://electrek.co/feed/" },
+  { type = "rss", url = "https://cleantechnica.com/category/clean-transport-2/electric-vehicles/feed/" },
+  { type = "rss", url = "https://www.caranddriver.com/rss/all.xml/" },
+  { type = "rss", url = "https://www.thedrive.com/feed" },
+  { type = "rss", url = "https://thedriven.io/feed/" },
+  { type = "rss", url = "https://www.carscoops.com/feed/" },
+]
 
 [[topics]]
 slug = "central-banks-and-markets"
 name = "Central banks and markets"
-description = "Rates, inflation, earnings"
+description = "Rates, inflation, markets"
 category = "business"
+sources = [
+  { type = "rss", url = "https://www.federalreserve.gov/feeds/press_all.xml" },
+  { type = "rss", url = "https://www.ecb.europa.eu/rss/press.html" },
+  { type = "rss", url = "https://www.bankofengland.co.uk/rss/news" },
+  { type = "rss", url = "https://www.boj.or.jp/en/rss/whatsnew.xml" },
+  { type = "rss", url = "https://wolfstreet.com/feed/" },
+  { type = "rss", url = "https://econbrowser.com/feed" },
+]
 
 [[topics]]
 slug = "health-research"
 name = "Health research"
 description = "Trials, approvals, public health"
 category = "science"
+sources = [
+  { type = "rss", url = "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/press-releases/rss.xml" },
+  { type = "rss", url = "https://www.ema.europa.eu/en/news.xml" },
+  { type = "rss", url = "https://www.gov.uk/government/organisations/medicines-and-healthcare-products-regulatory-agency.atom" },
+  { type = "rss", url = "https://www.sciencedaily.com/rss/health_medicine.xml" },
+  { type = "rss", url = "https://medicalxpress.com/rss-feed/" },
+  { type = "rss", url = "https://kffhealthnews.org/feed/" },
+  { type = "rss", url = "https://www.clinicaltrialsarena.com/feed/" },
+]
 
 [[topics]]
 slug = "video-games"
 name = "Video games"
 description = "Releases, studios, updates"
 category = "culture"
+sources = [
+  { type = "rss", url = "https://news.xbox.com/en-us/feed/" },
+  { type = "rss", url = "https://blog.playstation.com/feed/" },
+  { type = "rss", url = "https://store.steampowered.com/feeds/news/" },
+  { type = "rss", url = "https://www.gamereactor.eu/rss/rss.php?texttype=4" },
+  { type = "rss", url = "https://gamingbolt.com/feed" },
+  { type = "rss", url = "https://www.thesixthaxis.com/feed/" },
+  { type = "rss", url = "https://noisypixel.net/feed/" },
+  { type = "rss", url = "https://www.nintendo-insider.com/feed/" },
+  { type = "rss", url = "https://www.gamingonlinux.com/article_rss.php" },
+]
 
 [[topics]]
 slug = "film-and-tv"

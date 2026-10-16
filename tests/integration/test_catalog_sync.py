@@ -14,21 +14,21 @@ async def test_syncing_the_catalog_twice_changes_nothing(engine: AsyncEngine) ->
 
     assert first == second
     assert first.topics == 12
-    assert first.active_topics == 3
+    assert first.active_topics == 10
 
 
 async def test_sync_never_demotes_a_topic_activated_elsewhere(engine: AsyncEngine) -> None:
     await sync_catalog(engine, load_catalog())
     async with engine.begin() as connection:
         await connection.execute(
-            update(Topic).where(Topic.slug == "tennis").values(status="active")
+            update(Topic).where(Topic.slug == "cybersecurity").values(status="active")
         )
 
     await sync_catalog(engine, load_catalog())
 
     async with engine.connect() as connection:
         status = (
-            await connection.execute(select(Topic.status).where(Topic.slug == "tennis"))
+            await connection.execute(select(Topic.status).where(Topic.slug == "cybersecurity"))
         ).scalar_one()
     assert status == "active"
 
