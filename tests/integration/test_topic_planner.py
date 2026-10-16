@@ -293,6 +293,9 @@ async def test_the_editor_reviews_a_plan_at_admin(
     assert plan["keywords"] == ["safety car", "engine penalty", "grid"]
     (feed,) = [s for s in plan["sources"] if s["type"] == "rss"]
     assert feed["readable_share"] == 1.0
+    dropped = {d["locator"]: d["reason"] for d in plan["dropped"]}
+    assert dropped["http://insecure.example.com/"] == "not an https address"
+    assert dropped[GUARDIAN] == "an excluded publisher"
     assert approved.json() == {"status": "approved"}
     assert again.status_code == 409
     assert left == []

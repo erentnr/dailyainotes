@@ -224,6 +224,10 @@ def print_proposal(proposal: planner_db.Proposal) -> None:
     for source in profile["sources"]:
         stats = f"{source['recent_items']} recent, {source['match_share']:.0%} on topic"
         typer.echo(f"    {source['type']:<15} {source['locator'][:60]:<60} {stats}")
+    if dropped := profile.get("dropped", []):
+        typer.echo(f"  not used ({len(dropped)}):")
+        for item in dropped:
+            typer.echo(f"    {item['locator'][:60]:<60} {item['reason']}")
 
 
 @edition_app.command("run")

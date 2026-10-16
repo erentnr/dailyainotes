@@ -463,6 +463,13 @@ export interface components {
              */
             comment: string;
         };
+        /** DroppedSource */
+        DroppedSource: {
+            /** Locator */
+            locator: string;
+            /** Reason */
+            reason: string;
+        };
         /** FollowedTopic */
         FollowedTopic: {
             /** Slug */
@@ -627,6 +634,8 @@ export interface components {
             entities: string[];
             /** Sources */
             sources: components["schemas"]["PlanSource"][];
+            /** Dropped */
+            dropped: components["schemas"]["DroppedSource"][];
         };
         /** PlanDecision */
         PlanDecision: {

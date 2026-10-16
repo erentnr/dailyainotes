@@ -135,6 +135,12 @@ class PlanSource(BaseModel):
     readable_share: float | None = None
 
 
+class DroppedSource(BaseModel):
+    # A site, feed or query the planner tried, and why the plan does not keep it.
+    locator: str
+    reason: str
+
+
 class Plan(BaseModel):
     id: int
     topic: str
@@ -145,6 +151,7 @@ class Plan(BaseModel):
     negative_keywords: list[str]
     entities: list[str]
     sources: list[PlanSource]
+    dropped: list[DroppedSource]
 
 
 class PlanDecision(BaseModel):
@@ -164,6 +171,8 @@ def plan_of(proposal: planner_db.Proposal) -> Plan:
         negative_keywords=profile["negative_keywords"],
         entities=profile["entities"],
         sources=[PlanSource(**s) for s in profile["sources"]],
+        # Plans made before 2026-10-17 kept no record of what they dropped.
+        dropped=[DroppedSource(**d) for d in profile.get("dropped", [])],
     )
 
 

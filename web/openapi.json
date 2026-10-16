@@ -982,6 +982,24 @@
     ],
     "title": "Decision"
    },
+   "DroppedSource": {
+    "properties": {
+     "locator": {
+      "type": "string",
+      "title": "Locator"
+     },
+     "reason": {
+      "type": "string",
+      "title": "Reason"
+     }
+    },
+    "type": "object",
+    "required": [
+     "locator",
+     "reason"
+    ],
+    "title": "DroppedSource"
+   },
    "FollowedTopic": {
     "properties": {
      "slug": {
@@ -1383,6 +1401,13 @@
       },
       "type": "array",
       "title": "Sources"
+     },
+     "dropped": {
+      "items": {
+       "$ref": "#/components/schemas/DroppedSource"
+      },
+      "type": "array",
+      "title": "Dropped"
      }
     },
     "type": "object",
@@ -1395,7 +1420,8 @@
      "keywords",
      "negative_keywords",
      "entities",
-     "sources"
+     "sources",
+     "dropped"
     ],
     "title": "Plan"
    },

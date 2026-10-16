@@ -94,6 +94,20 @@ export default function AdminPlans() {
               </table>
             </div>
           )}
+          {p.dropped.length > 0 && (
+            <details>
+              <summary className="label">Tried and not used ({p.dropped.length})</summary>
+              <ul className="small">
+                {p.dropped.map((d) => (
+                  <li key={d.locator}>
+                    <span className="meta">{d.locator}</span>
+                    <br />
+                    {d.reason}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
           <textarea
             className="input"
             aria-label={`Comment on plan-${p.id}`}
