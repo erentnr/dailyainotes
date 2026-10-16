@@ -29,6 +29,10 @@ def test_ordinary_addresses_are_valid(email: str) -> None:
         "a@b@example.com",
         "reader@example.",
         f"{'a' * 250}@example.com",
+        # Control characters: Postgres text cannot even hold a NUL.
+        "reader\x00@example.com",
+        "reader@exam\x07ple.com",
+        "reader@example.co\x7f",
     ],
 )
 def test_anything_else_is_not(email: str) -> None:

@@ -169,6 +169,8 @@ def sign_in_email(to: str, code: str, link: str) -> Email:
 
 async def sign_in_with_code(engine: AsyncEngine, email: str, code: str, now: datetime) -> Session:
     email = normalize_email(email)
+    if not is_valid_email(email):
+        raise InvalidEmailError("That does not look like an email address.")
     live = await db.live_code_for_email(engine, email, now, MAX_CODE_ATTEMPTS)
     if live is None:
         raise CodeUsedUpError("That code has expired or was used. Ask for a new one.")

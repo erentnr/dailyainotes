@@ -16,8 +16,9 @@ SESSION_RENEWAL = timedelta(days=1)
 # A reader follows at most as many topics as there are color slots (DESIGN.md, Colors).
 MAX_TOPICS = 8
 
-# Deliberately loose: one @, no spaces, a dot in the domain. Sending the code is the real check.
-EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s.]+")
+# Deliberately loose: one @, no spaces or control characters, a dot in the domain. Sending the
+# code is the real check.
+EMAIL = re.compile(r"[^@\s\x00-\x1f\x7f]+@[^@\s\x00-\x1f\x7f]+\.[^@\s.\x00-\x1f\x7f]+")
 MAX_EMAIL_LENGTH = 254
 
 

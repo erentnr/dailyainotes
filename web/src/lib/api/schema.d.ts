@@ -1199,7 +1199,7 @@ export interface operations {
                     "application/json": components["schemas"]["Me"];
                 };
             };
-            /** @description Wrong, used or expired code */
+            /** @description Not an email, or a wrong, used or expired code */
             400: {
                 headers: {
                     [name: string]: unknown;

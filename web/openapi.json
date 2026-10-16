@@ -378,7 +378,7 @@
       }
      },
      "400": {
-      "description": "Wrong, used or expired code"
+      "description": "Not an email, or a wrong, used or expired code"
      },
      "422": {
       "description": "Validation Error",

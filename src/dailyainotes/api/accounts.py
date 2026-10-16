@@ -230,12 +230,12 @@ async def request_code(body: CodeRequest, request: Request, deps: Deps) -> dict[
 @router.post(
     "/auth/verify",
     dependencies=[SameOrigin],
-    responses={400: {"description": "Wrong, used or expired code"}},
+    responses={400: {"description": "Not an email, or a wrong, used or expired code"}},
 )
 async def verify_code(body: CodeSignIn, response: Response, deps: Deps) -> Me:
     try:
         session = await sign_in_with_code(deps.engine, body.email, body.code, datetime.now(UTC))
-    except (WrongCodeError, CodeUsedUpError) as error:
+    except (InvalidEmailError, WrongCodeError, CodeUsedUpError) as error:
         raise refuse(error, status.HTTP_400_BAD_REQUEST) from error
     return await start(response, deps, session)
 

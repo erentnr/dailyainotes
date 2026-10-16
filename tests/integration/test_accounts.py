@@ -194,6 +194,18 @@ async def test_a_database_error_does_not_carry_the_readers_email(engine: AsyncEn
     assert "someone.private" not in str(raised.value)
 
 
+async def test_an_email_with_a_control_character_is_refused_not_an_error(
+    site: httpx2.AsyncClient,
+) -> None:
+    email = "reader\u0000@example.com"
+
+    sent = await site.post("/api/v1/auth/code", json={"email": email})
+    verified = await site.post("/api/v1/auth/verify", json={"email": email, "code": "123456"})
+
+    assert sent.status_code == verified.status_code == 400
+    assert verified.json()["detail"] == "That does not look like an email address."
+
+
 async def test_a_code_expires_after_ten_minutes(
     engine: AsyncEngine, deps: AccountDeps, mailbox: Mailbox
 ) -> None:
