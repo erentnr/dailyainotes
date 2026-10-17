@@ -9,7 +9,7 @@ SOURCE = Path(__file__).parents[2] / "src" / PACKAGE
 
 # Highest layer first. A package may import its own layer or the ones below it.
 LAYERS: list[set[str]] = [
-    {"api", "worker", "cli", "mcp"},  # interfaces
+    {"api", "worker", "cli"},  # interfaces
     {"graphs", "ingestion", "ask", "stats", "evals", "accounts"},  # graphs and services
     {"db", "sources", "llm", "retrieval", "external", "queue"},  # adapters
     {"domain"},
@@ -35,6 +35,8 @@ SEAMS: dict[str, str | set[str]] = {
     # The worker runs the tasks; the API puts work on the queue.
     "procrastinate": {"queue", "worker"},
     "jwt": "api",
+    # The MCP server is served by the API (ADR 0005).
+    "mcp": "api",
 }
 
 

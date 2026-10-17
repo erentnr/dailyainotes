@@ -6,9 +6,10 @@ from contextlib import asynccontextmanager
 from importlib.metadata import version
 
 from fastapi import FastAPI
+from starlette.routing import Route
 
 from dailyainotes import queue
-from dailyainotes.api import accounts, admin, ask, health, notes
+from dailyainotes.api import accounts, admin, ask, health, mcp_server, notes
 from dailyainotes.api.access import access_verifier
 from dailyainotes.db.engine import create_engine
 from dailyainotes.external.http import create_client
@@ -26,7 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.engine = create_engine(settings.database_url)
         # Accepted topic suggestions ask the worker for a Topic Planner run.
         app.state.plan_queue = queue.plan_queue(settings.database_url)
-        async with create_client() as client:
+        async with create_client() as client, app.state.mcp.session_manager.run():
             app.state.accounts = accounts.account_deps(settings, app.state.engine, client)
             yield
         await app.state.engine.dispose()
@@ -43,4 +44,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(notes.router, prefix="/api/v1")
     app.include_router(accounts.router, prefix="/api/v1")
     app.include_router(admin.router, prefix="/api/v1/admin")
+    # A plain route, not in the OpenAPI schema: MCP clients speak JSON-RPC to it (ADR 0005).
+    app.state.mcp = mcp_server.build(app.state)
+    app.router.routes.append(Route(mcp_server.PATH, mcp_server.Endpoint(app.state, app.state.mcp)))
     return app

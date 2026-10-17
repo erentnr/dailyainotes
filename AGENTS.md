@@ -12,7 +12,7 @@ Don't assume. Don't hide confusion. Surface tradeoffs.
 
 - INTENT.md's Working Agreement says to ask rather than guess and to plan before building. In practice: stop at the first ambiguity, offer concrete options with the recommended one first, and put the plan with its checks in front of the owner before writing code.
 - Requests can be short and miss a word. Confirm the intent behind them.
-- Check scope before building: ADR 0001 defers accounts, custom topics, the full admin UI and the MCP server. If a request needs one of them, say so instead of building it.
+- Check scope before building: ADR 0001 defers custom topics and the full admin UI (ADR 0003 brought in accounts, ADR 0005 the MCP server). If a request needs one of them, say so instead of building it.
 - Package versions, model IDs, free-tier limits and API behaviour go stale. Check the live source (PyPI, npm, the provider's docs), and record what you verified in MEMORY.md with the source and the date.
 - When two idioms both work (ORM or Core query, a graph node or a plain function, an island or a server-rendered page), name the trade-off in one line, pick one, move on.
 - If INTENT.md, the memory files, DESIGN.md, an ADR and the request disagree, say so; don't resolve it silently.

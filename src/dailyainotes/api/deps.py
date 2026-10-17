@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import Depends, Request
+from starlette.datastructures import State
 
 from dailyainotes.ask import AskDeps
 from dailyainotes.db.runs import DbLedger
@@ -21,7 +22,11 @@ class Models:
 
 
 def models(request: Request) -> Models:
-    state = request.app.state
+    return load_models(request.app.state)
+
+
+def load_models(state: State) -> Models:
+    """The app's models, made on the first call; the MCP server's tools have no request."""
     if state.models is None:
         embeddings = LocalEmbeddings(state.settings.embedding_cache_dir)
         state.models = Models(embeddings, build_router(state.settings, DbLedger(state.engine)))

@@ -24,7 +24,7 @@ production completeness.
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Proof of concept: M0 to M6 below | In progress |
-| 2 | First part (ADR 0003): editor sign-in through Cloudflare Access, reader accounts, topic suggestions: M7 to M9 below. Then the README's Next steps | In progress |
+| 2 | First part (ADR 0003): editor sign-in through Cloudflare Access, reader accounts, topic suggestions: M7 to M9 below. The MCP server (ADR 0005): M10. Then the README's Next steps | In progress |
 
 Phase 1 is done when, on dailyainotes.com: a visitor picks topics from the 12-topic catalog and
 reads today's approved notes for them, each with inline citations and a "how this note was made"
@@ -147,6 +147,7 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - **The editor signs in through Cloudflare Access** (ADR 0003). The API checks Access's signed
   token (`Cf-Access-Jwt-Assertion`: signature, audience, issuer, expiry) on every admin request,
   never trusts the edge alone, and records the editor's email with each decision.
+- **The MCP server is public and read-only** (ADR 0005): it lives in the API at `/api/mcp`, shows only what the site shows, calls no model, and is limited per hashed IP and in total. Only `api/` imports the `mcp` package.
 - **The LLM router is the only way to call a model.** Each role has an ordered chain of
   `provider:model` in settings; it falls back on rate limits, exhausted quotas, timeouts and
   invalid output. OpenRouter is used only with free models whose providers don't train on
@@ -221,6 +222,7 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
   go to the pipeline before Ask.
 - **Ask limits** (ADR 0004): 10 questions a day per reader, 30 per hashed IP and 200 in total. No
   model call when retrieval finds nothing strong.
+- **MCP limits** (ADR 0005): 300 requests a day per hashed IP and 3,000 in total.
 - **Work only when something changed.** Conditional requests (ETag, Last-Modified) for feeds;
   each document embedded once; no new note for a story already covered unless new reports arrive.
 - **Every container has a memory limit;** the embedding model loads once per process.
@@ -239,11 +241,13 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - [x] M5 Ask the notes and evals (2026-10-13; a cited answer and a "not enough" on the local site, the eval gate green in CI): search over notes, citation validation, "not enough", per-IP limits, streaming; 30-question eval → check: a cited answer from the Ask endpoint; "Not enough in the notes" for an off-catalog question; the eval gate in CI
 - [ ] M6 Web app and How it works (live 2026-10-13: pages, notes, Ask with a model and approving at /admin work through Cloudflare; the topic picker is not checked on the live site): Astro from DESIGN.md, topic picker, daily page, note, timeline, Ask, How it works, minimal /admin; README and docs/design.md → check: on dailyainotes.com, pick topics, read, ask, approve at /admin; `pnpm check` in CI
 
-### High: phase 2, first part (ADR 0003)
+### High: phase 2 (ADR 0003, ADR 0005)
 
 - [ ] M7 Editor sign-in: Cloudflare Access in front of `/admin` and `/api/v1/admin`, the API checks its token, decisions record who made them, `ADMIN_TOKEN` removed → check: tests with tokens signed by a test key (valid, forged, expired, wrong audience or issuer, no email); on dailyainotes.com, /admin asks Cloudflare to sign you in, an approval records your email, and the admin API refuses a request that did not pass Access
 - [ ] M8 Reader accounts: sign-in by emailed code or link (Resend), sessions in an HttpOnly cookie, limits and Turnstile on sign-in, topics on every device, account and privacy pages, delete account → check: tests on codes, sessions, limits and the same-origin rule; sign in on two devices and see the same topics; deleting the account removes its rows
 - [ ] M9 Topic suggestions: readers suggest topics, the editor accepts or declines at /admin, accepting runs the Topic Planner, plans are reviewed at /admin → check: suggest a topic, accept it, approve its plan at /admin, and it appears in the picker
+
+- [ ] M10 MCP server (ADR 0005): `list_topics`, `search_notes`, `get_note` at `/api/mcp`, public and read-only, rate-limited, kept out of Langfuse → check: tests through the SDK's client and over HTTP (limits, host check); on dailyainotes.com, Claude Code adds the server and each tool answers
 
 ### Medium
 

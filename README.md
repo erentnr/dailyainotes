@@ -44,6 +44,16 @@ flowchart LR
 - **Code checks before models check:** every sentence must cite a source that exists, and every number and quote must appear in it. Then a model from another family than the Writer's checks each claim; a factual claim needs two independent publishers, one of them trusted, or a primary source.
 - **Ask is a pipeline, not an agent:** full-text and vector search over published notes, merged by reciprocal rank fusion. With no strong match it answers "Not enough in the notes" without calling a model.
 
+## Use the notes from an AI assistant
+
+The published notes are also an MCP server ([ADR 0005](docs/adr/0005-mcp-server.md)): public, read-only, with three tools, `list_topics`, `search_notes` and `get_note`. In Claude Code:
+
+```sh
+claude mcp add --transport http dailyainotes https://dailyainotes.com/api/mcp
+```
+
+Other assistants take the same URL as a Streamable HTTP server. The tools return what the site shows: each note's text with its citation markers, and for each citation the source's title, link and a quote of at most 25 words. Requests are limited to 300 a day per connection.
+
 ## Eval results
 
 The 30-question set in [`evals/`](evals/README.md) (40 fictional notes; 22 questions a note answers, 8 none does) runs on every pull request without a model:
@@ -231,7 +241,6 @@ Deferred by [ADR 0001](docs/adr/0001-proof-of-concept-scope.md) and still open a
 - Custom topics written by readers themselves, beyond suggestions the editor accepts.
 - A per-reader preference memory fed by "more like this" and "less like this" (accounts came first, ADR 0003).
 - A full review UI: request a rewrite, edit a draft (topic plans are reviewed at /admin since ADR 0003).
-- An MCP server with `search_notes`, `get_note` and `list_topics`.
 - Offsite backups, once the site has real readers (the nightly dumps stay on the server).
 
 ## How this repository is run
