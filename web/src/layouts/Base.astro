@@ -1,9 +1,11 @@
 ---
 import { Font } from "astro:assets";
+import { SITE_AUTHOR_NAME, SITE_AUTHOR_URL, SITE_SOURCE_URL } from "astro:env/server";
 
 import { AskIcon, TodayIcon, TopicsIcon, YouIcon } from "../components/ui/Icons";
 import { Logo } from "../components/ui/Logo";
 import ThemeToggle from "../islands/ThemeToggle";
+import { footerLinks } from "../lib/footer";
 import "../styles/global.css";
 
 interface Props {
@@ -30,6 +32,11 @@ const nav = [
   ["/ask", "Ask"],
   ["/how-it-works", "How it works"],
 ] as const;
+const links = footerLinks({
+  sourceUrl: SITE_SOURCE_URL,
+  authorName: SITE_AUTHOR_NAME,
+  authorUrl: SITE_AUTHOR_URL,
+});
 const current = (href: string) =>
   (href === "/" ? path === "/" || path.startsWith("/day/") : path.startsWith(href)) ? "page" : undefined;
 const tabs = [
@@ -88,6 +95,13 @@ const tabs = [
     </header>
     <main class="page">
       <slot />
+      {
+        links.length > 0 && (
+          <footer class="site-footer">
+            {links.map(({ href, label }) => <a href={href} rel="noopener">{label}</a>)}
+          </footer>
+        )
+      }
     </main>
     {
       tabBar && (

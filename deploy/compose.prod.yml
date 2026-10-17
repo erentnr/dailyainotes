@@ -57,6 +57,10 @@ services:
     image: ${IMAGE:?}-web:${TAG:?}
     environment:
       API_URL: http://api:8000
+      # The footer's links; empty hides them (README, Deploy).
+      SITE_SOURCE_URL: ${SITE_SOURCE_URL:-}
+      SITE_AUTHOR_NAME: ${SITE_AUTHOR_NAME:-}
+      SITE_AUTHOR_URL: ${SITE_AUTHOR_URL:-}
     healthcheck:
       test:
         - CMD

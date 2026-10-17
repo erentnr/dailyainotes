@@ -174,6 +174,9 @@ TURNSTILE_SITE_KEY=                  # the sign-in form's bot check, below
 TURNSTILE_SECRET_KEY=
 IP_HASH_KEY=                         # openssl rand -hex 32
 TUNNEL_TOKEN=                        # from Cloudflare, below
+SITE_SOURCE_URL=                     # optional: the footer's link to your fork's code
+SITE_AUTHOR_NAME=                    # optional: the footer's "Made by" name
+SITE_AUTHOR_URL=                     # optional: and its link; empty hides it
 ```
 
 ### Cloudflare Tunnel

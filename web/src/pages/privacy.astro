@@ -1,5 +1,11 @@
 ---
+import { SITE_SOURCE_URL } from "astro:env/server";
+
 import Base from "../layouts/Base.astro";
+import { webPage } from "../lib/footer";
+
+// The site's own repository, from its settings, so a fork points at its own.
+const source = webPage(SITE_SOURCE_URL)?.replace(/\/$/, "");
 ---
 
 <Base title="Privacy" description="What Daily AI Notes keeps about you, why, and for how long.">
@@ -10,8 +16,12 @@ import Base from "../layouts/Base.astro";
   <div class="measure stack">
     <p>
       Daily AI Notes is a small open-source project. It keeps as little as it can, sells nothing and
-      runs no advertising or tracking scripts. The code that does all of this is public on{" "}
-      <a href="https://github.com/erentnr/dailyainotes">GitHub</a>.
+      runs no advertising or tracking scripts.
+      {source && (
+        <>
+          The code that does all of this is <a href={source}>public</a>.
+        </>
+      )}
     </p>
 
     <section class="section stack">
@@ -64,12 +74,16 @@ import Base from "../layouts/Base.astro";
       </ul>
     </section>
 
-    <section class="section stack">
-      <div class="label">Questions</div>
-      <p>
-        Open an issue on <a href="https://github.com/erentnr/dailyainotes/issues">GitHub</a>, without
-        personal details; we will reply there.
-      </p>
-    </section>
+    {
+      source && (
+        <section class="section stack">
+          <div class="label">Questions</div>
+          <p>
+            Open an issue in the <a href={`${source}/issues`}>project's repository</a>, without
+            personal details; we will reply there.
+          </p>
+        </section>
+      )
+    }
   </div>
 </Base>

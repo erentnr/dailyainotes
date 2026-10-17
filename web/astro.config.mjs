@@ -21,6 +21,12 @@ export default defineConfig({
         access: "secret",
         default: "http://localhost:8000",
       }),
+      // The footer's links, read at run time like API_URL, so a fork sets its own in .env
+      // without a rebuild. Empty hides the link. Not secrets: "secret" is what makes Astro
+      // read a server variable at run time.
+      SITE_SOURCE_URL: envField.string({ context: "server", access: "secret", default: "" }),
+      SITE_AUTHOR_NAME: envField.string({ context: "server", access: "secret", default: "" }),
+      SITE_AUTHOR_URL: envField.string({ context: "server", access: "secret", default: "" }),
     },
   },
   fonts: [
