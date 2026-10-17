@@ -131,6 +131,9 @@ class PlanSource(BaseModel):
     recent_items: int
     # The share of recent items that name a keyword or an entity.
     match_share: float
+    # The share of recent items closer to this topic than to any other; None for query sources
+    # and for plans made before the planner measured it.
+    topic_share: float | None = None
     # The share of sampled pages a model may read; None for query sources.
     readable_share: float | None = None
 

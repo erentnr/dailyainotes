@@ -198,7 +198,8 @@ async def _plan(slug: str | None, all_drafts: bool) -> None:
     settings = get_settings()
     engine = create_engine(settings.database_url)
     try:
-        async with planner(settings, engine) as graph:
+        embeddings = LocalEmbeddings(settings.embedding_cache_dir)
+        async with planner(settings, engine, embeddings) as graph:
             slugs = await planner_db.draft_topic_slugs(engine) if all_drafts else [slug or ""]
             for each in slugs:
                 try:
@@ -223,7 +224,9 @@ def print_proposal(proposal: planner_db.Proposal) -> None:
         typer.echo(f"  entities: {', '.join(profile['entities'])}")
     typer.echo(f"  sources ({len(profile['sources'])}):")
     for source in profile["sources"]:
-        stats = f"{source['recent_items']} recent, {source['match_share']:.0%} on topic"
+        stats = f"{source['recent_items']} recent, {source['match_share']:.0%} keywords"
+        if "topic_share" in source:
+            stats += f", {source['topic_share']:.0%} closest"
         typer.echo(f"    {source['type']:<15} {source['locator'][:60]:<60} {stats}")
     if dropped := profile.get("dropped", []):
         typer.echo(f"  not used ({len(dropped)}):")

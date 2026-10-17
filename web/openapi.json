@@ -1465,6 +1465,17 @@
       "type": "number",
       "title": "Match Share"
      },
+     "topic_share": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Topic Share"
+     },
      "readable_share": {
       "anyOf": [
        {

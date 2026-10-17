@@ -660,6 +660,8 @@ export interface components {
             recent_items: number;
             /** Match Share */
             match_share: number;
+            /** Topic Share */
+            topic_share?: number | null;
             /** Readable Share */
             readable_share?: number | null;
         };

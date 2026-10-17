@@ -34,6 +34,13 @@ class Proposal:
     name: str
 
 
+async def topic_texts(engine: AsyncEngine) -> dict[int, str]:
+    """Every topic's name and description, by id: what the planner compares headlines with."""
+    async with engine.connect() as connection:
+        rows = await connection.execute(select(Topic.id, Topic.name, Topic.description))
+        return {id_: f"{name}: {description}" for id_, name, description in rows}
+
+
 async def topic(engine: AsyncEngine, slug: str) -> TopicRecord | None:
     async with engine.connect() as connection:
         row = (

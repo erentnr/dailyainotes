@@ -10,11 +10,13 @@ ones failed, only when too few feeds can be used. Everything else is code. Graph
 plain JSON (dicts and lists), so checkpoints never deserialize our own classes.
 """
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Literal, Protocol, TypedDict
 
 import structlog
+from langchain_core.embeddings import Embeddings
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -24,7 +26,7 @@ from pydantic import BaseModel, Field
 from dailyainotes.db import planner as db
 from dailyainotes.db.engine import AsyncEngine
 from dailyainotes.domain.exclusions import is_excluded
-from dailyainotes.domain.matching import match_share
+from dailyainotes.domain.matching import match_share, nearest_share
 from dailyainotes.sources.connectors import SourceSpec, fetch_source
 from dailyainotes.sources.fetcher import ArticleFetcher
 from dailyainotes.sources.http import Http
@@ -57,8 +59,12 @@ publish often. Do not repeat a page from the list or another page of the same pu
 MAX_FEEDS = 8
 MAX_FEEDS_PER_SITE = 2
 MAX_REPOS = 2
-# A feed is relevant when this share of its recent items names a keyword or an entity.
+# A feed is relevant when this share of its recent items names a keyword or an entity, or
+# when this share of them is closer to this topic than to any other. Exact phrases rarely
+# appear in headlines of a broad topic (Xbox Wire matched 10% for video games); on the live
+# feeds of 2026-10-16, closest-topic shares were 50-100% on topic and 0-30% off it.
 MIN_MATCH_SHARE = 0.2
+MIN_TOPIC_SHARE = 0.35
 # A relevant feed is useful only when a model may read its pages: this many of its recent items
 # go through the policy gate, and at least this share must not be link-only. Many publishers'
 # robots.txt blocks AI crawlers, which leaves every story they report unusable (2026-10-13).
@@ -125,6 +131,8 @@ class PlannerDeps:
     router: StructuredModel
     http: Http
     now: datetime
+    # None when the graph only resumes with the editor's decision, which embeds nothing.
+    embeddings: Embeddings | None = None
 
 
 def build_planner(
@@ -162,8 +170,21 @@ def build_planner(
     async def validate(state: PlannerState) -> PlannerState:
         draft = ProfileDraft.model_validate(state["draft"])
         terms = draft.keywords + draft.entities
+        embeddings = deps.embeddings
+        if embeddings is None:
+            raise RuntimeError("planning needs embeddings; only resuming a decision does not")
+        texts = await db.topic_texts(deps.engine)
+        ids = list(texts)
+        topics = [await embeddings.aembed_query(texts[i]) for i in ids]
+
+        async def closest(items: list[str]) -> float:
+            vectors = await embeddings.aembed_documents(items)
+            return nearest_share(vectors, topics, ids.index(state["topic_id"]))
+
+        # With no other topic, every headline is closest to this one: keywords alone decide.
+        compare = closest if len(ids) > 1 else None
         checked = state.get("checked", []) + [
-            await check(deps.http, fetcher, candidate, terms, deps.now)
+            await check(deps.http, fetcher, candidate, terms, deps.now, compare)
             for candidate in state["candidates"]
         ]
         return {"checked": checked, "sources": keep(checked)}
@@ -312,19 +333,31 @@ def query_sources(draft: ProfileDraft) -> list[dict[str, Any]]:
 
 
 async def check(
-    http: Http, fetcher: ArticleFetcher, candidate: dict[str, Any], terms: list[str], now: datetime
+    http: Http,
+    fetcher: ArticleFetcher,
+    candidate: dict[str, Any],
+    terms: list[str],
+    now: datetime,
+    closest: Callable[[list[str]], Awaitable[float]] | None,
 ) -> dict[str, Any]:
-    """Fetch a candidate once: how many recent items it has, how many name the topic, and, for
-    a relevant feed, how many of its pages a model may read."""
+    """Fetch a candidate once: how many recent items it has, how many name the topic or are
+    closest to it, and, for a relevant feed, how many of its pages a model may read."""
     spec = SourceSpec(candidate["type"], candidate["locator"], candidate["config"])
     try:
         outcome = await fetch_source(http, spec, now=now)
     except Exception as error:
         return {**candidate, "recent_items": 0, "match_share": 0.0, "note": type(error).__name__}
     recent = [i for i in outcome.items if i.published_at is None or now - i.published_at <= RECENT]
-    share = match_share([f"{i.title} {i.lead}" for i in recent[:20]], terms)
-    checked = {**candidate, "recent_items": len(recent), "match_share": round(share, 2), "note": ""}
-    if candidate["type"] == "rss" and recent and share >= MIN_MATCH_SHARE:
+    texts = [f"{i.title} {i.lead}" for i in recent[:20]]
+    checked = {
+        **candidate,
+        "recent_items": len(recent),
+        "match_share": round(match_share(texts, terms), 2),
+        "note": "",
+    }
+    if candidate["type"] == "rss" and closest is not None:
+        checked["topic_share"] = round(await closest(texts), 2) if texts else 0.0
+    if candidate["type"] == "rss" and recent and on_topic(checked):
         try:
             sample = [await fetcher.decide(i.url) for i in recent[:READABLE_SAMPLE]]
         except Exception as error:
@@ -347,14 +380,20 @@ def keep(checked: list[dict[str, Any]]) -> list[dict[str, Any]]:
             for c in checked
             if c["type"] == "rss"
             and c["recent_items"]
-            and c["match_share"] >= MIN_MATCH_SHARE
+            and on_topic(c)
             and c.get("readable_share", 0.0) >= MIN_READABLE_SHARE
         ),
-        key=lambda c: (-c["match_share"], -c["recent_items"]),
+        key=lambda c: (-max(c["match_share"], c.get("topic_share", 0.0)), -c["recent_items"]),
     )
     # Query sources (arXiv, GitHub, HN) are on topic by construction.
     others = [c for c in checked if c["type"] != "rss" and c["recent_items"]]
     return feeds[:MAX_FEEDS] + others
+
+
+def on_topic(checked: dict[str, Any]) -> bool:
+    keywords: float = checked["match_share"]
+    closest: float = checked.get("topic_share", 0.0)
+    return keywords >= MIN_MATCH_SHARE or closest >= MIN_TOPIC_SHARE
 
 
 def dropped(state: PlannerState) -> list[dict[str, str]]:
@@ -371,8 +410,9 @@ def drop_reason(candidate: dict[str, Any]) -> str:
     if not candidate["recent_items"]:
         note = candidate["note"]
         return f"could not be read ({note})" if note else "nothing in the last 30 days"
-    if candidate["type"] == "rss" and candidate["match_share"] < MIN_MATCH_SHARE:
-        return f"off topic: {candidate['match_share']:.0%} of recent items match"
+    if candidate["type"] == "rss" and not on_topic(candidate):
+        share = candidate.get("topic_share", 0.0)
+        return f"off topic: {share:.0%} of recent items are closest to this topic"
     if candidate["type"] == "rss" and candidate.get("readable_share", 0.0) < MIN_READABLE_SHARE:
         return f"its pages are link-only: {candidate['note']}"
     return "more readable feeds were kept"

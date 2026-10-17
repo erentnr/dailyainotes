@@ -22,7 +22,14 @@ async def test_a_feed_whose_pages_cannot_be_checked_counts_as_unreadable(
 ) -> None:
     http = web({FEED: fixture("rss/feed.xml")}).http
 
-    checked = await check(http, BrokenFetcher(), feed_source(FEED), ["safety car"], NOW)  # type: ignore[arg-type]
+    checked = await check(
+        http,
+        BrokenFetcher(),  # type: ignore[arg-type]
+        feed_source(FEED),
+        ["safety car"],
+        NOW,
+        None,
+    )
 
     assert checked["readable_share"] == 0.0
     assert drop_reason(checked) == (

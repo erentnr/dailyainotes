@@ -67,7 +67,8 @@ export default function AdminPlans() {
                   <tr>
                     <th>Source</th>
                     <th className="num">Recent</th>
-                    <th className="num">On topic</th>
+                    <th className="num">Keywords</th>
+                    <th className="num">Closest</th>
                     <th className="num">Readable</th>
                   </tr>
                 </thead>
@@ -87,6 +88,7 @@ export default function AdminPlans() {
                       </td>
                       <td className="num">{s.recent_items}</td>
                       <td className="num">{percent(s.match_share)}</td>
+                      <td className="num">{percent(s.topic_share)}</td>
                       <td className="num">{percent(s.readable_share)}</td>
                     </tr>
                   ))}

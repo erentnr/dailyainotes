@@ -44,7 +44,7 @@ async def test_an_accepted_suggestion_queues_one_planner_run_for_the_worker(
     planned: list[str] = []
 
     @asynccontextmanager
-    async def planner(settings: Settings, engine: Any) -> AsyncIterator[None]:
+    async def planner(settings: Settings, engine: Any, embeddings: Any) -> AsyncIterator[None]:
         yield None
 
     async def plan_topic(engine: Any, graph: Any, slug: str) -> Any:
@@ -52,6 +52,8 @@ async def test_an_accepted_suggestion_queues_one_planner_run_for_the_worker(
         return SimpleNamespace(id=1)
 
     monkeypatch.setattr(worker.planning, "planner", planner)
+    # The real model would be downloaded, which tests never do.
+    monkeypatch.setattr(worker, "LocalEmbeddings", lambda cache_dir: None)
     monkeypatch.setattr(worker.planning, "plan_topic", plan_topic)
     send = queue.plan_queue(database_url)  # as the API does
     with worker.app.replace_connector(queue.connector(database_url)):

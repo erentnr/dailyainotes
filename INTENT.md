@@ -255,7 +255,7 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - [x] After 2026-10-15: move the Postgres image to `pgvector/pgvector:0.8.7-pg18-trixie` (2026-10-16).
 - [ ] After 2026-10-28: move to Node 26 LTS.
 - [ ] After three nights with 12 active topics (from 2026-10-17): review the daily draft cap of 15 against the real draft counts and free-quota use.
-- [ ] The Topic Planner's relevance check drops on-topic feeds of broad topics: exact keyword phrases rarely appear in headlines (found 2026-10-16: Xbox Wire and PlayStation Blog at 10% for video games). Find a better check before readers' suggestions depend on it.
+- [x] The Topic Planner's relevance check drops on-topic feeds of broad topics: exact keyword phrases rarely appear in headlines (found 2026-10-16: Xbox Wire and PlayStation Blog at 10% for video games). Find a better check before readers' suggestions depend on it (2026-10-17: the closest-topic share).
 - [ ] Redesign the screens the canvas's D page does not draw (topic timeline, How it works, sign-in, account, /admin) once the owner draws them, and revise DESIGN.md with them; until then they use D's components.
 - [ ] Keep the README's Next steps in line with ADR 0001.
 

@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
+from langchain_core.embeddings import Embeddings
 from langgraph.types import Command
 
 from dailyainotes.db import planner as db
@@ -33,12 +34,16 @@ class EmptyPlanError(Exception):
 
 
 @asynccontextmanager
-async def planner(settings: Settings, engine: AsyncEngine) -> AsyncIterator[Any]:
-    """The Topic Planner graph with its models, HTTP client and checkpointer."""
+async def planner(
+    settings: Settings, engine: AsyncEngine, embeddings: Embeddings | None = None
+) -> AsyncIterator[Any]:
+    """The Topic Planner graph with its models, HTTP client and checkpointer. Planning needs
+    `embeddings`; resuming a plan with the editor's decision does not."""
     router = build_router(settings, DbLedger(engine))
     try:
         async with create_http() as http, checkpointer(settings.database_url) as saver:
-            yield build_planner(PlannerDeps(engine, router, http, datetime.now(UTC)), saver)
+            deps = PlannerDeps(engine, router, http, datetime.now(UTC), embeddings)
+            yield build_planner(deps, saver)
     finally:
         flush_tracing(settings)
 

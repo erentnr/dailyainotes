@@ -18,6 +18,7 @@ from dailyainotes.db.engine import create_engine
 from dailyainotes.evals import run_eval
 from dailyainotes.graphs import planning
 from dailyainotes.graphs.edition import run_editions
+from dailyainotes.llm.embeddings import LocalEmbeddings
 from dailyainotes.logging import configure_logging
 from dailyainotes.queue import app
 from dailyainotes.settings import get_settings
@@ -70,7 +71,8 @@ async def plan_topic(slug: str) -> None:
     settings = get_settings()
     engine = create_engine(settings.database_url)
     try:
-        async with planning.planner(settings, engine) as graph:
+        embeddings = LocalEmbeddings(settings.embedding_cache_dir)
+        async with planning.planner(settings, engine, embeddings) as graph:
             proposal = await planning.plan_topic(engine, graph, slug)
         log.info("topic_planned", topic=slug, proposal=proposal.id)
     finally:

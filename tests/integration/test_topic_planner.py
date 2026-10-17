@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import httpx2
 import pytest
+from langchain_core.embeddings import Embeddings
 from langgraph.types import Command
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -96,6 +97,7 @@ async def start(engine: AsyncEngine) -> tuple[dict[str, Any], dict[str, Any]]:
 async def test_a_plan_waits_for_approval_then_activates_the_topic(
     engine: AsyncEngine,
     database_url: str,
+    embeddings: Embeddings,
     web: Callable[..., Any],
     fixture: Callable[[str], bytes],
 ) -> None:
@@ -103,7 +105,7 @@ async def test_a_plan_waits_for_approval_then_activates_the_topic(
     state, config = await start(engine)
     recorded = web(site(fixture))
     async with checkpointer(database_url) as saver:
-        graph = build_planner(PlannerDeps(engine, router, recorded.http, NOW), saver)
+        graph = build_planner(PlannerDeps(engine, router, recorded.http, NOW, embeddings), saver)
 
         paused = await graph.ainvoke(state, config)
 
@@ -147,13 +149,16 @@ async def test_a_plan_waits_for_approval_then_activates_the_topic(
 async def test_a_rejected_plan_leaves_the_topic_as_it_was(
     engine: AsyncEngine,
     database_url: str,
+    embeddings: Embeddings,
     web: Callable[..., Any],
     fixture: Callable[[str], bytes],
 ) -> None:
     router = FakeRouter()
     state, config = await start(engine)
     async with checkpointer(database_url) as saver:
-        graph = build_planner(PlannerDeps(engine, router, web(site(fixture)).http, NOW), saver)
+        graph = build_planner(
+            PlannerDeps(engine, router, web(site(fixture)).http, NOW, embeddings), saver
+        )
         await graph.ainvoke(state, config)
 
         await graph.ainvoke(
@@ -175,6 +180,7 @@ async def test_a_rejected_plan_leaves_the_topic_as_it_was(
 async def test_a_feed_whose_pages_a_model_may_not_read_is_not_proposed(
     engine: AsyncEngine,
     database_url: str,
+    embeddings: Embeddings,
     web: Callable[..., Any],
     fixture: Callable[[str], bytes],
 ) -> None:
@@ -184,7 +190,9 @@ async def test_a_feed_whose_pages_a_model_may_not_read_is_not_proposed(
     recorded = web({**blocked, **site(fixture)})
     state, config = await start(engine)
     async with checkpointer(database_url) as saver:
-        graph = build_planner(PlannerDeps(engine, FakeRouter(), recorded.http, NOW), saver)
+        graph = build_planner(
+            PlannerDeps(engine, FakeRouter(), recorded.http, NOW, embeddings), saver
+        )
         await graph.ainvoke(state, config)
 
     (proposal,) = await planner_db.proposals(engine, status="proposed")
@@ -193,6 +201,56 @@ async def test_a_feed_whose_pages_a_model_may_not_read_is_not_proposed(
     assert kinds == ["arxiv", "github_releases", "hackernews"]
     # The policy gate decided from robots.txt alone: no article page was fetched.
     assert not any("/2026/10/" in str(r.url) for r in recorded.requests)
+
+
+async def test_a_feed_whose_headlines_are_closest_to_the_topic_is_kept_without_keywords(
+    engine: AsyncEngine,
+    database_url: str,
+    embeddings: Embeddings,
+    web: Callable[..., Any],
+    fixture: Callable[[str], bytes],
+) -> None:
+    """Headlines of a broad topic rarely contain its exact phrases (found 2026-10-16: Xbox Wire
+    matched 10% for video games); what they are closest to still tells."""
+    racing = "Motor racing: safety car, wet race, grid drop, power unit"
+    await sync_catalog(
+        engine,
+        Catalog.model_validate(
+            {
+                "topics": [
+                    {
+                        "slug": "racing",
+                        "name": "Motor racing",
+                        "description": racing.split(": ")[1],
+                    },
+                    {"slug": "roses", "name": "Gardening", "description": "Roses, soil, pruning"},
+                ]
+            }
+        ),
+    )
+    topic = await planner_db.topic(engine, "racing")
+    assert topic is not None
+    no_keywords = ProfileDraft(keywords=["zeppelin", "airship", "blimp"], candidate_sites=[SITE])
+    thread_id = f"plan:racing:{uuid4()}"
+    state = {
+        "topic_id": topic.id,
+        "slug": "racing",
+        "name": "Motor racing",
+        "description": racing.split(": ")[1],
+        "version": 1,
+        "thread_id": thread_id,
+    }
+    async with checkpointer(database_url) as saver:
+        deps = PlannerDeps(
+            engine, FakeRouter(no_keywords), web(site(fixture)).http, NOW, embeddings
+        )
+        await build_planner(deps, saver).ainvoke(state, {"configurable": {"thread_id": thread_id}})
+
+    (proposal,) = await planner_db.proposals(engine, status="proposed")
+    (feed,) = proposal.profile["sources"]
+    assert feed["locator"] == f"{SITE}blog/feed.xml"
+    assert feed["match_share"] == 0.0
+    assert feed["topic_share"] >= 0.35
 
 
 BLOCKED = "https://blocked.example.net/"
@@ -212,6 +270,7 @@ def unusable() -> dict[str, Any]:
 async def test_too_few_readable_feeds_ask_the_model_for_other_sites_with_the_reasons(
     engine: AsyncEngine,
     database_url: str,
+    embeddings: Embeddings,
     web: Callable[..., Any],
     fixture: Callable[[str], bytes],
 ) -> None:
@@ -219,7 +278,8 @@ async def test_too_few_readable_feeds_ask_the_model_for_other_sites_with_the_rea
     state, config = await start(engine)
     async with checkpointer(database_url) as saver:
         graph = build_planner(
-            PlannerDeps(engine, router, web({**unusable(), **site(fixture)}).http, NOW), saver
+            PlannerDeps(engine, router, web({**unusable(), **site(fixture)}).http, NOW, embeddings),
+            saver,
         )
         await graph.ainvoke(state, config)
 
@@ -238,12 +298,15 @@ async def test_too_few_readable_feeds_ask_the_model_for_other_sites_with_the_rea
 async def test_the_planner_stops_after_its_second_round(
     engine: AsyncEngine,
     database_url: str,
+    embeddings: Embeddings,
     web: Callable[..., Any],
 ) -> None:
     router = FakeRouter(SITES_ONLY, more=[NO_FEED, "https://elsewhere.example.net/"])
     state, config = await start(engine)
     async with checkpointer(database_url) as saver:
-        graph = build_planner(PlannerDeps(engine, router, web(unusable()).http, NOW), saver)
+        graph = build_planner(
+            PlannerDeps(engine, router, web(unusable()).http, NOW, embeddings), saver
+        )
         paused = await graph.ainvoke(state, config)
 
     assert "__interrupt__" in paused
@@ -260,12 +323,14 @@ async def test_the_planner_stops_after_its_second_round(
 async def test_a_plan_without_sources_can_be_rejected_but_not_approved(
     engine: AsyncEngine,
     database_url: str,
+    embeddings: Embeddings,
     web: Callable[..., Any],
 ) -> None:
     state, config = await start(engine)
     async with checkpointer(database_url) as saver:
         graph = build_planner(
-            PlannerDeps(engine, FakeRouter(SITES_ONLY), web(unusable()).http, NOW), saver
+            PlannerDeps(engine, FakeRouter(SITES_ONLY), web(unusable()).http, NOW, embeddings),
+            saver,
         )
         await graph.ainvoke(state, config)
         (proposal,) = await planner_db.proposals(engine, status="proposed")
@@ -281,6 +346,7 @@ async def test_a_plan_without_sources_can_be_rejected_but_not_approved(
 async def test_the_editor_reviews_a_plan_at_admin(
     engine: AsyncEngine,
     database_url: str,
+    embeddings: Embeddings,
     web: Callable[..., Any],
     fixture: Callable[[str], bytes],
     access: Any,
@@ -288,7 +354,7 @@ async def test_the_editor_reviews_a_plan_at_admin(
     state, config = await start(engine)
     async with checkpointer(database_url) as saver:
         graph = build_planner(
-            PlannerDeps(engine, FakeRouter(), web(site(fixture)).http, NOW), saver
+            PlannerDeps(engine, FakeRouter(), web(site(fixture)).http, NOW, embeddings), saver
         )
         await graph.ainvoke(state, config)
     app = create_app(Settings(_env_file=None, database_url=database_url))
