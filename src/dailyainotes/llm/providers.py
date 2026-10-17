@@ -55,6 +55,7 @@ def build_router(settings: Settings, ledger: Ledger) -> Router:
             "researcher": parse_chain(settings.llm_researcher),
             "writer": parse_chain(settings.llm_writer),
             "extractor": parse_chain(settings.llm_extractor),
+            "scout": parse_chain(settings.llm_scout),
             "verifier": parse_chain(settings.llm_verifier),
             "ask": parse_chain(settings.llm_ask),
             "judge": parse_chain(settings.llm_judge),

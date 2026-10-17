@@ -9,7 +9,7 @@ const { data: stats } = await serverApi().GET("/api/v1/stats");
 if (!stats) throw new Error("The API did not answer");
 const { totals, days } = stats;
 const stages: Stage[] = [
-  ["Scout", "code", "Fetches each topic's feeds and APIs, keeps what their publishers allow, and groups reports of the same event into stories. Independent coverage ranks a story; at most two a topic are picked."],
+  ["Scout", "code + model", "Fetches each topic's feeds and APIs, keeps what their publishers allow, and groups reports of the same event into stories. Independent coverage ranks a story, and a small model checks that the best ones are recent news about the topic. Every topic gets one story a night before any gets a second."],
   ["Researcher", "model", "Reads the story's sources as data and lists the facts each one states."],
   ["Writer", "model", "Writes a short note in which every sentence cites its sources: [1], [2]."],
   ["Citation check", "code", "Every sentence must cite a source that exists, and every number and quote must appear in it. A failing draft goes back to the Writer, twice at most."],

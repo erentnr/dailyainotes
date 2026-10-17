@@ -23,7 +23,7 @@ Minimum code that solves the problem. Nothing speculative.
 
 - No features, settings or flags beyond what was asked. A knob nobody can safely turn is not a setting.
 - A function before a class, a module before a package. Interfaces only at the seams INTENT.md names: the LLM router, embeddings, source connectors, the reranker.
-- A fixed sequence is a function, not an agent. Models are called only where judging text matters: the Topic Planner's profile, Researcher, Writer, claim extraction and verification, the Ask answer. Scout's collect, cluster and rank is code.
+- A fixed sequence is a function, not an agent. Models are called only where judging text matters: the Topic Planner's profile, Scout's check that a picked story is about its topic, Researcher, Writer, claim extraction and verification, the Ask answer. Scout's collect, cluster and rank is code.
 - Handle the failures that happen (timeouts, 429s, exhausted free quotas, malformed feeds, model output that fails validation); let impossible ones raise.
 - No new dependency when the standard library or an existing one does the job. Phase 1 has no Redis, no vector database and no auth library.
 - If 200 lines could be 50, rewrite. Would a senior engineer reviewing this call it overcomplicated?

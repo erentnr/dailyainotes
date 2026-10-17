@@ -31,8 +31,9 @@ from dailyainotes.db.tables import (
     Topic,
 )
 from dailyainotes.domain.chunking import heading_chunk
+from dailyainotes.graphs import scout as scout_graph
 from dailyainotes.graphs.edition import decide_note, run_edition
-from dailyainotes.graphs.scout import ScoutDeps, build_scout
+from dailyainotes.graphs.scout import Relevance, ScoutDeps, build_scout
 from dailyainotes.graphs.story import (
     Brief,
     Claims,
@@ -247,6 +248,72 @@ async def test_scout_picks_the_best_stories_a_model_may_read(
     assert "only link-only reports" in link_only.reasons
     assert result["stories"] == 3
     assert len(result["picked"]) == 2
+
+
+async def scout_with(
+    engine: AsyncEngine,
+    database_url: str,
+    embeddings: Embeddings,
+    web: Callable[..., Any],
+    router: ScriptedRouter,
+    cap: int,
+) -> list[Any]:
+    """Scout over the seeded reports with a router that judges relevance; the saved stories,
+    best first."""
+    topic_id = await seed(engine, embeddings)
+    edition_id, _ = await db.start_edition(engine, topic_id, NOW.date())
+    deps = ScoutDeps(engine, web({}).http, embeddings, NOW, collect=False, router=router)
+    async with checkpointer(database_url) as saver:
+        state = {"topic_id": topic_id, "slug": "f1", "edition_id": edition_id, "cap": cap}
+        await build_scout(deps, saver).ainvoke(state, {"configurable": {"thread_id": "s"}})
+    async with engine.connect() as connection:
+        return list((await connection.execute(select(Story).order_by(Story.score.desc()))).all())
+
+
+async def test_scout_skips_a_story_the_model_finds_off_topic_and_picks_the_next(
+    engine: AsyncEngine, database_url: str, embeddings: Embeddings, web: Callable[..., Any]
+) -> None:
+    """Found 2026-10-17: an "on this day" piece and a petrol pickup's photo gallery were drafted."""
+    off = Relevance(on_topic=False, reason="an anniversary piece")
+    router = ScriptedRouter({"scout": [off, Relevance(on_topic=True)]})
+
+    verstappen, link_only, pirelli = await scout_with(
+        engine, database_url, embeddings, web, router, cap=1
+    )
+
+    assert (verstappen.picked, pirelli.picked, link_only.picked) == (False, True, False)
+    assert "not about the topic: an anniversary piece" in verstappen.reasons
+    # Only readable stories are asked about: the link-only one never reaches a model.
+    assert router.calls["scout"] == 2
+    assert "Topic: F1" in router.prompts["scout"][0]
+    assert "Verstappen wins the United States Grand Prix" in router.prompts["scout"][0]
+
+
+async def test_scout_picks_unchecked_when_no_model_answers(
+    engine: AsyncEngine, database_url: str, embeddings: Embeddings, web: Callable[..., Any]
+) -> None:
+    router = ScriptedRouter({"scout": [ModelsExhaustedError("scout", [])]})
+
+    verstappen, _, pirelli = await scout_with(engine, database_url, embeddings, web, router, cap=1)
+
+    assert (verstappen.picked, pirelli.picked) == (True, False)
+    assert "relevance not checked: no model answered" in verstappen.reasons
+
+
+async def test_scout_stops_asking_after_the_share_and_the_spare_checks(
+    engine: AsyncEngine,
+    database_url: str,
+    embeddings: Embeddings,
+    web: Callable[..., Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(scout_graph, "SPARE_CHECKS", 0)
+    router = ScriptedRouter({"scout": [Relevance(on_topic=False, reason="another subject")]})
+
+    stories = await scout_with(engine, database_url, embeddings, web, router, cap=1)
+
+    assert [s.picked for s in stories] == [False, False, False]
+    assert router.calls["scout"] == 1
 
 
 async def test_a_planted_number_is_rewritten_and_the_note_waits_for_approval(

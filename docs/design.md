@@ -13,7 +13,7 @@ The day's budget is fixed in code: at most 2 stories per topic and 15 a day, bec
 | Graph | Runs | Nodes | Waits for |
 | --- | --- | --- | --- |
 | Topic Planner | per topic, once | draft a profile (model) → discover and validate feeds (code) → propose | the editor, then activates the topic |
-| Scout | per topic, nightly | collect → cluster → rank, all code | nothing |
+| Scout | per topic, nightly | collect → cluster → rank (code), then a small model checks the best stories are about the topic | nothing |
 | Story | per picked story | research → write → citation check → extract claims → verify → gate | the owner, then publishes |
 
 The nightly runner (`graphs/edition.py`) is a plain function: a fixed sequence is not an agent. Each story graph is its own thread in the Postgres checkpointer, so a note can wait for approval for days, and a run that fails part-way resumes from its last checkpoint instead of starting over. Approving resumes the same thread from `dan review` or `/admin`.

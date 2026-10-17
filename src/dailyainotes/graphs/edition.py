@@ -75,7 +75,9 @@ async def run_editions(
             active, now.date(), per_day=STORIES_PER_DAY, per_topic=STORIES_PER_TOPIC
         )
         async with create_http() as http, checkpointer(settings.database_url) as saver:
-            scout = ScoutDeps(engine, http, embeddings, now, collect, settings.github_token)
+            scout = ScoutDeps(
+                engine, http, embeddings, now, collect, settings.github_token, story.router
+            )
             for each in [slug] if slug else active:
                 topic = await find_topic(engine, each)
                 if topic is None:

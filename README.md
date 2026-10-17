@@ -24,7 +24,7 @@ One story's night, from the site's [How it works](https://dailyainotes.com/how-i
 flowchart LR
     subgraph nightly["Worker, 01:30 UTC, per topic"]
         direction LR
-        scout["Scout (code)<br/>collect · policy gate<br/>cluster · rank"] --> research["Researcher<br/>(model)"]
+        scout["Scout (code, one small model check)<br/>collect · policy gate<br/>cluster · rank · on topic?"] --> research["Researcher<br/>(model)"]
         research --> writer["Writer<br/>(model)"]
         writer --> cite{"Citation check<br/>(code)"}
         cite -- "a number or quote<br/>not in its source" --> writer
@@ -39,7 +39,7 @@ flowchart LR
     router["LLM router<br/>Ollama Cloud → OpenRouter free"] -.-> research & writer & verify & ask
 ```
 
-- **Scout is code, not a model:** it fetches the topic's sources, keeps only what each publisher allows (full text, a summary, or a link), groups reports of one event by their vectors, and ranks stories by independent coverage.
+- **Scout is mostly code:** it fetches the topic's sources, keeps only what each publisher allows (full text, a summary, or a link), groups reports of one event by their vectors, and ranks stories by independent coverage. Then a small model is asked, best story first, whether each is recent news about the topic, so a general feed's photo gallery or an "on this day" piece is not drafted.
 - **Each picked story is its own LangGraph thread** with a Postgres checkpointer, so a note can wait for approval for days, and a run that stops resumes where it stopped.
 - **Code checks before models check:** every sentence must cite a source that exists, and every number and quote must appear in it. Then a model from another family than the Writer's checks each claim; a factual claim needs two independent publishers, one of them trusted, or a primary source.
 - **Ask is a pipeline, not an agent:** full-text and vector search over published notes, merged by reciprocal rank fusion. With no strong match it answers "Not enough in the notes" without calling a model.
