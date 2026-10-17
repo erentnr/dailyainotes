@@ -1,9 +1,10 @@
 """The Ask log, rate-limit counters and eval runs."""
 
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import delete, insert
+from sqlalchemy import delete, insert, select
 from sqlalchemy.dialects.postgresql import insert as upsert
 
 from dailyainotes.db.engine import AsyncEngine
@@ -41,6 +42,32 @@ async def log_ask(
                 insufficient=insufficient,
             )
         )
+
+
+@dataclass(frozen=True)
+class LoggedQuestion:
+    question: str
+    asked_at: datetime
+    insufficient: bool
+    cited_note_ids: list[int]
+
+
+async def questions_of(
+    engine: AsyncEngine, reader_id: int, since: datetime
+) -> list[LoggedQuestion]:
+    """The reader's questions to Ask since then, newest first."""
+    async with engine.connect() as connection:
+        rows = await connection.execute(
+            select(
+                AskRequest.question,
+                AskRequest.created_at,
+                AskRequest.insufficient,
+                AskRequest.cited_note_ids,
+            )
+            .where(AskRequest.reader_id == reader_id, AskRequest.created_at >= since)
+            .order_by(AskRequest.created_at.desc(), AskRequest.id.desc())
+        )
+        return [LoggedQuestion(*row) for row in rows]
 
 
 async def purge_asks(engine: AsyncEngine, *, log_before: datetime, counts_before: date) -> None:

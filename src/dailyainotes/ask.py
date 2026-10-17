@@ -13,6 +13,7 @@ import structlog
 from langchain_core.embeddings import Embeddings
 
 from dailyainotes.db import asks as db
+from dailyainotes.db import search as search_db
 from dailyainotes.db.engine import AsyncEngine
 from dailyainotes.domain.answers import NOT_ENOUGH, NOT_ENOUGH_REPLY, AnswerFilter
 from dailyainotes.llm.router import describe
@@ -183,6 +184,32 @@ async def ask(
         await db.log_ask(
             deps.engine, asker.reader_id, asker.ip_hash, question, cited, done["insufficient"]
         )
+
+
+@dataclass(frozen=True)
+class AskedQuestion:
+    question: str
+    asked_at: datetime
+    # False when the answer was "not enough in the notes".
+    answered: bool
+    # The published notes the answer cited: (slug, title).
+    notes: list[tuple[str, str]]
+
+
+async def questions_of(engine: AsyncEngine, reader_id: int, now: datetime) -> list[AskedQuestion]:
+    """A reader's questions from the days the log keeps (ADR 0004), newest first, each with the
+    notes its answer cited that are still published."""
+    logged = await db.questions_of(engine, reader_id, now - KEEP_LOG)
+    notes = await search_db.notes_by_id(engine, [i for q in logged for i in q.cited_note_ids])
+    return [
+        AskedQuestion(
+            q.question,
+            q.asked_at,
+            not q.insufficient,
+            [(notes[i].slug, notes[i].title) for i in q.cited_note_ids if i in notes],
+        )
+        for q in logged
+    ]
 
 
 async def purge(engine: AsyncEngine, now: datetime) -> None:

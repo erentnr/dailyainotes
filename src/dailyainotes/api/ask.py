@@ -12,7 +12,15 @@ from pydantic import BaseModel, Field, model_validator
 
 from dailyainotes.api.accounts import Reader
 from dailyainotes.api.deps import ask_deps
-from dailyainotes.ask import AskDeps, Asker, RateLimitedError, ask, check_limits, hash_ip
+from dailyainotes.ask import (
+    AskDeps,
+    Asker,
+    RateLimitedError,
+    ask,
+    check_limits,
+    hash_ip,
+    questions_of,
+)
 
 router = APIRouter()
 
@@ -60,3 +68,31 @@ async def ask_the_notes(
     return StreamingResponse(
         events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"}
     )
+
+
+class CitedNote(BaseModel):
+    slug: str
+    title: str
+
+
+class AskedQuestion(BaseModel):
+    question: str
+    asked_at: datetime
+    # False when the answer was "not enough in the notes".
+    answered: bool
+    notes: list[CitedNote]
+
+
+@router.get("/me/questions", responses={401: {}})
+async def my_questions(request: Request, found: Reader) -> list[AskedQuestion]:
+    """The reader's own questions to Ask from the last 30 days, newest first."""
+    asked = await questions_of(request.app.state.engine, found.reader_id, datetime.now(UTC))
+    return [
+        AskedQuestion(
+            question=q.question,
+            asked_at=q.asked_at,
+            answered=q.answered,
+            notes=[CitedNote(slug=slug, title=title) for slug, title in q.notes],
+        )
+        for q in asked
+    ]

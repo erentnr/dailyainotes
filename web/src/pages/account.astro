@@ -1,6 +1,7 @@
 ---
 import AccountActions from "../islands/AccountActions";
 import SuggestTopic from "../islands/SuggestTopic";
+import YourQuestions from "../islands/YourQuestions";
 import Base from "../layouts/Base.astro";
 import { serverApi } from "../lib/api/server";
 
@@ -37,6 +38,10 @@ const names = new Map((topics ?? []).map((t) => [t.slug, t.name]));
         )
       }
       <p><a href="/topics">Change your topics</a>. They follow you to every device you sign in on.</p>
+    </section>
+    <section class="section" id="questions">
+      <div class="label">Your questions</div>
+      <YourQuestions client:load />
     </section>
     <section class="section" id="suggest">
       <div class="label">Add a topic</div>

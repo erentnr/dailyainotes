@@ -66,6 +66,32 @@
     }
    }
   },
+  "/api/v1/me/questions": {
+   "get": {
+    "summary": "My Questions",
+    "description": "The reader's own questions to Ask from the last 30 days, newest first.",
+    "operationId": "my_questions_api_v1_me_questions_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/AskedQuestion"
+         },
+         "type": "array",
+         "title": "Response My Questions Api V1 Me Questions Get"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Unauthorized"
+     }
+    }
+   }
+  },
   "/api/v1/topics": {
    "get": {
     "summary": "Topics",
@@ -858,6 +884,56 @@
  },
  "components": {
   "schemas": {
+   "AskedQuestion": {
+    "properties": {
+     "question": {
+      "type": "string",
+      "title": "Question"
+     },
+     "asked_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Asked At"
+     },
+     "answered": {
+      "type": "boolean",
+      "title": "Answered"
+     },
+     "notes": {
+      "items": {
+       "$ref": "#/components/schemas/CitedNote"
+      },
+      "type": "array",
+      "title": "Notes"
+     }
+    },
+    "type": "object",
+    "required": [
+     "question",
+     "asked_at",
+     "answered",
+     "notes"
+    ],
+    "title": "AskedQuestion"
+   },
+   "CitedNote": {
+    "properties": {
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     }
+    },
+    "type": "object",
+    "required": [
+     "slug",
+     "title"
+    ],
+    "title": "CitedNote"
+   },
    "Claim": {
     "properties": {
      "text": {

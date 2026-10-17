@@ -22,7 +22,9 @@ from dailyainotes.api.app import create_app
 from dailyainotes.api.deps import Models
 from dailyainotes.ask import AskDeps
 from dailyainotes.db import accounts as accounts_db
+from dailyainotes.db import asks as asks_db
 from dailyainotes.db.tables import (
+    Note,
     NoteFeedback,
     Reader,
     ReaderSession,
@@ -629,3 +631,37 @@ async def test_more_or_less_like_this_scores_a_readers_notes_and_goes_with_the_a
     assert (missing.status_code, foreign.status_code) == (404, 403)
     assert cleared == {"value": 0}
     assert await rows(engine, NoteFeedback) == 0
+
+
+async def test_a_reader_sees_their_own_questions_to_ask_newest_first(
+    engine: AsyncEngine, deps: AccountDeps, mailbox: Mailbox, embeddings: Embeddings
+) -> None:
+    """ADR 0004 kept each question with its reader; the account page lists them (30 days)."""
+    notes = read_jsonl(EVALS / "corpus.jsonl", CorpusNote)[:10]
+    await load_corpus(engine, AskDeps(engine, embeddings, None), notes)  # type: ignore[arg-type]
+    other = await accounts.open_session(engine, "other@example.com", datetime.now(UTC))
+    async with client_for(engine, deps) as site:
+        signed_out = await site.get("/api/v1/me/questions")
+        await signed_in_reader(site, mailbox)
+        me = (await site.get("/api/v1/me")).json()
+        async with engine.connect() as connection:
+            battery = (
+                await connection.execute(select(Note.id).where(Note.slug == BATTERY))
+            ).scalar_one()
+            reader_id = (
+                await connection.execute(select(Reader.id).where(Reader.email == me["email"]))
+            ).scalar_one()
+        await asks_db.log_ask(
+            engine, reader_id, "h", "What did Brightwater start?", [battery], False
+        )
+        await asks_db.log_ask(engine, reader_id, "h", "Who won the cup?", [], True)
+        await asks_db.log_ask(engine, other.reader_id, "h", "Not mine", [], True)
+        mine = (await site.get("/api/v1/me/questions")).json()
+
+    assert signed_out.status_code == 401
+    assert [q["question"] for q in mine] == ["Who won the cup?", "What did Brightwater start?"]
+    unanswered, answered = mine
+    assert (unanswered["answered"], unanswered["notes"]) == (False, [])
+    assert answered["answered"] is True
+    assert [n["slug"] for n in answered["notes"]] == [BATTERY]
+    assert answered["notes"][0]["title"].startswith("Brightwater Energy")
