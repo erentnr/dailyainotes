@@ -531,6 +531,7 @@
   "/api/v1/me/suggestions": {
    "post": {
     "summary": "Suggest Topic",
+    "description": "Add a topic (ADR 0006): planned at once, unless an existing topic covers it.",
     "operationId": "suggest_topic_api_v1_me_suggestions_post",
     "requestBody": {
      "content": {
@@ -554,10 +555,20 @@
       }
      },
      "400": {
-      "description": "Too many waiting"
+      "description": "Too many being planned, or today's new topics are used up"
      },
      "401": {
       "description": "Unauthorized"
+     },
+     "409": {
+      "description": "An existing topic covers it",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Covered"
+        }
+       }
+      }
      },
      "422": {
       "description": "Validation Error",
@@ -747,86 +758,6 @@
      }
     }
    }
-  },
-  "/api/v1/admin/suggestions": {
-   "get": {
-    "summary": "Waiting Suggestions",
-    "description": "Readers' topic suggestions waiting for a decision; who suggested them is not shown.",
-    "operationId": "waiting_suggestions_api_v1_admin_suggestions_get",
-    "responses": {
-     "200": {
-      "description": "Successful Response",
-      "content": {
-       "application/json": {
-        "schema": {
-         "items": {
-          "$ref": "#/components/schemas/WaitingSuggestion"
-         },
-         "type": "array",
-         "title": "Response Waiting Suggestions Api V1 Admin Suggestions Get"
-        }
-       }
-      }
-     }
-    }
-   }
-  },
-  "/api/v1/admin/suggestions/{suggestion_id}/decision": {
-   "post": {
-    "summary": "Decide On Suggestion",
-    "description": "Accepting makes a draft topic and queues the Topic Planner; its plan then waits here.",
-    "operationId": "decide_on_suggestion_api_v1_admin_suggestions__suggestion_id__decision_post",
-    "parameters": [
-     {
-      "name": "suggestion_id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "integer",
-       "title": "Suggestion Id"
-      }
-     }
-    ],
-    "requestBody": {
-     "required": true,
-     "content": {
-      "application/json": {
-       "schema": {
-        "$ref": "#/components/schemas/SuggestionDecision"
-       }
-      }
-     }
-    },
-    "responses": {
-     "200": {
-      "description": "Successful Response",
-      "content": {
-       "application/json": {
-        "schema": {
-         "type": "object",
-         "additionalProperties": {
-          "type": "string"
-         },
-         "title": "Response Decide On Suggestion Api V1 Admin Suggestions  Suggestion Id  Decision Post"
-        }
-       }
-      }
-     },
-     "409": {
-      "description": "Not waiting"
-     },
-     "422": {
-      "description": "Validation Error",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      }
-     }
-    }
-   }
   }
  },
  "components": {
@@ -911,6 +842,41 @@
      "code"
     ],
     "title": "CodeSignIn"
+   },
+   "Covered": {
+    "properties": {
+     "detail": {
+      "$ref": "#/components/schemas/CoveredBy"
+     }
+    },
+    "type": "object",
+    "required": [
+     "detail"
+    ],
+    "title": "Covered"
+   },
+   "CoveredBy": {
+    "properties": {
+     "message": {
+      "type": "string",
+      "title": "Message"
+     },
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     }
+    },
+    "type": "object",
+    "required": [
+     "message",
+     "slug",
+     "name"
+    ],
+    "title": "CoveredBy"
    },
    "Day": {
     "properties": {
@@ -1741,29 +1707,6 @@
     ],
     "title": "Suggestion"
    },
-   "SuggestionDecision": {
-    "properties": {
-     "decision": {
-      "type": "string",
-      "enum": [
-       "accept",
-       "decline"
-      ],
-      "title": "Decision"
-     },
-     "reason": {
-      "type": "string",
-      "maxLength": 300,
-      "title": "Reason",
-      "default": ""
-     }
-    },
-    "type": "object",
-    "required": [
-     "decision"
-    ],
-    "title": "SuggestionDecision"
-   },
    "Timeline": {
     "properties": {
      "topic": {
@@ -1941,35 +1884,6 @@
      "type"
     ],
     "title": "ValidationError"
-   },
-   "WaitingSuggestion": {
-    "properties": {
-     "id": {
-      "type": "integer",
-      "title": "Id"
-     },
-     "name": {
-      "type": "string",
-      "title": "Name"
-     },
-     "note": {
-      "type": "string",
-      "title": "Note"
-     },
-     "created_at": {
-      "type": "string",
-      "format": "date-time",
-      "title": "Created At"
-     }
-    },
-    "type": "object",
-    "required": [
-     "id",
-     "name",
-     "note",
-     "created_at"
-    ],
-    "title": "WaitingSuggestion"
    },
    "dailyainotes__api__admin__Citation": {
     "properties": {

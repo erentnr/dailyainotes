@@ -1,17 +1,14 @@
-"""Topic suggestions: readers propose topics, and the editor accepts or declines them."""
+"""Topics readers add (ADR 0006): each is made as a draft topic at once, planned by the worker,
+and live for everyone once its plan is approved."""
 
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import func, insert, select
 
 from dailyainotes.db.engine import AsyncEngine
 from dailyainotes.db.tables import Topic, TopicSuggestion
 from dailyainotes.domain.accounts import topic_slug
-
-
-class NotOpenError(Exception):
-    """The suggestion was already accepted or declined, or does not exist."""
 
 
 @dataclass(frozen=True)
@@ -22,36 +19,59 @@ class ReaderSuggestion:
     status: str
     reason: str
     created_at: datetime
-    # Once accepted: the topic made from it, and whether it is active yet.
+    # The topic made from it, and whether it is active yet.
     topic_slug: str | None
     topic_status: str | None
 
 
 @dataclass(frozen=True)
-class OpenSuggestion:
-    id: int
+class KnownTopic:
+    slug: str
     name: str
-    note: str
-    created_at: datetime
+    description: str
 
 
-async def open_count(engine: AsyncEngine, reader_id: int) -> int:
+async def planning_count(engine: AsyncEngine, reader_id: int) -> int:
+    """The reader's topics still being planned: made, not live yet, not declined."""
     async with engine.connect() as connection:
         count: int = (
             await connection.execute(
                 select(func.count())
                 .select_from(TopicSuggestion)
-                .where(TopicSuggestion.reader_id == reader_id, TopicSuggestion.status == "open")
+                .join(Topic, Topic.id == TopicSuggestion.topic_id)
+                .where(
+                    TopicSuggestion.reader_id == reader_id,
+                    TopicSuggestion.status == "accepted",
+                    Topic.status == "draft",
+                )
             )
         ).scalar_one()
     return count
 
 
-async def add(engine: AsyncEngine, reader_id: int, name: str, note: str) -> None:
+async def add(engine: AsyncEngine, reader_id: int, name: str, note: str) -> str:
+    """Make the reader's topic as a draft, with a slug no other topic has; the slug."""
     async with engine.begin() as connection:
+        taken = set((await connection.execute(select(Topic.slug))).scalars())
+        slug = topic_slug(name, taken)
+        topic_id = (
+            await connection.execute(
+                insert(Topic)
+                .values(slug=slug, name=name, description=note or name, status="draft")
+                .returning(Topic.id)
+            )
+        ).scalar_one()
         await connection.execute(
-            insert(TopicSuggestion).values(reader_id=reader_id, name=name, note=note)
+            insert(TopicSuggestion).values(
+                reader_id=reader_id,
+                name=name,
+                note=note,
+                status="accepted",
+                topic_id=topic_id,
+                decided_at=func.now(),
+            )
         )
+    return slug
 
 
 async def for_reader(engine: AsyncEngine, reader_id: int) -> list[ReaderSuggestion]:
@@ -74,57 +94,13 @@ async def for_reader(engine: AsyncEngine, reader_id: int) -> list[ReaderSuggesti
         return [ReaderSuggestion(*row) for row in rows]
 
 
-async def waiting(engine: AsyncEngine) -> list[OpenSuggestion]:
+async def known_topics(engine: AsyncEngine) -> list[KnownTopic]:
+    """Topics a new one may duplicate: the active ones, and readers' topics being planned."""
+    planning = select(TopicSuggestion.topic_id).where(TopicSuggestion.status == "accepted")
     async with engine.connect() as connection:
         rows = await connection.execute(
-            select(
-                TopicSuggestion.id,
-                TopicSuggestion.name,
-                TopicSuggestion.note,
-                TopicSuggestion.created_at,
-            )
-            .where(TopicSuggestion.status == "open")
-            .order_by(TopicSuggestion.created_at, TopicSuggestion.id)
+            select(Topic.slug, Topic.name, Topic.description)
+            .where((Topic.status == "active") | Topic.id.in_(planning))
+            .order_by(Topic.slug)
         )
-        return [OpenSuggestion(*row) for row in rows]
-
-
-async def accept(engine: AsyncEngine, suggestion_id: int, by: str) -> str:
-    """Make a draft topic from the suggestion; the new topic's slug."""
-    async with engine.begin() as connection:
-        found = (
-            await connection.execute(
-                select(TopicSuggestion.name, TopicSuggestion.note)
-                .where(TopicSuggestion.id == suggestion_id, TopicSuggestion.status == "open")
-                .with_for_update()
-            )
-        ).one_or_none()
-        if found is None:
-            raise NotOpenError(f"suggestion-{suggestion_id} is not waiting for a decision")
-        name, note = found
-        taken = set((await connection.execute(select(Topic.slug))).scalars())
-        slug = topic_slug(name, taken)
-        topic_id = (
-            await connection.execute(
-                insert(Topic)
-                .values(slug=slug, name=name, description=note or name, status="draft")
-                .returning(Topic.id)
-            )
-        ).scalar_one()
-        await connection.execute(
-            update(TopicSuggestion)
-            .where(TopicSuggestion.id == suggestion_id)
-            .values(status="accepted", topic_id=topic_id, decided_at=func.now(), decided_by=by)
-        )
-    return slug
-
-
-async def decline(engine: AsyncEngine, suggestion_id: int, reason: str, by: str) -> None:
-    async with engine.begin() as connection:
-        declined = await connection.execute(
-            update(TopicSuggestion)
-            .where(TopicSuggestion.id == suggestion_id, TopicSuggestion.status == "open")
-            .values(status="declined", reason=reason, decided_at=func.now(), decided_by=by)
-        )
-        if declined.rowcount == 0:
-            raise NotOpenError(f"suggestion-{suggestion_id} is not waiting for a decision")
+        return [KnownTopic(*row) for row in rows]

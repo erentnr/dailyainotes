@@ -94,3 +94,14 @@ export function pickStatus(count: number, available: number) {
   }
   return { ready: true, tone: "ok", text: `${count} picked · good to go` } as const;
 }
+
+/** The existing topic that covers one a reader tried to add: the API answers 409 with it
+ * (ADR 0006). Null for any other error. */
+export function coveredBy(error: unknown): { slug: string; name: string; message: string } | null {
+  const detail = (error as { detail?: unknown } | undefined)?.detail;
+  if (typeof detail !== "object" || detail === null) return null;
+  const { slug, name, message } = detail as Record<string, unknown>;
+  return typeof slug === "string" && typeof name === "string" && typeof message === "string"
+    ? { slug, name, message }
+    : null;
+}

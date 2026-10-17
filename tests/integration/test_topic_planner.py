@@ -1,4 +1,5 @@
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -11,8 +12,10 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from dailyainotes import accounts
 from dailyainotes.api.app import create_app
 from dailyainotes.db import planner as planner_db
+from dailyainotes.db import suggestions as suggestions_db
 from dailyainotes.db.checkpoints import checkpointer
 from dailyainotes.db.tables import Source, Topic, TopicProfile, TopicSource
 from dailyainotes.graphs.planning import EmptyPlanError, decide_plan
@@ -341,6 +344,83 @@ async def test_a_plan_without_sources_can_be_rejected_but_not_approved(
 
     (rejected,) = await planner_db.proposals(engine, status="rejected")
     assert rejected.id == proposal.id
+
+
+@asynccontextmanager
+async def reader_added_topic(
+    engine: AsyncEngine,
+    database_url: str,
+    embeddings: Embeddings,
+    web: Callable[..., Any],
+    fixture: Callable[[str], bytes],
+) -> AsyncIterator[tuple[int, int, Any]]:
+    """A reader who follows topics in slots 1 and 2 adds "Chess", and the Topic Planner proposes
+    its plan: the reader's id, the plan's id and the graph that decides it."""
+    await sync_catalog(
+        engine,
+        Catalog.model_validate(
+            {
+                "topics": [
+                    {"slug": slug, "name": slug.title(), "description": "d", "sources": [feed]}
+                    for slug, feed in (
+                        ("demo", {"type": "rss", "url": "https://x.example/feed"}),
+                        ("other", {"type": "rss", "url": "https://y.example/feed"}),
+                    )
+                ]
+            }
+        ),
+    )
+    session = await accounts.open_session(engine, "reader@example.com", datetime.now(UTC))
+    await accounts.follow(
+        engine, session.reader_id, [accounts.Followed("demo", 1), accounts.Followed("other", 2)]
+    )
+    slug = await suggestions_db.add(engine, session.reader_id, "Chess", "")
+    topic = await planner_db.topic(engine, slug)
+    assert topic is not None
+    thread_id = f"plan:{slug}:{uuid4()}"
+    state = {"topic_id": topic.id, "slug": slug, "name": "Chess", "description": "Chess"}
+    async with checkpointer(database_url) as saver:
+        deps = PlannerDeps(engine, FakeRouter(), web(site(fixture)).http, NOW, embeddings)
+        graph = build_planner(deps, saver)
+        await graph.ainvoke(
+            {**state, "version": 1, "thread_id": thread_id},
+            {"configurable": {"thread_id": thread_id}},
+        )
+        (proposal,) = await planner_db.proposals(engine, status="proposed")
+        yield session.reader_id, proposal.id, graph
+
+
+async def test_an_approved_topic_a_reader_added_joins_their_topics(
+    engine: AsyncEngine,
+    database_url: str,
+    embeddings: Embeddings,
+    web: Callable[..., Any],
+    fixture: Callable[[str], bytes],
+) -> None:
+    async with reader_added_topic(engine, database_url, embeddings, web, fixture) as added:
+        reader_id, plan_id, graph = added
+        await decide_plan(engine, graph, plan_id, "approve", "", by="dan review")
+
+    topics = await accounts.followed(engine, reader_id)
+    assert sorted((t.slug, t.slot) for t in topics) == [("chess", 3), ("demo", 1), ("other", 2)]
+    (mine,) = await accounts.suggestions(engine, reader_id)
+    assert (mine.status, mine.topic_status) == ("accepted", "active")
+
+
+async def test_a_rejected_plan_tells_the_reader_who_added_the_topic_why(
+    engine: AsyncEngine,
+    database_url: str,
+    embeddings: Embeddings,
+    web: Callable[..., Any],
+    fixture: Callable[[str], bytes],
+) -> None:
+    async with reader_added_topic(engine, database_url, embeddings, web, fixture) as added:
+        reader_id, plan_id, graph = added
+        await decide_plan(engine, graph, plan_id, "reject", "Too few sources.", by="dan review")
+
+    (mine,) = await accounts.suggestions(engine, reader_id)
+    assert (mine.status, mine.reason) == ("declined", "Too few sources.")
+    assert sorted(t.slug for t in await accounts.followed(engine, reader_id)) == ["demo", "other"]
 
 
 async def test_the_editor_reviews_a_plan_at_admin(

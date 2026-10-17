@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from dailyainotes.db.catalog import SourceRow, add_source
 from dailyainotes.db.engine import AsyncEngine
-from dailyainotes.db.tables import Topic, TopicProfile
+from dailyainotes.db.tables import ReaderTopic, Topic, TopicProfile, TopicSuggestion
+from dailyainotes.domain.accounts import MAX_TOPICS
 
 
 @dataclass(frozen=True)
@@ -137,11 +138,49 @@ async def approve(engine: AsyncEngine, proposal_id: int, comment: str, by: str) 
             )
         await connection.execute(update(Topic).where(Topic.id == topic_id).values(status="active"))
         await decide(connection, proposal_id, "approved", comment, by)
+        await follow_for_creator(connection, topic_id)
 
 
 async def reject(engine: AsyncEngine, proposal_id: int, comment: str, by: str) -> None:
     async with engine.begin() as connection:
         await decide(connection, proposal_id, "rejected", comment, by)
+        topic_id = (
+            await connection.execute(
+                select(TopicProfile.topic_id).where(TopicProfile.id == proposal_id)
+            )
+        ).scalar_one()
+        # A reader who added the topic sees why it did not go live (ADR 0006).
+        await connection.execute(
+            update(TopicSuggestion)
+            .where(TopicSuggestion.topic_id == topic_id, TopicSuggestion.status == "accepted")
+            .values(status="declined", reason=comment, decided_at=func.now(), decided_by=by)
+        )
+
+
+async def follow_for_creator(connection: AsyncConnection, topic_id: int) -> None:
+    """A topic a reader added joins their topics when it goes live, in their first free color
+    slot, unless they already follow the most a reader may (ADR 0006)."""
+    reader_id = (
+        await connection.execute(
+            select(TopicSuggestion.reader_id).where(TopicSuggestion.topic_id == topic_id)
+        )
+    ).scalar_one_or_none()
+    if reader_id is None:
+        return
+    used = set(
+        (
+            await connection.execute(
+                select(ReaderTopic.slot).where(ReaderTopic.reader_id == reader_id)
+            )
+        ).scalars()
+    )
+    free = [slot for slot in range(1, MAX_TOPICS + 1) if slot not in used]
+    if free:
+        await connection.execute(
+            insert(ReaderTopic)
+            .values(reader_id=reader_id, topic_id=topic_id, slot=free[0])
+            .on_conflict_do_nothing()
+        )
 
 
 async def decide(

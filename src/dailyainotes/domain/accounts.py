@@ -50,8 +50,10 @@ def code_digest(email: str, code: str) -> str:
     return digest(f"{email}:{code}")
 
 
-# A reader may have this many topic suggestions waiting for the editor at once.
-MAX_OPEN_SUGGESTIONS = 3
+# A reader may have this many added topics being planned at once (ADR 0006).
+MAX_TOPICS_PLANNING = 3
+# New topics made in a day, by all readers: each costs a Topic Planner run on the free quota.
+NEW_TOPICS_PER_DAY = 10
 
 
 def topic_slug(name: str, taken: set[str]) -> str:

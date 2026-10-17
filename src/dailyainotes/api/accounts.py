@@ -16,6 +16,7 @@ from dailyainotes.accounts import (
     AccountDeps,
     BotCheckFailedError,
     CodeUsedUpError,
+    CoveredError,
     Followed,
     InvalidEmailError,
     InvalidTopicsError,
@@ -25,6 +26,7 @@ from dailyainotes.accounts import (
     TooManyCodesError,
     TooManySuggestionsError,
     WrongCodeError,
+    add_topic,
     delete_account,
     follow,
     followed,
@@ -33,9 +35,9 @@ from dailyainotes.accounts import (
     sign_in_with_link,
     sign_out,
     signed_in,
-    suggest,
     suggestions,
 )
+from dailyainotes.api.deps import Models, models
 from dailyainotes.ask import hash_ip
 from dailyainotes.db.engine import AsyncEngine
 from dailyainotes.domain.accounts import MAX_TOPICS
@@ -145,7 +147,7 @@ class Suggestion(BaseModel):
     id: int
     name: str
     note: str
-    # open, accepted or declined; once accepted, the topic is live when its status is active.
+    # accepted (the topic was made) or declined; the topic is live when its status is active.
     status: str
     reason: str
     created_at: datetime
@@ -163,6 +165,17 @@ class NewSuggestion(BaseModel):
     name: str = Field(min_length=3, max_length=80)
     # What the topic should follow, in a line.
     note: str = Field(default="", max_length=300)
+
+
+class CoveredBy(BaseModel):
+    message: str
+    # The existing topic that covers the one asked for.
+    slug: str
+    name: str
+
+
+class Covered(BaseModel):
+    detail: CoveredBy
 
 
 class Topics(BaseModel):
@@ -289,13 +302,35 @@ async def set_topics(body: Topics, deps: Deps, found: Reader) -> Me:
     "/me/suggestions",
     status_code=status.HTTP_201_CREATED,
     dependencies=[SameOrigin],
-    responses={400: {"description": "Too many waiting"}, 401: {}},
+    responses={
+        400: {"description": "Too many being planned, or today's new topics are used up"},
+        401: {},
+        409: {"model": Covered, "description": "An existing topic covers it"},
+    },
 )
-async def suggest_topic(body: NewSuggestion, deps: Deps, found: Reader) -> Me:
+async def suggest_topic(
+    body: NewSuggestion,
+    request: Request,
+    deps: Deps,
+    found: Reader,
+    loaded: Annotated[Models, Depends(models)],
+) -> Me:
+    """Add a topic (ADR 0006): planned at once, unless an existing topic covers it."""
     try:
-        await suggest(deps.engine, found.reader_id, body.name, body.note)
+        await add_topic(
+            deps.engine,
+            loaded.router,
+            found.reader_id,
+            body.name,
+            body.note,
+            request.app.state.plan_queue,
+            datetime.now(UTC).date(),
+        )
     except TooManySuggestionsError as error:
         raise refuse(error, status.HTTP_400_BAD_REQUEST) from error
+    except CoveredError as error:
+        covered = CoveredBy(message=str(error), slug=error.slug, name=error.name)
+        raise HTTPException(status.HTTP_409_CONFLICT, covered.model_dump()) from error
     return await me_for(deps, found)
 
 

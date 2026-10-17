@@ -18,9 +18,11 @@ from dailyainotes import accounts
 from dailyainotes.accounts import AccountDeps
 from dailyainotes.api.accounts import COOKIE
 from dailyainotes.api.app import create_app
+from dailyainotes.api.deps import Models
 from dailyainotes.db import accounts as accounts_db
 from dailyainotes.db.tables import Reader, ReaderSession, ReaderTopic, SignInCode, Topic
 from dailyainotes.external.resend import Email, EmailNotSentError
+from dailyainotes.llm.router import ModelsExhaustedError
 from dailyainotes.settings import Settings
 
 pytestmark = [pytest.mark.integration, pytest.mark.anyio]
@@ -446,58 +448,49 @@ async def test_expired_codes_and_sessions_are_purged(
     assert await rows(engine, Reader) == 1
 
 
-async def test_a_reader_suggests_topics_and_sees_what_the_editor_decided(
-    engine: AsyncEngine, deps: AccountDeps, mailbox: Mailbox, access: Any
-) -> None:
-    queued: list[str] = []
+class CoverageRouter:
+    """Answers the coverage check with the slug it was given (or None), or raises."""
 
+    def __init__(self, answer: str | Exception | None = None) -> None:
+        self.answer = answer
+        self.asked: list[str] = []
+
+    async def structured(self, role: str, schema: Any, *, system: str, user: str, **_: Any) -> Any:
+        self.asked.append(user)
+        if isinstance(self.answer, Exception):
+            raise self.answer
+        return schema.model_validate({"covered_by": self.answer})
+
+
+def adding(
+    engine: AsyncEngine, deps: AccountDeps, router: CoverageRouter, queued: list[str]
+) -> Any:
     async def queue_plan(slug: str) -> None:
         queued.append(slug)
 
-    async with client_for(engine, deps, access=access.verifier, plan_queue=queue_plan) as site:
-        editor = {"Cf-Access-Jwt-Assertion": access.token("editor@example.com")}
+    return client_for(engine, deps, plan_queue=queue_plan, models=Models(None, router))  # type: ignore[arg-type]
+
+
+async def test_a_reader_adds_topics_that_are_planned_at_once(
+    engine: AsyncEngine, deps: AccountDeps, mailbox: Mailbox
+) -> None:
+    queued: list[str] = []
+    async with adding(engine, deps, CoverageRouter(None), queued) as site:
         anonymous = await site.post("/api/v1/me/suggestions", json={"name": "Chess"})
         await signed_in_reader(site, mailbox)
         for name in ("Chess", "  Women's   football ", "Opera"):
-            await site.post("/api/v1/me/suggestions", json={"name": name, "note": f"{name} news"})
+            added = await site.post(
+                "/api/v1/me/suggestions", json={"name": name, "note": f"{name} news"}
+            )
+            assert added.status_code == 201, added.text
         fourth = await site.post("/api/v1/me/suggestions", json={"name": "Sailing"})
-        waiting = (await site.get("/api/v1/admin/suggestions", headers=editor)).json()
-        by_name = {s["name"]: s["id"] for s in waiting}
-
-        accepted = await site.post(
-            f"/api/v1/admin/suggestions/{by_name['Chess']}/decision",
-            json={"decision": "accept"},
-            headers=editor,
-        )
-        declined = await site.post(
-            f"/api/v1/admin/suggestions/{by_name['Opera']}/decision",
-            json={"decision": "decline", "reason": "Too few English sources."},
-            headers=editor,
-        )
-        again = await site.post(
-            f"/api/v1/admin/suggestions/{by_name['Chess']}/decision",
-            json={"decision": "decline"},
-            headers=editor,
-        )
         mine = {s["name"]: s for s in (await site.get("/api/v1/me")).json()["suggestions"]}
-        fifth = await site.post("/api/v1/me/suggestions", json={"name": "Sailing"})
 
     assert anonymous.status_code == 401
     assert fourth.status_code == 400
-    assert "3 suggestions waiting" in fourth.json()["detail"]
-    assert [s["name"] for s in waiting] == ["Chess", "Women's football", "Opera"]
-    assert "email" not in str(waiting)  # the editor does not see who suggested what
-    assert accepted.json() == {"status": "accepted", "topic": "chess"}
-    assert queued == ["chess"]
-    assert declined.json() == {"status": "declined"}
-    assert again.status_code == 409
-    assert (mine["Chess"]["status"], mine["Chess"]["topic_slug"]) == ("accepted", "chess")
-    assert mine["Chess"]["topic_status"] == "draft"
-    assert (mine["Opera"]["status"], mine["Opera"]["reason"]) == (
-        "declined",
-        "Too few English sources.",
-    )
-    assert fifth.status_code == 201  # two answered, so one more may wait
+    assert "3 topics being planned" in fourth.json()["detail"]
+    assert queued == ["chess", "women-s-football", "opera"]
+    assert {(s["status"], s["topic_status"]) for s in mine.values()} == {("accepted", "draft")}
     async with engine.connect() as connection:
         topic = (
             await connection.execute(
@@ -507,18 +500,75 @@ async def test_a_reader_suggests_topics_and_sees_what_the_editor_decided(
     assert tuple(topic) == ("Chess", "Chess news", "draft")
 
 
-async def test_an_accepted_suggestion_never_takes_an_existing_topics_slug(
+async def test_a_topic_an_existing_one_covers_points_the_reader_to_it(
     engine: AsyncEngine, deps: AccountDeps, mailbox: Mailbox
 ) -> None:
+    await add_topics(engine, "tennis", "formula-1")
+    router = CoverageRouter("tennis")
+    queued: list[str] = []
+    async with adding(engine, deps, router, queued) as site:
+        await signed_in_reader(site, mailbox)
+        covered = await site.post("/api/v1/me/suggestions", json={"name": "Wimbledon"})
+
+    assert covered.status_code == 409
+    assert covered.json()["detail"] == {
+        "message": "Tennis already covers it.",
+        "slug": "tennis",
+        "name": "Tennis",
+    }
+    assert queued == []
+    assert "- tennis: Tennis" in router.asked[0]
+    assert "New topic: Wimbledon" in router.asked[0]
+    async with engine.connect() as connection:
+        assert (await connection.execute(select(func.count()).select_from(Topic))).scalar_one() == 2
+
+
+async def test_with_no_model_answering_the_topic_is_still_added(
+    engine: AsyncEngine, deps: AccountDeps, mailbox: Mailbox
+) -> None:
+    """The plan's approval still catches a duplicate."""
+    await add_topics(engine, "tennis")
+    queued: list[str] = []
+    router = CoverageRouter(ModelsExhaustedError("planner", []))
+    async with adding(engine, deps, router, queued) as site:
+        await signed_in_reader(site, mailbox)
+        added = await site.post("/api/v1/me/suggestions", json={"name": "Chess"})
+
+    assert added.status_code == 201
+    assert queued == ["chess"]
+
+
+async def test_new_topics_stop_at_the_days_limit(
+    engine: AsyncEngine, deps: AccountDeps, mailbox: Mailbox, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(accounts, "NEW_TOPICS_PER_DAY", 1)
+    queued: list[str] = []
+    async with adding(engine, deps, CoverageRouter(None), queued) as site:
+        await signed_in_reader(site, mailbox)
+        first = await site.post("/api/v1/me/suggestions", json={"name": "Chess"})
+        second = await site.post("/api/v1/me/suggestions", json={"name": "Opera"})
+
+    assert (first.status_code, second.status_code) == (201, 400)
+    assert "all the new topics it can today" in second.json()["detail"]
+    assert queued == ["chess"]
+
+
+async def test_an_added_topic_never_takes_an_existing_topics_slug(engine: AsyncEngine) -> None:
     await add_topics(engine, "tennis")
     session = await accounts.open_session(engine, READER, datetime.now(UTC))
-    await accounts.suggest(engine, session.reader_id, "Tennis!", "")
-    (waiting,) = await accounts.suggestions(engine, session.reader_id)
     queued: list[str] = []
 
     async def queue_plan(slug: str) -> None:
         queued.append(slug)
 
-    slug = await accounts.accept_suggestion(engine, waiting.id, "editor@example.com", queue_plan)
+    slug = await accounts.add_topic(
+        engine,
+        CoverageRouter(None),
+        session.reader_id,
+        "Tennis!",
+        "",
+        queue_plan,
+        datetime.now(UTC).date(),
+    )
 
     assert slug == queued[0] == "tennis-2"

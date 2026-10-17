@@ -258,7 +258,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Suggest Topic */
+        /**
+         * Suggest Topic
+         * @description Add a topic (ADR 0006): planned at once, unless an existing topic covers it.
+         */
         post: operations["suggest_topic_api_v1_me_suggestions_post"];
         delete?: never;
         options?: never;
@@ -357,46 +360,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/suggestions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Waiting Suggestions
-         * @description Readers' topic suggestions waiting for a decision; who suggested them is not shown.
-         */
-        get: operations["waiting_suggestions_api_v1_admin_suggestions_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/suggestions/{suggestion_id}/decision": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Decide On Suggestion
-         * @description Accepting makes a draft topic and queues the Topic Planner; its plan then waits here.
-         */
-        post: operations["decide_on_suggestion_api_v1_admin_suggestions__suggestion_id__decision_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -432,6 +395,19 @@ export interface components {
             email: string;
             /** Code */
             code: string;
+        };
+        /** Covered */
+        Covered: {
+            detail: components["schemas"]["CoveredBy"];
+        };
+        /** CoveredBy */
+        CoveredBy: {
+            /** Message */
+            message: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
         };
         /** Day */
         Day: {
@@ -751,19 +727,6 @@ export interface components {
             /** Topic Status */
             topic_status: string | null;
         };
-        /** SuggestionDecision */
-        SuggestionDecision: {
-            /**
-             * Decision
-             * @enum {string}
-             */
-            decision: "accept" | "decline";
-            /**
-             * Reason
-             * @default
-             */
-            reason: string;
-        };
         /** Timeline */
         Timeline: {
             topic: components["schemas"]["Topic"];
@@ -823,20 +786,6 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
-        };
-        /** WaitingSuggestion */
-        WaitingSuggestion: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Note */
-            note: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
         };
         /** Citation */
         dailyainotes__api__admin__Citation: {
@@ -1386,7 +1335,7 @@ export interface operations {
                     "application/json": components["schemas"]["Me"];
                 };
             };
-            /** @description Too many waiting */
+            /** @description Too many being planned, or today's new topics are used up */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -1399,6 +1348,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description An existing topic covers it */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Covered"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -1542,70 +1500,6 @@ export interface operations {
                 };
             };
             /** @description Not waiting, or approving a plan without sources */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    waiting_suggestions_api_v1_admin_suggestions_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WaitingSuggestion"][];
-                };
-            };
-        };
-    };
-    decide_on_suggestion_api_v1_admin_suggestions__suggestion_id__decision_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                suggestion_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SuggestionDecision"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
-                };
-            };
-            /** @description Not waiting */
             409: {
                 headers: {
                     [name: string]: unknown;

@@ -238,7 +238,6 @@ To go back to an earlier release, run `./deploy.sh <commit sha>`. Logs: `TAG=$(c
 
 Deferred by [ADR 0001](docs/adr/0001-proof-of-concept-scope.md) and still open after [ADR 0003](docs/adr/0003-sign-in-and-reader-accounts.md), in rough order:
 
-- Custom topics written by readers themselves, beyond suggestions the editor accepts.
 - A per-reader preference memory fed by "more like this" and "less like this" (accounts came first, ADR 0003).
 - A full review UI: request a rewrite, edit a draft (topic plans are reviewed at /admin since ADR 0003).
 - Offsite backups, once the site has real readers (the nightly dumps stay on the server).

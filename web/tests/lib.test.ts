@@ -5,6 +5,7 @@ import { parseEvents } from "../src/lib/sse";
 import { safeNext } from "../src/lib/account";
 import {
   addTopic,
+  coveredBy,
   GROUPS,
   homeSlot,
   loadPicked,
@@ -156,5 +157,18 @@ describe("format", () => {
     expect(plural(1, "source")).toBe("1 source");
     expect(plural(4, "source")).toBe("4 sources");
     expect(plural(5, "story", "stories")).toBe("5 stories");
+  });
+});
+
+describe("coveredBy", () => {
+  it("reads the topic that already covers an added one", () => {
+    const error = { detail: { message: "Tennis already covers it.", slug: "tennis", name: "Tennis" } };
+    expect(coveredBy(error)).toEqual({ slug: "tennis", name: "Tennis", message: "Tennis already covers it." });
+  });
+
+  it("is null for any other error", () => {
+    expect(coveredBy({ detail: "You have 3 topics being planned." })).toBeNull();
+    expect(coveredBy(undefined)).toBeNull();
+    expect(coveredBy({ detail: { slug: 1 } })).toBeNull();
   });
 });

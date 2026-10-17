@@ -3,33 +3,37 @@ import { type SubmitEvent, useState } from "react";
 import type { Suggestion } from "../lib/api/client";
 import { api } from "../lib/api/client";
 import { formatDay } from "../lib/format";
+import { coveredBy } from "../lib/topics";
 
-/** What a suggestion's reader sees about it. */
+/** What the reader who added a topic sees about it. */
 function outcome(s: Suggestion): string {
+  if (s.topic_status === "active") return "Live for everyone, and in your topics.";
+  if (s.status === "declined") return s.reason ? `Not added: ${s.reason}` : "Not added.";
   if (s.status === "open") return "Waiting for the editor.";
-  if (s.status === "declined") return s.reason ? `Declined: ${s.reason}` : "Declined.";
-  return s.topic_status === "active"
-    ? "Accepted, and live: follow it on Topics."
-    : "Accepted. We are finding sources for it; it goes live once the editor approves them.";
+  return "We are finding sources for it; it goes live once the editor approves them.";
 }
 
-/** Suggest a topic for the catalog; the editor accepts or declines it (ADR 0003). */
+/** Add a topic (ADR 0006): planned at once, unless an existing topic covers it. */
 export default function SuggestTopic({ initial }: { initial: Suggestion[] }) {
   const [suggestions, setSuggestions] = useState(initial);
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [covered, setCovered] = useState<{ slug: string; message: string } | null>(null);
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     setBusy(true);
     setError("");
+    setCovered(null);
     try {
       const { data, error: failed } = await api().POST("/api/v1/me/suggestions", {
         body: { name, note },
       });
       if (!data) {
+        const covering = coveredBy(failed);
+        if (covering) return setCovered(covering);
         const text = (failed as { detail?: unknown } | undefined)?.detail;
         return setError(typeof text === "string" ? text : "That did not work. Try again.");
       }
@@ -46,8 +50,8 @@ export default function SuggestTopic({ initial }: { initial: Suggestion[] }) {
   return (
     <div className="stack">
       <p className="muted">
-        Missing a topic? Suggest it. The editor reads every suggestion; an accepted one gets its own
-        sources, checked before they are used.
+        Missing a topic? Add it. If a topic already covers it, we point you there; otherwise we look
+        for sources, and it goes live for everyone once the editor approves them.
       </p>
       <form className="stack" onSubmit={submit}>
         <div className="field">
@@ -81,9 +85,14 @@ export default function SuggestTopic({ initial }: { initial: Suggestion[] }) {
             {error}
           </p>
         )}
+        {covered && (
+          <p role="status">
+            {covered.message} <a href="/topics">Pick it on Topics</a>.
+          </p>
+        )}
         <div>
           <button className="button button-primary" type="submit" disabled={busy || name.trim().length < 3}>
-            Suggest
+            Add topic
           </button>
         </div>
       </form>

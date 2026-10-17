@@ -10,7 +10,6 @@ export type Review = components["schemas"]["Review"];
 export type Me = components["schemas"]["Me"];
 export type Plan = components["schemas"]["Plan"];
 export type Suggestion = components["schemas"]["Suggestion"];
-export type WaitingSuggestion = components["schemas"]["WaitingSuggestion"];
 
 /** The typed API client. On the server, `baseUrl` is the API's own address; in the browser it
  * is empty, so requests go to /api on the same origin (Caddy, or the dev server's proxy). */

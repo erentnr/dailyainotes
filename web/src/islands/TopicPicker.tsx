@@ -11,6 +11,7 @@ import { motifOf, seedOf } from "../lib/covers";
 import { plural } from "../lib/format";
 import {
   addTopic,
+  coveredBy,
   GROUPS,
   homeSlot,
   loadPicked,
@@ -180,7 +181,7 @@ export default function TopicPicker({ topics, signedIn, twoSteps }: Props) {
         )}
 
         <div className="only-phone">
-          <Suggest signedIn={signedIn} initialName={matches.length === 0 ? query.trim() : ""} />
+          <Suggest signedIn={signedIn} initialName={matches.length === 0 ? query.trim() : ""} onCovered={follow} known={bySlug} />
         </div>
         {previewSlug && (
           <div className="only-phone">
@@ -213,7 +214,7 @@ export default function TopicPicker({ topics, signedIn, twoSteps }: Props) {
           ) : (
             <p className="small muted">Nothing yet. Pick topics on the left.</p>
           )}
-          <Suggest signedIn={signedIn} initialName="" compact />
+          <Suggest signedIn={signedIn} initialName="" compact onCovered={follow} known={bySlug} />
           <Continue href={next} ready={status.ready} twoSteps={twoSteps} />
         </section>
         {previewSlug && <Preview slug={previewSlug} topic={bySlug.get(previewSlug)!} {...look(previewSlug)} />}
@@ -297,10 +298,23 @@ function Preview({ slug, topic, motif, slot }: { slug: string; topic: Topic; mot
   );
 }
 
-/** "Something more specific?": a suggestion the editor reads (ADR 0003), not a topic of its own. */
-function Suggest({ signedIn, initialName, compact = false }: { signedIn: boolean; initialName: string; compact?: boolean }) {
+/** "Something more specific?": a reader adds a topic (ADR 0006). When one already covers it, that
+ * one is added to the picks instead. */
+function Suggest({
+  signedIn,
+  initialName,
+  compact = false,
+  onCovered,
+  known,
+}: {
+  signedIn: boolean;
+  initialName: string;
+  compact?: boolean;
+  onCovered: (slugs: string[]) => void;
+  known: Map<string, unknown>;
+}) {
   const [name, setName] = useState(initialName);
-  const [state, setState] = useState<"idle" | "busy" | "sent" | "failed">("idle");
+  const [state, setState] = useState<"idle" | "busy" | "sent" | "covered" | "failed">("idle");
   const [message, setMessage] = useState("");
   useEffect(() => setName(initialName), [initialName]);
   const id = compact ? "suggest-side" : "suggest-main";
@@ -312,6 +326,15 @@ function Suggest({ signedIn, initialName, compact = false }: { signedIn: boolean
       const { data, error } = await api().POST("/api/v1/me/suggestions", { body: { name: name.trim(), note: "" } });
       if (data) {
         setState("sent");
+        setName("");
+        return;
+      }
+      const covering = coveredBy(error);
+      if (covering) {
+        // A live topic joins the picks; one still being planned is only named.
+        if (known.has(covering.slug)) onCovered([covering.slug]);
+        setMessage(known.has(covering.slug) ? `${covering.message} It is in your picks now.` : covering.message);
+        setState("covered");
         setName("");
         return;
       }
@@ -329,7 +352,7 @@ function Suggest({ signedIn, initialName, compact = false }: { signedIn: boolean
       <label className="suggest-title" htmlFor={id}>
         Something more specific?
       </label>
-      <span className="small muted">Describe a topic in a few words. The editor reads every suggestion.</span>
+      <span className="small muted">Describe a topic in a few words. If none covers it, we add it.</span>
       {signedIn ? (
         <form className="suggest-form" onSubmit={submit}>
           <input
@@ -346,16 +369,17 @@ function Suggest({ signedIn, initialName, compact = false }: { signedIn: boolean
             }}
           />
           <button className="button button-primary" type="submit" disabled={state === "busy" || name.trim().length < 3}>
-            Suggest
+            Add
           </button>
         </form>
       ) : (
         <a className="source-link" id={id} href="/sign-in?next=/account%23suggest">
-          Sign in to suggest a topic →
+          Sign in to add a topic →
         </a>
       )}
       <span role="status" className="small">
-        {state === "sent" && "Sent to the editor. Its status is on your account page."}
+        {state === "sent" && "Added. We are finding sources for it; it goes live once the editor approves them."}
+        {state === "covered" && message}
         {state === "failed" && <span className="form-error">{message}</span>}
       </span>
     </section>

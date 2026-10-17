@@ -1,20 +1,17 @@
-"""The /admin page's API: notes, topic plans and readers' topic suggestions waiting for the
-editor, and the decision on each. Cloudflare Access signs the editor in before a request gets
-here (ADR 0003)."""
+"""The /admin page's API: notes and topic plans waiting for the editor, and the decision on
+each. Cloudflare Access signs the editor in before a request gets here (ADR 0003)."""
 
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from dailyainotes.accounts import accept_suggestion, decline_suggestion
 from dailyainotes.api.access import HEADER, AccessDeniedError, AccessVerifier
 from dailyainotes.api.deps import story_deps
 from dailyainotes.db import editorial as db
 from dailyainotes.db import planner as planner_db
-from dailyainotes.db import suggestions as suggestions_db
 from dailyainotes.graphs.edition import NotAwaitingApprovalError, decide_note
 from dailyainotes.graphs.planning import EmptyPlanError, NotProposedError, decide_plan, planner
 from dailyainotes.graphs.story import StoryDeps
@@ -201,43 +198,3 @@ async def decide_on_plan(
     except (NotProposedError, EmptyPlanError) as error:
         raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from error
     return {"status": "approved" if body.decision == "approve" else "rejected"}
-
-
-class WaitingSuggestion(BaseModel):
-    id: int
-    name: str
-    note: str
-    created_at: datetime
-
-
-class SuggestionDecision(BaseModel):
-    decision: Literal["accept", "decline"]
-    # Shown to the reader when declining.
-    reason: str = Field(default="", max_length=300)
-
-
-@router.get("/suggestions")
-async def waiting_suggestions(request: Request) -> list[WaitingSuggestion]:
-    """Readers' topic suggestions waiting for a decision; who suggested them is not shown."""
-    found = await suggestions_db.waiting(request.app.state.engine)
-    return [WaitingSuggestion(**vars(s)) for s in found]
-
-
-@router.post(
-    "/suggestions/{suggestion_id}/decision", responses={409: {"description": "Not waiting"}}
-)
-async def decide_on_suggestion(
-    request: Request, suggestion_id: int, body: SuggestionDecision, email: Editor
-) -> dict[str, str]:
-    """Accepting makes a draft topic and queues the Topic Planner; its plan then waits here."""
-    engine = request.app.state.engine
-    try:
-        if body.decision == "accept":
-            slug = await accept_suggestion(
-                engine, suggestion_id, email, request.app.state.plan_queue
-            )
-            return {"status": "accepted", "topic": slug}
-        await decline_suggestion(engine, suggestion_id, body.reason, email)
-    except suggestions_db.NotOpenError as error:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from error
-    return {"status": "declined"}
