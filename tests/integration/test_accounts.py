@@ -265,14 +265,20 @@ async def test_sign_in_emails_are_limited_per_address_per_ip_and_per_day(
 ) -> None:
     now = datetime.now(UTC)
 
-    async def send(email: str, ip_hash: str = "ip-a", at: datetime = now) -> None:
-        await accounts.send_code(deps, email, ip="1.2.3.4", ip_hash=ip_hash, bot_token="", now=at)
+    async def send(email: str, ip_hash: str = "ip-a") -> None:
+        await accounts.send_code(deps, email, ip="1.2.3.4", ip_hash=ip_hash, bot_token="", now=now)
 
     for _ in range(3):
         await send(READER)
     with pytest.raises(accounts.TooManyCodesError, match="last 15 minutes"):
         await send(READER)
-    await send(READER, at=now + timedelta(minutes=16))  # a new window
+    # A new window: the three codes go 16 minutes back, rather than the clock forward, so every
+    # send stays on one UTC day even when the test runs just before midnight.
+    async with engine.begin() as connection:
+        await connection.execute(
+            update(SignInCode).values(created_at=SignInCode.created_at - timedelta(minutes=16))
+        )
+    await send(READER)
 
     for n in range(6):  # ten from ip-a in all, counting the four above
         await send(f"reader{n}@example.com")
