@@ -11,9 +11,17 @@ describe("footerLinks", () => {
         authorUrl: "https://someone.example",
       }),
     ).toEqual([
-      { href: "https://github.com/someone/dailyainotes", label: "Source code" },
+      { href: "https://github.com/someone/dailyainotes", label: "Source code", icon: "github" },
       { href: "https://someone.example/", label: "Made by Someone" },
     ]);
+  });
+
+  it("shows GitHub's mark only for code on github.com, a code icon elsewhere", () => {
+    const icon = (sourceUrl: string) => footerLinks({ sourceUrl })[0]?.icon;
+    expect(icon("https://github.com/someone/dailyainotes")).toBe("github");
+    expect(icon("https://www.github.com/someone/dailyainotes")).toBe("github");
+    expect(icon("https://gitlab.com/someone/dailyainotes")).toBe("code");
+    expect(icon("https://github.com.example/someone/dailyainotes")).toBe("code");
   });
 
   it("shows nothing when no address is set, as in a fresh fork", () => {

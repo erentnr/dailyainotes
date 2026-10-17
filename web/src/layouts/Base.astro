@@ -2,7 +2,7 @@
 import { Font } from "astro:assets";
 import { SITE_AUTHOR_NAME, SITE_AUTHOR_URL, SITE_SOURCE_URL } from "astro:env/server";
 
-import { AskIcon, TodayIcon, TopicsIcon, YouIcon } from "../components/ui/Icons";
+import { AskIcon, CodeIcon, External, GitHubMark, TodayIcon, TopicsIcon, YouIcon } from "../components/ui/Icons";
 import { Logo } from "../components/ui/Logo";
 import ThemeToggle from "../islands/ThemeToggle";
 import { footerLinks } from "../lib/footer";
@@ -95,13 +95,23 @@ const tabs = [
     </header>
     <main class="page">
       <slot />
-      {
-        links.length > 0 && (
-          <footer class="site-footer">
-            {links.map(({ href, label }) => <a href={href} rel="noopener">{label}</a>)}
-          </footer>
-        )
-      }
+      <footer class="site-footer">
+        <Logo />
+        <nav class="footer-links" aria-label="Footer">
+          <a href="/how-it-works">How it works</a>
+          <a href="/privacy">Privacy</a>
+          {
+            links.map(({ href, label, icon }) => (
+              <a href={href} rel="noopener">
+                {icon === "github" && <GitHubMark />}
+                {icon === "code" && <CodeIcon />}
+                {label}
+                <External />
+              </a>
+            ))
+          }
+        </nav>
+      </footer>
     </main>
     {
       tabBar && (

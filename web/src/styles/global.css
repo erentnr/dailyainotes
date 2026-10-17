@@ -166,16 +166,43 @@ h3 {
   font-weight: 700;
 }
 
-/* The source and author links at the end of every page, when the site's settings name them. */
+/* The end of every page, one quiet row: the logo, then the links (DESIGN.md, Components, Footer).
+   The source and author links appear only when the site's settings name them. */
 .site-footer {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 var(--space-6);
   margin-top: var(--space-8);
-  padding: var(--space-4) var(--space-2) 0;
+  padding: var(--space-3) var(--space-2) 0;
   border-top: 1px solid var(--line);
+}
+
+.site-footer .logo {
+  font-size: 15px;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-5);
   font-size: 13px;
   line-height: 18px;
+}
+
+.footer-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  color: var(--ink2);
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  color: var(--ink);
+  text-decoration: underline;
 }
 
 .with-rail {

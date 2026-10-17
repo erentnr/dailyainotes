@@ -410,10 +410,11 @@ The reader's chat question has one sharp corner: 20 px on three corners and 6 px
 - **Stat tile:** a mono label and a big weight-900 number. Real numbers only.
 - **States:** skeleton cards (a cover block and three bars, pulsing unless reduced motion is set); "nothing new" with its explanation; an error card with a `bad` outline, "Couldn't load today. Your notes are safe." and "Try again"; a source-unreachable notice.
 - **Navigation:** phone, a floating tab bar 12 px from the edges with 20 px corners, the active tab ink-filled; desktop, a pill navigation on `card` (Today, Topics, Ask, How it works), the theme toggle, and the reader's initial or "Sign in".
+- **Footer:** one quiet row at the end of every page, on the ground after a `line` rule: the logo, then How it works, Privacy and, when the site's settings name them, Source code and "Made by" the author, in `ink2` at 13 px with 40 px tap targets. Links that leave the site end with the external-link icon. Source code carries GitHub's mark when the code is on github.com, and a code icon elsewhere. On a phone the links wrap under the logo.
 
 ## Iconography
 
-Inline stroke SVG at 1.6 to 2 px in `currentColor`, 14 to 20 px, `aria-hidden` when next to a label. No emoji, no icon font. The logo is an ink rounded square with three ruled lines in `card`, beside "Daily AI Notes" in weight 800.
+Inline stroke SVG at 1.6 to 2 px in `currentColor`, 14 to 20 px, `aria-hidden` when next to a label. No emoji, no icon font. The one filled icon is GitHub's mark beside Source code in the footer, drawn as GitHub draws it. The logo is an ink rounded square with three ruled lines in `card`, beside "Daily AI Notes" in weight 800.
 
 ## Voice and copy
 
