@@ -414,7 +414,7 @@ The reader's chat question has one sharp corner: 20 px on three corners and 6 px
 
 ## Iconography
 
-Inline stroke SVG at 1.6 to 2 px in `currentColor`, 14 to 20 px, `aria-hidden` when next to a label. No emoji, no icon font. The one filled icon is GitHub's mark beside Source code in the footer, drawn as GitHub draws it. The logo is an ink rounded square with three ruled lines in `card`, beside "Daily AI Notes" in weight 800.
+Inline stroke SVG at 1.6 to 2 px in `currentColor`, 14 to 20 px, `aria-hidden` when next to a label. No emoji, no icon font. The one filled icon is GitHub's mark beside Source code in the footer, drawn as GitHub draws it. The logo is an ink rounded square with three ruled lines in `card`, beside "Daily AI Notes" in weight 800. The favicon is the same square on its own, its lines a little heavier so they hold at 16 px; like the logo, it turns light in the dark theme.
 
 ## Voice and copy
 
