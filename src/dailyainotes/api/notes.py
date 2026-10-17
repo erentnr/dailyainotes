@@ -2,13 +2,16 @@
 and the numbers for How it works. No model is called here."""
 
 from datetime import UTC, date, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel
 
+from dailyainotes.accounts import signed_in
+from dailyainotes.api.accounts import COOKIE, Reader, SameOrigin
 from dailyainotes.db import notes as db
 from dailyainotes.domain.editorial import without_markers
+from dailyainotes.domain.matching import preferences
 from dailyainotes.domain.topics import TopicCategory
 
 router = APIRouter()
@@ -40,6 +43,9 @@ class NoteCard(BaseModel):
     unsupported: int
     # Reports Scout merged into the story ("9 reports → 1").
     reports: int
+    # For a signed-in reader who marked notes "more" or "less like this": how much they may
+    # prefer this one; the page orders by it (ADR 0007). Null otherwise.
+    preference: float | None = None
 
 
 class Day(BaseModel):
@@ -138,7 +144,46 @@ async def notes_of_day(
     day = day or await db.latest_day(engine, topic, datetime.now(UTC).date())
     if day is None:
         return Day(date=None, notes=[])
-    return Day(date=day, notes=[card(n) for n in await db.notes_of_day(engine, day, topic)])
+    cards = [card(n) for n in await db.notes_of_day(engine, day, topic)]
+    reader_id = await reader_of(request)
+    if reader_id is not None and cards:
+        liked, disliked = await db.feedback_vectors(engine, reader_id)
+        vectors = await db.note_vectors(engine, [c.slug for c in cards])
+        scores = preferences(vectors, liked, disliked)
+        cards = [c.model_copy(update={"preference": scores.get(c.slug)}) for c in cards]
+    return Day(date=day, notes=cards)
+
+
+async def reader_of(request: Request) -> int | None:
+    """The signed-in reader, when the request carries a session cookie; reading needs none."""
+    token = request.cookies.get(COOKIE)
+    if not token:
+        return None
+    found = await signed_in(request.app.state.engine, token, datetime.now(UTC))
+    return found.reader_id if found else None
+
+
+class Feedback(BaseModel):
+    # 1 for "more like this", -1 for "less like this", 0 for neither.
+    value: Literal[-1, 0, 1]
+
+
+@router.get("/me/notes/{slug}/feedback", responses={401: {}})
+async def get_feedback(request: Request, slug: str, found: Reader) -> Feedback:
+    value = await db.feedback_on(request.app.state.engine, found.reader_id, slug)
+    return Feedback(value=1 if value > 0 else -1 if value < 0 else 0)
+
+
+@router.put(
+    "/me/notes/{slug}/feedback",
+    dependencies=[SameOrigin],
+    responses={401: {}, 404: {"description": "No published note"}},
+)
+async def put_feedback(request: Request, slug: str, body: Feedback, found: Reader) -> Feedback:
+    """A reader's "more like this" or "less like this" on a note, kept with the account."""
+    if not await db.set_feedback(request.app.state.engine, found.reader_id, slug, body.value):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No published note with that slug.")
+    return body
 
 
 @router.get("/notes/{slug}", responses={404: {"description": "No published note"}})

@@ -21,7 +21,11 @@ export function paragraphsOf(text: string): string[] {
 
 /** The day's order everywhere: the biggest story (most reports merged) first, then the rest as
  * the API lists them. */
-export function orderDay<T extends { reports: number }>(notes: T[]): T[] {
+export function orderDay<T extends { reports: number; preference?: number | null }>(notes: T[]): T[] {
+  // A signed-in reader who marked notes "more" or "less like this" gets their own order (ADR 0007).
+  if (notes.some((n) => n.preference != null)) {
+    return [...notes].sort((a, b) => (b.preference ?? -Infinity) - (a.preference ?? -Infinity));
+  }
   const lead = notes.reduce<T | undefined>((best, n) => (!best || n.reports > best.reports ? n : best), undefined);
   return lead ? [lead, ...notes.filter((n) => n !== lead)] : [];
 }

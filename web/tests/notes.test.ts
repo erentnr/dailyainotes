@@ -41,6 +41,17 @@ describe("the day's order", () => {
     expect(orderDay(notes).map((n) => n.slug)).toEqual(["b", "a", "c"]);
     expect(orderDay([])).toEqual([]);
   });
+
+  it("follows a reader's preferences when they have any, the biggest story aside", () => {
+    const notes = [
+      { slug: "big", reports: 9, preference: -0.2 },
+      { slug: "liked", reports: 1, preference: 0.8 },
+      { slug: "unscored", reports: 5, preference: null },
+      { slug: "neutral", reports: 2, preference: 0.1 },
+    ];
+
+    expect(orderDay(notes).map((n) => n.slug)).toEqual(["liked", "neutral", "big", "unscored"]);
+  });
 });
 
 describe("the trail's times", () => {

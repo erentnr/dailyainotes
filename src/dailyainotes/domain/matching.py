@@ -32,3 +32,24 @@ def nearest_share(items: list[list[float]], topics: list[list[float]], target: i
 def cosine(a: list[float], b: list[float]) -> float:
     norms = math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b))
     return sum(x * y for x, y in zip(a, b, strict=True)) / norms if norms else 0.0
+
+
+def preferences(
+    notes: dict[str, list[float]], liked: list[list[float]], disliked: list[list[float]]
+) -> dict[str, float]:
+    """How much a reader may prefer each note (ADR 0007): its closeness to the notes they marked
+    "more like this", less its closeness to those marked "less like this". Empty without any
+    feedback, so the page keeps its usual order."""
+    if not liked and not disliked:
+        return {}
+    more, less = mean(liked), mean(disliked)
+    return {
+        slug: (cosine(vector, more) if more else 0.0) - (cosine(vector, less) if less else 0.0)
+        for slug, vector in notes.items()
+    }
+
+
+def mean(vectors: list[list[float]]) -> list[float] | None:
+    if not vectors:
+        return None
+    return [sum(values) / len(vectors) for values in zip(*vectors, strict=True)]

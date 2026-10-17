@@ -149,6 +149,102 @@
     }
    }
   },
+  "/api/v1/me/notes/{slug}/feedback": {
+   "get": {
+    "summary": "Get Feedback",
+    "operationId": "get_feedback_api_v1_me_notes__slug__feedback_get",
+    "parameters": [
+     {
+      "name": "slug",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Slug"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Feedback"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Unauthorized"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "summary": "Put Feedback",
+    "description": "A reader's \"more like this\" or \"less like this\" on a note, kept with the account.",
+    "operationId": "put_feedback_api_v1_me_notes__slug__feedback_put",
+    "parameters": [
+     {
+      "name": "slug",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Slug"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Feedback"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Feedback"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Unauthorized"
+     },
+     "404": {
+      "description": "No published note"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/notes/{slug}": {
    "get": {
     "summary": "Note",
@@ -966,6 +1062,24 @@
     ],
     "title": "DroppedSource"
    },
+   "Feedback": {
+    "properties": {
+     "value": {
+      "type": "integer",
+      "enum": [
+       -1,
+       0,
+       1
+      ],
+      "title": "Value"
+     }
+    },
+    "type": "object",
+    "required": [
+     "value"
+    ],
+    "title": "Feedback"
+   },
    "FollowedTopic": {
     "properties": {
      "slug": {
@@ -1153,6 +1267,17 @@
      "reports": {
       "type": "integer",
       "title": "Reports"
+     },
+     "preference": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Preference"
      }
     },
     "type": "object",
@@ -1236,6 +1361,17 @@
      "reports": {
       "type": "integer",
       "title": "Reports"
+     },
+     "preference": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Preference"
      },
      "body": {
       "type": "string",

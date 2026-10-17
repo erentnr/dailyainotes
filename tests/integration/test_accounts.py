@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx2
 import pytest
+from langchain_core.embeddings import Embeddings
 from sqlalchemy import func, insert, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -19,8 +20,17 @@ from dailyainotes.accounts import AccountDeps
 from dailyainotes.api.accounts import COOKIE
 from dailyainotes.api.app import create_app
 from dailyainotes.api.deps import Models
+from dailyainotes.ask import AskDeps
 from dailyainotes.db import accounts as accounts_db
-from dailyainotes.db.tables import Reader, ReaderSession, ReaderTopic, SignInCode, Topic
+from dailyainotes.db.tables import (
+    NoteFeedback,
+    Reader,
+    ReaderSession,
+    ReaderTopic,
+    SignInCode,
+    Topic,
+)
+from dailyainotes.evals import EVALS, CorpusNote, load_corpus, read_jsonl
 from dailyainotes.external.resend import Email, EmailNotSentError
 from dailyainotes.llm.router import ModelsExhaustedError
 from dailyainotes.settings import Settings
@@ -572,3 +582,50 @@ async def test_an_added_topic_never_takes_an_existing_topics_slug(engine: AsyncE
     )
 
     assert slug == queued[0] == "tennis-2"
+
+
+BATTERY = "2026-09-02-brightwater-energy-starts-a-100-hour-iron-air-battery-pilot"
+COMET = "2026-09-03-halden-ridge-observatory-finds-a-comet-bound-for-the-inner-solar-system"
+
+
+async def day_preference(site: httpx2.AsyncClient, day: str) -> Any:
+    (note,) = (await site.get("/api/v1/notes", params={"date": day})).json()["notes"]
+    return note["preference"]
+
+
+async def test_more_or_less_like_this_scores_a_readers_notes_and_goes_with_the_account(
+    engine: AsyncEngine, deps: AccountDeps, mailbox: Mailbox, embeddings: Embeddings
+) -> None:
+    """ADR 0007: the page orders a signed-in reader's notes by these scores."""
+    notes = read_jsonl(EVALS / "corpus.jsonl", CorpusNote)[:10]
+    await load_corpus(engine, AskDeps(engine, embeddings, None), notes)  # type: ignore[arg-type]
+    async with client_for(engine, deps) as site:
+        signed_out = await site.put(f"/api/v1/me/notes/{BATTERY}/feedback", json={"value": 1})
+        anonymous = await day_preference(site, "2026-09-02")
+        await signed_in_reader(site, mailbox)
+        none_yet = await day_preference(site, "2026-09-02")
+        more = await site.put(f"/api/v1/me/notes/{BATTERY}/feedback", json={"value": 1})
+        await site.put(f"/api/v1/me/notes/{COMET}/feedback", json={"value": -1})
+        liked, disliked = (
+            await day_preference(site, "2026-09-02"),
+            await day_preference(site, "2026-09-03"),
+        )
+        kept = (await site.get(f"/api/v1/me/notes/{BATTERY}/feedback")).json()
+        missing = await site.put("/api/v1/me/notes/no-such-note/feedback", json={"value": 1})
+        foreign = await site.put(
+            f"/api/v1/me/notes/{BATTERY}/feedback",
+            json={"value": 1},
+            headers={"Origin": "https://evil.example"},
+        )
+        await site.put(f"/api/v1/me/notes/{BATTERY}/feedback", json={"value": 0})
+        cleared = (await site.get(f"/api/v1/me/notes/{BATTERY}/feedback")).json()
+        await site.delete("/api/v1/me")
+
+    assert signed_out.status_code == 401
+    assert (anonymous, none_yet) == (None, None)
+    assert more.json() == {"value": 1}
+    assert liked > 0.5 > 0 > disliked
+    assert kept == {"value": 1}
+    assert (missing.status_code, foreign.status_code) == (404, 403)
+    assert cleared == {"value": 0}
+    assert await rows(engine, NoteFeedback) == 0

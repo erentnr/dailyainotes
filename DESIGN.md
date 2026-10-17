@@ -399,6 +399,7 @@ The reader's chat question has one sharp corner: 20 px on three corners and 6 px
 - **Verdict badge:** a pill with an icon and a word: ✓ Verified (`ok-soft`), a half-filled circle and "Partly verified" (`warn-soft`), a cross and "Unsupported" (`bad-soft`). Never color alone.
 - **Citation chip:** an inline button with the number in mono on `acc-soft`, 7 px corners, `aria-expanded`; active, it turns `acc` with `acc-ink` text. On a phone the source opens right after the paragraph; on desktop the matching row in the Sources panel highlights and opens. The source shows its initial, publisher and date, title, the stored quote highlighted in `acc-soft`, and "Open source ↗". The quote is at most 25 words and is the only text shown from a source.
 - **Sources panel:** "Sources" with "N cited of M merged", one row per cited source, and a button that lists the other merged reports by title and publisher.
+- **More like this / Less like this:** two chips on the note page for a signed-in reader, in the follow-up card; the pressed one fills with ink, and pressing it again clears it. A line under them says they order the daily page.
 - **How this note was made:** a disclosure card, open by default. It shows a numbered stepper of the five real steps (Scout, Researcher, Writer, Fact-checker, Editor), each with its time in UTC where one is kept and one line on what it did, ending with a bar in the verdict's color: "✓ 6 supported · 0 weak · 0 unsupported".
 - **Context row:** earlier notes on the topic as small cover cards, 220 px wide and scrolling sideways on a phone, a grid on desktop.
 - **Chat:** the reader's question right-aligned on ink; the answer on a card with a mono "FROM THE NOTES · scope" label, citation chips that open the cited note (its cover, topic and day, title and opening lines, "Open note →", and "Follow" when the reader doesn't follow its topic), and a footer with the number of notes cited and Copy. While it streams: "Searching the notes…", then "✓ Found N notes › Writing an answer with citations…" over skeleton lines. *Not enough:* an empty-page icon tile, "Not enough in the notes to answer that.", the reason when we know it, and a way to widen the search.
@@ -429,11 +430,11 @@ Plain, specific and honest about gaps. No jargon: never "RAG", "embeddings" or "
 |---|---|---|
 | Daily page (`/`, `/day/<date>`) | 03 phone, 03d desktop, 03b first day | Yes. The first-day state shows each followed topic's real status (notes, or nothing new) instead of live progress |
 | Note detail (`/notes/<slug>`) | 04 phone, 04d desktop | Yes |
-| Topic picker and onboarding (`/topics`) | 05 phone, 05d desktop | Yes. "Something more specific?" sends a topic suggestion for the editor; step 2 is signing in to keep topics on every device |
+| Topic picker and onboarding (`/topics`) | 05 phone, 05d desktop | Yes. "Something more specific?" adds a topic, or picks the one that already covers it ([ADR 0006](docs/adr/0006-readers-add-topics.md)); step 2 is signing in to keep topics on every device |
 | Ask the notes (`/ask`) | 06 phone, 06d desktop | Yes, for signed-in readers ([ADR 0004](docs/adr/0004-ask-needs-an-account.md)). A signed-out visitor sees what Ask does and a way to sign in that keeps their question |
 | Topic timeline, How it works, Sign in, Account, Privacy, /admin | Not on the D page | Built from these tokens and components; layouts to revise. How it works plays one story's night |
 
-Not built, by the owner's decision (2026-10-16), because nothing behind them exists yet: the More, Less and Not relevant feedback buttons, a delivery time, live progress while a first page is written, and custom topics written by readers. The conflicting-source box waits until the pipeline records which sources disagree.
+Not built, by the owner's decision (2026-10-16), because nothing behind them exists yet: the Not relevant button, a delivery time, and live progress while a first page is written. More and Less like this came with [ADR 0007](docs/adr/0007-more-like-this.md), and topics written by readers with ADR 0006. The conflicting-source box waits until the pipeline records which sources disagree.
 
 ## Do's and Don'ts
 

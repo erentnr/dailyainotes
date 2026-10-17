@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import Select, and_, distinct, func, literal, select
+from sqlalchemy import Select, and_, delete, distinct, func, literal, select
+from sqlalchemy.dialects.postgresql import insert
 
 from dailyainotes.db.engine import AsyncEngine
 from dailyainotes.db.tables import (
@@ -16,6 +17,7 @@ from dailyainotes.db.tables import (
     Document,
     Edition,
     Note,
+    NoteFeedback,
     NoteVersion,
     Publisher,
     Story,
@@ -317,3 +319,72 @@ async def daily_stats(engine: AsyncEngine, today: date, days: int) -> list[DaySt
         DayStats(day, notes.get(day, 0))
         for day in (since + timedelta(days=offset) for offset in range(days))
     ]
+
+
+async def set_feedback(engine: AsyncEngine, reader_id: int, slug: str, value: int) -> bool:
+    """Record a reader's 1 or -1 on a published note, or clear it with 0. False when no published
+    note has the slug."""
+    async with engine.begin() as connection:
+        note_id = (
+            await connection.execute(
+                select(Note.id).where(Note.slug == slug, Note.status == "published")
+            )
+        ).scalar_one_or_none()
+        if note_id is None:
+            return False
+        if value == 0:
+            await connection.execute(
+                delete(NoteFeedback).where(
+                    NoteFeedback.reader_id == reader_id, NoteFeedback.note_id == note_id
+                )
+            )
+        else:
+            await connection.execute(
+                insert(NoteFeedback)
+                .values(reader_id=reader_id, note_id=note_id, value=value)
+                .on_conflict_do_update(
+                    index_elements=["reader_id", "note_id"],
+                    set_={"value": value, "created_at": func.now()},
+                )
+            )
+    return True
+
+
+async def feedback_on(engine: AsyncEngine, reader_id: int, slug: str) -> int:
+    """The reader's 1 or -1 on the note, or 0."""
+    async with engine.connect() as connection:
+        value = (
+            await connection.execute(
+                select(NoteFeedback.value)
+                .join(Note, Note.id == NoteFeedback.note_id)
+                .where(NoteFeedback.reader_id == reader_id, Note.slug == slug)
+            )
+        ).scalar_one_or_none()
+    return value or 0
+
+
+async def feedback_vectors(
+    engine: AsyncEngine, reader_id: int, limit: int = 100
+) -> tuple[list[list[float]], list[list[float]]]:
+    """The vectors of the notes the reader marked "more like this" and "less like this", the
+    latest first."""
+    async with engine.connect() as connection:
+        rows = await connection.execute(
+            select(Note.embedding, NoteFeedback.value)
+            .join(Note, Note.id == NoteFeedback.note_id)
+            .where(NoteFeedback.reader_id == reader_id, Note.embedding.is_not(None))
+            .order_by(NoteFeedback.created_at.desc())
+            .limit(limit)
+        )
+        pairs = [(list(vector), value) for vector, value in rows if vector is not None]
+    return [v for v, value in pairs if value > 0], [v for v, value in pairs if value < 0]
+
+
+async def note_vectors(engine: AsyncEngine, slugs: list[str]) -> dict[str, list[float]]:
+    async with engine.connect() as connection:
+        rows = await connection.execute(
+            select(Note.slug, Note.embedding).where(
+                Note.slug.in_(slugs), Note.embedding.is_not(None)
+            )
+        )
+        return {slug: list(vector) for slug, vector in rows if vector is not None}

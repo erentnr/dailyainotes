@@ -8,6 +8,7 @@ import { ChipContent } from "../components/ui/TopicChip";
 import { TopicCover } from "../components/ui/TopicCover";
 import { VerdictBadge } from "../components/ui/VerdictBadge";
 import type { NoteCard, NoteDetail, Topic } from "../lib/api/client";
+import { api } from "../lib/api/client";
 import { type Motif, motifOf, seedOf } from "../lib/covers";
 import { formatDay, formatLongDay, plural, readingMinutes } from "../lib/format";
 import { duration, type OpenCitation, orderDay, paragraphsOf, timeUtc, toggleCitation } from "../lib/notes";
@@ -145,6 +146,7 @@ export default function NoteView({ note, topics, context, day, readerTopics }: P
             <Sources note={note} open={open} rows={rows.current} onPress={(m) => press(m, -1)} />
             <HowMade note={note} />
             <section className="card follow-up">
+              {readerTopics !== null && <MoreLikeThis slug={note.slug} />}
               <a href={`/ask?topic=${encodeURIComponent(note.topic)}`}>Ask a follow-up →</a>
               <p className="small muted">
                 Our own summary, with quotes of at most 25 words from each source. Follow the links for the
@@ -361,4 +363,50 @@ function hostOf(url: string): string {
   } catch {
     return url;
   }
+}
+
+/** "More like this" and "Less like this" for a signed-in reader (ADR 0007): they order the
+ * reader's daily page. Pressing the pressed one clears it. */
+function MoreLikeThis({ slug }: { slug: string }) {
+  const [value, setValue] = useState<-1 | 0 | 1>(0);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    api()
+      .GET("/api/v1/me/notes/{slug}/feedback", { params: { path: { slug } } })
+      .then(({ data }) => data && setValue(data.value))
+      .catch(() => undefined);
+  }, [slug]);
+
+  async function choose(pressed: -1 | 1) {
+    const before = value;
+    const next = value === pressed ? 0 : pressed;
+    setValue(next);
+    setFailed(false);
+    try {
+      const { data } = await api().PUT("/api/v1/me/notes/{slug}/feedback", {
+        params: { path: { slug } },
+        body: { value: next },
+      });
+      if (!data) throw new Error("not saved");
+    } catch {
+      setValue(before);
+      setFailed(true);
+    }
+  }
+
+  return (
+    <div className="stack">
+      <div className="chips" role="group" aria-label="Notes like this one on your daily page">
+        <button className="chip" type="button" aria-pressed={value === 1} onClick={() => choose(1)}>
+          More like this
+        </button>
+        <button className="chip" type="button" aria-pressed={value === -1} onClick={() => choose(-1)}>
+          Less like this
+        </button>
+      </div>
+      <span className="small muted" role="status">
+        {failed ? "That did not save. Try again." : "Orders your daily page."}
+      </span>
+    </div>
+  );
 }

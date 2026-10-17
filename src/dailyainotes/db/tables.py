@@ -475,6 +475,23 @@ class ReaderTopic(Base):
     slot: Mapped[int] = mapped_column(Integer)
 
 
+class NoteFeedback(Base):
+    """A reader's "more like this" (1) or "less like this" (-1) on a note: it orders their
+    daily page (ADR 0007), and goes with the account."""
+
+    __tablename__ = "note_feedback"
+    __table_args__ = (CheckConstraint("value IN (-1, 1)", name="value"),)
+
+    reader_id: Mapped[int] = mapped_column(
+        ForeignKey("readers.id", ondelete="CASCADE"), primary_key=True
+    )
+    note_id: Mapped[int] = mapped_column(
+        ForeignKey("notes.id", ondelete="CASCADE"), primary_key=True
+    )
+    value: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class TopicSuggestion(Base):
     __tablename__ = "topic_suggestions"
     __table_args__ = (CheckConstraint("status IN ('open', 'accepted', 'declined')", name="status"),)
