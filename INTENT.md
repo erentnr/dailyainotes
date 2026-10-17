@@ -248,7 +248,7 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - [ ] M8 Reader accounts: sign-in by emailed code or link (Resend), sessions in an HttpOnly cookie, limits and Turnstile on sign-in, topics on every device, account and privacy pages, delete account → check: tests on codes, sessions, limits and the same-origin rule; sign in on two devices and see the same topics; deleting the account removes its rows
 - [ ] M9 Topic suggestions: readers suggest topics, the editor accepts or declines at /admin, accepting runs the Topic Planner, plans are reviewed at /admin → check: suggest a topic, accept it, approve its plan at /admin, and it appears in the picker
 
-- [ ] M10 MCP server (ADR 0005): `list_topics`, `search_notes`, `get_note` at `/api/mcp`, public and read-only, rate-limited, kept out of Langfuse → check: tests through the SDK's client and over HTTP (limits, host check); on dailyainotes.com, Claude Code adds the server and each tool answers
+- [ ] M10 MCP server (ADR 0005; live 2026-10-17: each tool answers through the SDK's client on dailyainotes.com, and a foreign origin gets 403; the owner's Claude Code check is open): `list_topics`, `search_notes`, `get_note` at `/api/mcp`, public and read-only, rate-limited, kept out of Langfuse → check: tests through the SDK's client and over HTTP (limits, host check); on dailyainotes.com, Claude Code adds the server and each tool answers
 
 ### Medium
 
