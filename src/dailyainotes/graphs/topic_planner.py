@@ -14,6 +14,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Literal, Protocol, TypedDict
+from urllib.parse import urljoin
 
 import structlog
 from langchain_core.embeddings import Embeddings
@@ -40,7 +41,7 @@ Propose:
 - keywords: 5 to 15 lower-case words or phrases that headlines about this topic use.
 - negative_keywords: up to 10 phrases that mean a different subject with similar words.
 - entities: up to 15 names of the people, teams, organisations and products at its centre.
-- candidate_sites: 10 to 15 https section pages or feed URLs of specialist publishers,
+- candidate_sites: 10 to 15 https home or section pages of specialist publishers,
   independent sites and official bodies' press releases that cover the topic in English and
   publish often. Many big news outlets block AI crawlers in robots.txt, which makes their
   stories unusable here, so prefer smaller and official sources.
@@ -51,13 +52,15 @@ Propose:
 
 MORE_PROMPT = """You find news sources for one topic of an English-language notebook. The
 pages listed were tried already: some were kept, the others could not be used, each with the
-reason. Propose 10 to 15 other https section pages or feed URLs of specialist publishers,
+reason. Propose 10 to 15 other https home or section pages of specialist publishers,
 independent sites and official bodies' press releases that cover the topic in English and
 publish often. Do not repeat a page from the list or another page of the same publisher."""
 
 # What a proposal keeps, at most.
 MAX_FEEDS = 8
 MAX_FEEDS_PER_SITE = 2
+# Where sites that link no feed often serve one anyway (WordPress, Hugo, most others).
+USUAL_FEED_PATHS = ["feed", "rss", "rss.xml", "feed.xml", "index.xml", "atom.xml"]
 MAX_REPOS = 2
 # A feed is relevant when this share of its recent items names a keyword or an entity, or
 # when this share of them is closer to this topic than to any other. Exact phrases rarely
@@ -266,25 +269,52 @@ async def site_feeds(
 
 
 async def one_site(http: Http, fetcher: ArticleFetcher, site: str) -> tuple[list[str], str]:
-    """The feeds one site advertises, or why it gave none."""
+    """The feeds one site offers, or why it gave none. A guessed address often fails where the
+    site's home page links a feed, or a usual feed path serves one (found 2026-10-16: 11 of 27
+    addresses the model gave for video games answered 404)."""
     if not site.startswith("https://"):
         return [], "not an https address"
     if is_excluded(registrable_domain(site)):
         return [], "an excluded publisher"
-    robots = await fetcher.robots(site)
-    if not robots.allows(site):
+    feeds, reason = await linked_feeds(http, fetcher, site)
+    if feeds or reason == "its robots.txt disallows us":
+        return feeds, reason
+    home = urljoin(site, "/")
+    if home != site:
+        feeds, _ = await linked_feeds(http, fetcher, home)
+        if feeds:
+            return feeds, ""
+    for path in USUAL_FEED_PATHS:
+        if await serves_feed(http, fetcher, urljoin(home, path)):
+            return [urljoin(home, path)], ""
+    return [], f"{reason}, nor serves one at the usual paths"
+
+
+async def linked_feeds(http: Http, fetcher: ArticleFetcher, page: str) -> tuple[list[str], str]:
+    """The page itself when it is a feed, or the feeds it links; else why not."""
+    if not (await fetcher.robots(page)).allows(page):
         return [], "its robots.txt disallows us"
     try:
-        response = await http.get(site)
+        response = await http.get(page)
     except Exception as error:
-        log.info("site_unreachable", site=site, error=type(error).__name__)
+        log.info("site_unreachable", site=page, error=type(error).__name__)
         return [], f"unreachable ({type(error).__name__})"
     if response.status_code != 200:
         return [], f"answered {response.status_code}"
     if is_feed(response.content):
-        return [site], ""
+        return [page], ""
     feeds = discover_feeds(response.text, str(response.url))[:MAX_FEEDS_PER_SITE]
     return feeds, "" if feeds else "advertises no feed"
+
+
+async def serves_feed(http: Http, fetcher: ArticleFetcher, url: str) -> bool:
+    if not (await fetcher.robots(url)).allows(url):
+        return False
+    try:
+        response = await http.get(url)
+    except Exception:
+        return False
+    return response.status_code == 200 and is_feed(response.content)
 
 
 def feed_source(url: str) -> dict[str, Any]:

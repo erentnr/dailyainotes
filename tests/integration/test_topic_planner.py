@@ -286,12 +286,12 @@ async def test_too_few_readable_feeds_ask_the_model_for_other_sites_with_the_rea
     (first_system, _), (_, second_user) = router.asked
     assert "block AI crawlers" in first_system
     assert f"- {BLOCKED}: its robots.txt disallows us" in second_user
-    assert f"- {NO_FEED}: advertises no feed" in second_user
+    assert f"- {NO_FEED}: advertises no feed, nor serves one at the usual paths" in second_user
     (proposal,) = await planner_db.proposals(engine, status="proposed")
     assert [s["locator"] for s in proposal.profile["sources"]] == [f"{SITE}blog/feed.xml"]
     dropped = {d["locator"]: d["reason"] for d in proposal.profile["dropped"]}
     assert dropped[BLOCKED] == "its robots.txt disallows us"
-    assert dropped[NO_FEED] == "advertises no feed"
+    assert dropped[NO_FEED] == "advertises no feed, nor serves one at the usual paths"
     assert dropped[f"{SITE}atom.xml"].startswith("off topic")
 
 
