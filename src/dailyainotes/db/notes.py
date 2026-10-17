@@ -45,6 +45,8 @@ class PublishedNote:
     # What Scout merged into the story.
     reports: int
     independent_publishers: int
+    # Where independent publishers disagree (the note page's box).
+    disagreements: list[dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -133,6 +135,7 @@ def published_notes() -> Select[*tuple[Any, ...]]:
             func.coalesce(checks.c.unsupported, 0),
             Story.document_count,
             Story.independent_publishers,
+            NoteVersion.disagreements,
         )
         .join(Topic, Topic.id == Note.topic_id)
         .join(

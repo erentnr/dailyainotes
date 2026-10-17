@@ -82,6 +82,25 @@ class Report(BaseModel):
     published_at: datetime | None
 
 
+class PositionSource(BaseModel):
+    # The evidence number; it matches the note's citation marker when the note cites it.
+    marker: int
+    publisher: str
+    title: str
+    url: str
+
+
+class Position(BaseModel):
+    # In our own words, as the research brief put it: never a quote.
+    says: str
+    sources: list[PositionSource]
+
+
+class Disagreement(BaseModel):
+    point: str
+    positions: list[Position]
+
+
 class NoteDetail(NoteCard):
     body: str
     why_it_matters: str
@@ -90,6 +109,8 @@ class NoteDetail(NoteCard):
     trail: Trail
     # Reports merged into the story that no sentence cites: linked, never quoted.
     other_reports: list[Report]
+    # Where publishers with no owner in common disagree.
+    disagreements: list[Disagreement] = []
 
 
 class Timeline(BaseModel):
@@ -203,6 +224,7 @@ async def note(request: Request, slug: str) -> NoteDetail:
         citations=[Citation(**vars(c)) for c in citations],
         trail=Trail(**vars(trail)),
         other_reports=[Report(**vars(r)) for r in others],
+        disagreements=[Disagreement(**d) for d in published.disagreements],
     )
 
 

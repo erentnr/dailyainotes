@@ -501,6 +501,13 @@ export interface components {
              */
             comment: string;
         };
+        /** Disagreement */
+        Disagreement: {
+            /** Point */
+            point: string;
+            /** Positions */
+            positions: components["schemas"]["Position"][];
+        };
         /** DroppedSource */
         DroppedSource: {
             /** Locator */
@@ -653,6 +660,11 @@ export interface components {
             trail: components["schemas"]["Trail"];
             /** Other Reports */
             other_reports: components["schemas"]["Report"][];
+            /**
+             * Disagreements
+             * @default []
+             */
+            disagreements: components["schemas"]["Disagreement"][];
         };
         /** Options */
         Options: {
@@ -714,6 +726,24 @@ export interface components {
             topic_share?: number | null;
             /** Readable Share */
             readable_share?: number | null;
+        };
+        /** Position */
+        Position: {
+            /** Says */
+            says: string;
+            /** Sources */
+            sources: components["schemas"]["PositionSource"][];
+        };
+        /** PositionSource */
+        PositionSource: {
+            /** Marker */
+            marker: number;
+            /** Publisher */
+            publisher: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
         };
         /** Question */
         Question: {

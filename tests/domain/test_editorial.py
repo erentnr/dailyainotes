@@ -5,6 +5,7 @@ import pytest
 from dailyainotes.domain.editorial import (
     Report,
     check_citations,
+    cross_owner_disagreements,
     final_verdict,
     first_words,
     next_step,
@@ -128,3 +129,60 @@ def test_a_second_owner_group_or_a_primary_source_needs_no_attribution() -> None
     )
     assert sole_publisher([("Formula 1", "formula1.com", 0.85)]) is None
     assert sole_publisher([]) is None
+
+
+OWNED_EVIDENCE = {
+    1: {
+        "owner_group": "fia",
+        "publisher": "Fia",
+        "title": "Result",
+        "url": "https://fia.example/1",
+    },
+    2: {
+        "owner_group": "wire",
+        "publisher": "Wire",
+        "title": "Report",
+        "url": "https://wire.example/2",
+    },
+    3: {
+        "owner_group": "wire",
+        "publisher": "Wire Sport",
+        "title": "Copy",
+        "url": "https://wire.example/3",
+    },
+}
+
+
+def test_a_disagreement_between_publishers_with_different_owners_is_kept() -> None:
+    brief = [
+        {
+            "point": "The winning margin",
+            "positions": [
+                {"says": "4.2 seconds", "evidence": [1]},
+                {"says": "5.1 seconds", "evidence": [2]},
+            ],
+        }
+    ]
+
+    (kept,) = cross_owner_disagreements(brief, OWNED_EVIDENCE)
+
+    assert kept["point"] == "The winning margin"
+    assert [(p["says"], [s["publisher"] for s in p["sources"]]) for p in kept["positions"]] == [
+        ("4.2 seconds", ["Fia"]),
+        ("5.1 seconds", ["Wire"]),
+    ]
+    assert kept["positions"][1]["sources"][0]["url"] == "https://wire.example/2"
+
+
+def test_positions_from_one_owner_or_unknown_evidence_are_no_disagreement() -> None:
+    same_owner = {
+        "point": "p",
+        "positions": [{"says": "a", "evidence": [2]}, {"says": "b", "evidence": [3]}],
+    }
+    unknown = {
+        "point": "q",
+        "positions": [{"says": "a", "evidence": [1]}, {"says": "b", "evidence": [9]}],
+    }
+    one_side = {"point": "r", "positions": [{"says": "a", "evidence": [1, 2]}]}
+
+    assert cross_owner_disagreements([same_owner, unknown, one_side], OWNED_EVIDENCE) == []

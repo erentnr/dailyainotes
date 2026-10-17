@@ -318,6 +318,9 @@ class NoteVersion(Base):
     title: Mapped[str] = mapped_column(Text)
     body: Mapped[str] = mapped_column(Text)
     why_it_matters: Mapped[str] = mapped_column(Text)
+    # Where independent publishers disagree, from the research brief: each point with its
+    # positions and their sources (the note page's box).
+    disagreements: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

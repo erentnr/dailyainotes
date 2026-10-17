@@ -1120,6 +1120,27 @@
     ],
     "title": "Decision"
    },
+   "Disagreement": {
+    "properties": {
+     "point": {
+      "type": "string",
+      "title": "Point"
+     },
+     "positions": {
+      "items": {
+       "$ref": "#/components/schemas/Position"
+      },
+      "type": "array",
+      "title": "Positions"
+     }
+    },
+    "type": "object",
+    "required": [
+     "point",
+     "positions"
+    ],
+    "title": "Disagreement"
+   },
    "DroppedSource": {
     "properties": {
      "locator": {
@@ -1477,6 +1498,14 @@
       },
       "type": "array",
       "title": "Other Reports"
+     },
+     "disagreements": {
+      "items": {
+       "$ref": "#/components/schemas/Disagreement"
+      },
+      "type": "array",
+      "title": "Disagreements",
+      "default": []
      }
     },
     "type": "object",
@@ -1674,6 +1703,55 @@
      "match_share"
     ],
     "title": "PlanSource"
+   },
+   "Position": {
+    "properties": {
+     "says": {
+      "type": "string",
+      "title": "Says"
+     },
+     "sources": {
+      "items": {
+       "$ref": "#/components/schemas/PositionSource"
+      },
+      "type": "array",
+      "title": "Sources"
+     }
+    },
+    "type": "object",
+    "required": [
+     "says",
+     "sources"
+    ],
+    "title": "Position"
+   },
+   "PositionSource": {
+    "properties": {
+     "marker": {
+      "type": "integer",
+      "title": "Marker"
+     },
+     "publisher": {
+      "type": "string",
+      "title": "Publisher"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "url": {
+      "type": "string",
+      "title": "Url"
+     }
+    },
+    "type": "object",
+    "required": [
+     "marker",
+     "publisher",
+     "title",
+     "url"
+    ],
+    "title": "PositionSource"
    },
    "Question": {
     "properties": {

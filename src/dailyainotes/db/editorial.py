@@ -317,22 +317,20 @@ async def save_version(
     body: str,
     why_it_matters: str,
     citations: list[CitationRow],
+    disagreements: list[dict[str, Any]] | None = None,
 ) -> int:
+    texts = {
+        "title": title,
+        "body": body,
+        "why_it_matters": why_it_matters,
+        "disagreements": disagreements or [],
+    }
     async with engine.begin() as connection:
         version_id: int = (
             await connection.execute(
                 insert(NoteVersion)
-                .values(
-                    note_id=note_id,
-                    version=version,
-                    title=title,
-                    body=body,
-                    why_it_matters=why_it_matters,
-                )
-                .on_conflict_do_update(
-                    index_elements=["note_id", "version"],
-                    set_={"title": title, "body": body, "why_it_matters": why_it_matters},
-                )
+                .values(note_id=note_id, version=version, **texts)
+                .on_conflict_do_update(index_elements=["note_id", "version"], set_=texts)
                 .returning(NoteVersion.id)
             )
         ).scalar_one()

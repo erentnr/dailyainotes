@@ -140,6 +140,7 @@ export default function NoteView({ note, topics, context, day, readerTopics }: P
                 </>
               )}
             </div>
+            {note.disagreements.length > 0 && <Disagreements items={note.disagreements} />}
           </article>
 
           <aside className="note-rail" aria-label="About this note">
@@ -408,5 +409,40 @@ function MoreLikeThis({ slug }: { slug: string }) {
         {failed ? "That did not save. Try again." : "Orders your daily page."}
       </span>
     </div>
+  );
+}
+
+/** Where publishers with no owner in common disagree: each point, and each position in our own
+ * words with the publishers that state it. */
+function Disagreements({ items }: { items: NoteDetail["disagreements"] }) {
+  return (
+    <section className="card disagreements" aria-labelledby="disagreements-title">
+      <h2 className="label" id="disagreements-title">
+        Sources disagree
+      </h2>
+      {items.map((d) => (
+        <div key={d.point} className="stack">
+          <p className="disagreement-point">{d.point}</p>
+          <ul className="plain-list">
+            {d.positions.map((p) => (
+              <li key={p.says}>
+                {p.says}
+                <span className="small muted">
+                  {" — "}
+                  {p.sources.map((s, i) => (
+                    <Fragment key={s.marker}>
+                      {i > 0 && ", "}
+                      <a href={s.url} rel="noopener noreferrer" target="_blank">
+                        {s.publisher}
+                      </a>
+                    </Fragment>
+                  ))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </section>
   );
 }

@@ -153,6 +153,19 @@ h3 {
   max-width: var(--measure);
 }
 
+/* A note's "Sources disagree" box: a plain card after the text (DESIGN.md, Components). */
+.disagreements {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding: 18px;
+}
+
+.disagreement-point {
+  margin: 0;
+  font-weight: 700;
+}
+
 .with-rail {
   display: grid;
   gap: var(--space-6);

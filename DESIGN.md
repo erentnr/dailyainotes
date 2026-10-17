@@ -399,6 +399,7 @@ The reader's chat question has one sharp corner: 20 px on three corners and 6 px
 - **Verdict badge:** a pill with an icon and a word: ✓ Verified (`ok-soft`), a half-filled circle and "Partly verified" (`warn-soft`), a cross and "Unsupported" (`bad-soft`). Never color alone.
 - **Citation chip:** an inline button with the number in mono on `acc-soft`, 7 px corners, `aria-expanded`; active, it turns `acc` with `acc-ink` text. On a phone the source opens right after the paragraph; on desktop the matching row in the Sources panel highlights and opens. The source shows its initial, publisher and date, title, the stored quote highlighted in `acc-soft`, and "Open source ↗". The quote is at most 25 words and is the only text shown from a source.
 - **Sources panel:** "Sources" with "N cited of M merged", one row per cited source, and a button that lists the other merged reports by title and publisher.
+- **Sources disagree:** a card after a note's text, labelled "Sources disagree", when publishers with no owner in common disagree: each point in `ui-strong`, then each position in our own words with its publishers' names linked, never a quote.
 - **More like this / Less like this:** two chips on the note page for a signed-in reader, in the follow-up card; the pressed one fills with ink, and pressing it again clears it. A line under them says they order the daily page.
 - **How this note was made:** a disclosure card, open by default. It shows a numbered stepper of the five real steps (Scout, Researcher, Writer, Fact-checker, Editor), each with its time in UTC where one is kept and one line on what it did, ending with a bar in the verdict's color: "✓ 6 supported · 0 weak · 0 unsupported".
 - **Context row:** earlier notes on the topic as small cover cards, 220 px wide and scrolling sideways on a phone, a grid on desktop.
@@ -434,7 +435,7 @@ Plain, specific and honest about gaps. No jargon: never "RAG", "embeddings" or "
 | Ask the notes (`/ask`) | 06 phone, 06d desktop | Yes, for signed-in readers ([ADR 0004](docs/adr/0004-ask-needs-an-account.md)). A signed-out visitor sees what Ask does and a way to sign in that keeps their question |
 | Topic timeline, How it works, Sign in, Account, Privacy, /admin | Not on the D page | Built from these tokens and components; layouts to revise. How it works plays one story's night |
 
-Not built, by the owner's decision (2026-10-16), because nothing behind them exists yet: the Not relevant button, a delivery time, and live progress while a first page is written. More and Less like this came with [ADR 0007](docs/adr/0007-more-like-this.md), and topics written by readers with ADR 0006. The conflicting-source box waits until the pipeline records which sources disagree.
+Not built, by the owner's decision (2026-10-16), because nothing behind them exists yet: the Not relevant button, a delivery time, and live progress while a first page is written. More and Less like this came with [ADR 0007](docs/adr/0007-more-like-this.md), and topics written by readers with ADR 0006.
 
 ## Do's and Don'ts
 

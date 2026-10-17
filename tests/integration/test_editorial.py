@@ -38,8 +38,10 @@ from dailyainotes.graphs.story import (
     Brief,
     Claims,
     ClaimVerdict,
+    Disagreement,
     Draft,
     ExtractedClaim,
+    Position,
     StoryDeps,
     Verdicts,
     build_story_graph,
@@ -369,6 +371,54 @@ async def test_a_planted_number_is_rewritten_and_the_note_waits_for_approval(
         2,
         "dan review",
     )
+
+
+async def test_where_independent_publishers_disagree_the_published_note_says_so(
+    engine: AsyncEngine, database_url: str, embeddings: Embeddings
+) -> None:
+    topic_id = await seed(engine, embeddings)
+    story_id, note_id = await verstappen_note(engine, topic_id)
+    margin = Disagreement(
+        point="The winning margin",
+        positions=[
+            Position(says="4.2 seconds", evidence=[1]),
+            Position(says="5.1 seconds", evidence=[3]),
+        ],
+    )
+    # One publisher on both sides: not a disagreement between publishers.
+    itself = Disagreement(
+        point="The start",
+        positions=[Position(says="pole", evidence=[2]), Position(says="second", evidence=[2])],
+    )
+    brief = Brief(key_facts=[], disagreements=[margin, itself], angle="Verstappen won.")
+    router = ScriptedRouter(
+        {
+            "researcher": [brief],
+            "writer": [CORRECT],
+            "extractor": [CLAIMS],
+            "verifier": [verdicts([1, 2], [1, 2], [2, 3])],
+        }
+    )
+    config = {"configurable": {"thread_id": "note:1"}}
+    async with checkpointer(database_url) as saver:
+        graph = build_story_graph(StoryDeps(engine, router, embeddings), saver)
+        await graph.ainvoke({"story_id": story_id, "note_id": note_id}, config)
+        await graph.ainvoke(
+            Command(resume={"decision": "approve", "comment": "", "by": "dan review"}), config
+        )
+    app = create_app(Settings(_env_file=None))
+    app.state.engine = engine  # ASGITransport does not run the lifespan
+    transport = httpx2.ASGITransport(app=app)
+    async with httpx2.AsyncClient(transport=transport, base_url="http://test") as client:
+        note = (await client.get("/api/v1/notes/slug")).json()
+
+    (disagreement,) = note["disagreements"]
+    assert disagreement["point"] == "The winning margin"
+    assert [
+        (p["says"], [(s["marker"], s["publisher"]) for s in p["sources"]])
+        for p in disagreement["positions"]
+    ] == [("4.2 seconds", [(1, "Fia")]), ("5.1 seconds", [(3, "Blog")])]
+    assert "The winning margin" in router.prompts["writer"][0]
 
 
 async def test_a_weak_claim_reaches_review_after_two_rewrites_and_can_be_rejected(

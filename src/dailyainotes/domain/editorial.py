@@ -6,7 +6,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Literal
+from typing import Any, Literal
 
 Verdict = Literal["supported", "weak", "unsupported", "contradicted"]
 ClaimKind = Literal["factual", "numeric", "attributed", "context"]
@@ -158,3 +158,42 @@ def story_shares(slugs: list[str], day: date, *, per_day: int, per_topic: int) -
             shares[slug] += 1
             left -= 1
     return shares
+
+
+def cross_owner_disagreements(
+    disagreements: list[dict[str, Any]], evidence: dict[int, dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """The research brief's disagreements that are real ones between publishers: each kept
+    position cites evidence that exists, and two of the positions are stated by publishers with
+    no owner in common. Each position gets its sources' publisher, title and link."""
+    kept = []
+    for disagreement in disagreements:
+        positions = []
+        for position in disagreement.get("positions", []):
+            markers = [m for m in dict.fromkeys(position.get("evidence", [])) if m in evidence]
+            if markers:
+                positions.append((position["says"], markers))
+        owners = [{evidence[m]["owner_group"] for m in markers} for _, markers in positions]
+        if not any(a.isdisjoint(b) for i, a in enumerate(owners) for b in owners[i + 1 :]):
+            continue
+        kept.append(
+            {
+                "point": disagreement["point"],
+                "positions": [
+                    {
+                        "says": says,
+                        "sources": [
+                            {
+                                "marker": m,
+                                "publisher": evidence[m]["publisher"],
+                                "title": evidence[m]["title"],
+                                "url": evidence[m]["url"],
+                            }
+                            for m in markers
+                        ],
+                    }
+                    for says, markers in positions
+                ],
+            }
+        )
+    return kept

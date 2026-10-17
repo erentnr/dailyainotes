@@ -29,6 +29,7 @@ from dailyainotes.domain.editorial import (
     Report,
     Verdict,
     check_citations,
+    cross_owner_disagreements,
     final_verdict,
     first_words,
     next_step,
@@ -48,8 +49,9 @@ DATA_ONLY = (
 RESEARCH_PROMPT = f"""You prepare a research brief for a short news note.
 {DATA_ONLY}
 List the key facts the evidence states, each with the evidence numbers that state it; list
-where sources disagree; and give the angle: the single event the note is about, in one
-sentence."""
+where sources disagree, each as the point and its positions, every position in a few words with
+the evidence numbers that state it; and give the angle: the single event the note is about, in
+one sentence."""
 WRITE_PROMPT = f"""You write one short, neutral note for a daily notebook, in English, from the
 numbered evidence only.
 {DATA_ONLY}
@@ -82,9 +84,19 @@ class KeyFact(BaseModel):
     evidence: list[int]
 
 
+class Position(BaseModel):
+    says: str = Field(max_length=200)
+    evidence: list[int]
+
+
+class Disagreement(BaseModel):
+    point: str = Field(max_length=160)
+    positions: list[Position]
+
+
 class Brief(BaseModel):
     key_facts: list[KeyFact]
-    disagreements: list[str] = []
+    disagreements: list[Disagreement] = []
     angle: str
 
 
@@ -243,6 +255,7 @@ def build_story_graph(
             body=draft.body,
             why_it_matters=draft.why_it_matters,
             citations=citations,
+            disagreements=cross_owner_disagreements(state["brief"]["disagreements"], by_marker),
         )
         return {
             "draft": draft.model_dump(),
