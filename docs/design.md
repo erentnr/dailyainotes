@@ -6,7 +6,7 @@ The decisions that shape Daily AI Notes, and what each one gave up. The evidence
 
 Research and writing run once per topic per day; every reader of a topic gets the same notes, and a reader's page is just the notes on their topics. Cost grows with the number of topics, not the number of readers. In phase 1 the fan-out is trivial: there are no accounts, the reader's topics live in the browser, and the daily page asks the API for the latest day's notes on them.
 
-The day's budget is fixed in code: at most 2 stories per topic and 15 a day, because the free model plans are the budget.
+The day's budget is fixed in code: at most 2 stories per topic and 15 a day, because the free model plans are the budget. Every active topic gets one story before any gets a second, and the second stories go round the topics, moving on each day; with more topics than stories, the single ones take turns the same way.
 
 ## Three graphs, one runner
 

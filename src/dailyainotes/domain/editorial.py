@@ -136,3 +136,25 @@ def first_words(text: str, limit: int = 25) -> str:
     """A quote of at most `limit` words (INTENT.md, Copyright)."""
     words = text.split()
     return " ".join(words[:limit]) + ("…" if len(words) > limit else "")
+
+
+def story_shares(slugs: list[str], day: date, *, per_day: int, per_topic: int) -> dict[str, int]:
+    """How many stories each topic may draft on a day: one each before any gets a second, up
+    to `per_day` in all. The order goes round the topics and moves on each day by the slots
+    one round leaves over, so the same topics do not always get the extra stories, or, when
+    topics outnumber the day's stories, go without (found 2026-10-17: slug order left four
+    topics with nothing)."""
+    shares = dict.fromkeys(slugs, 0)
+    if not slugs:
+        return shares
+    count = len(slugs)
+    start = day.toordinal() * (per_day % count) % count
+    order = slugs[start:] + slugs[:start]
+    left = per_day
+    for _ in range(per_topic):
+        for slug in order:
+            if left == 0:
+                return shares
+            shares[slug] += 1
+            left -= 1
+    return shares

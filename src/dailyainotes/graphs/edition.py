@@ -20,7 +20,7 @@ from dailyainotes.db.engine import AsyncEngine, create_engine
 from dailyainotes.db.ingest import active_topic_slugs, purge_expired_content
 from dailyainotes.db.planner import topic as find_topic
 from dailyainotes.db.runs import DbLedger, finish_run, finish_waiting_runs, start_run
-from dailyainotes.domain.editorial import slugify
+from dailyainotes.domain.editorial import slugify, story_shares
 from dailyainotes.graphs.scout import ScoutDeps, build_scout
 from dailyainotes.graphs.story import StoryDeps, StoryState, build_story_graph
 from dailyainotes.llm.embeddings import LocalEmbeddings
@@ -57,8 +57,8 @@ class EditionReport:
 async def run_editions(
     settings: Settings, slug: str | None, *, collect: bool
 ) -> list[EditionReport]:
-    """Today's edition (by UTC) of one active topic, or of each active topic in slug order.
-    `dan edition run` and the worker's daily task both start here."""
+    """Today's edition (by UTC) of one active topic, or of each active topic, each with its
+    share of the day's stories. `dan edition run` and the worker's daily task both start here."""
     engine = create_engine(settings.database_url)
     now = datetime.now(UTC)
     try:
@@ -70,15 +70,26 @@ async def run_editions(
         embeddings = LocalEmbeddings(settings.embedding_cache_dir)
         story = StoryDeps(engine, build_router(settings, DbLedger(engine)), embeddings)
         reports = []
+        # One topic run by hand may take a topic's most; a full run shares the day.
+        shares = story_shares(
+            active, now.date(), per_day=STORIES_PER_DAY, per_topic=STORIES_PER_TOPIC
+        )
         async with create_http() as http, checkpointer(settings.database_url) as saver:
             scout = ScoutDeps(engine, http, embeddings, now, collect, settings.github_token)
             for each in [slug] if slug else active:
                 topic = await find_topic(engine, each)
                 if topic is None:
                     raise NoActiveTopicError(f"no topic {each!r}")
+                share = STORIES_PER_TOPIC if slug else shares[each]
                 reports.append(
                     await run_edition(
-                        scout, story, saver, topic_id=topic.id, slug=each, day=now.date()
+                        scout,
+                        story,
+                        saver,
+                        topic_id=topic.id,
+                        slug=each,
+                        day=now.date(),
+                        share=share,
                     )
                 )
         return reports
@@ -95,6 +106,7 @@ async def run_edition(
     topic_id: int,
     slug: str,
     day: date,
+    share: int = STORIES_PER_TOPIC,
 ) -> EditionReport:
     engine = scout_deps.engine
     report = EditionReport(slug)
@@ -113,7 +125,7 @@ async def run_edition(
                 "topic_id": topic_id,
                 "slug": slug,
                 "edition_id": edition_id,
-                "cap": max(0, min(STORIES_PER_TOPIC, room)),
+                "cap": max(0, min(share, room)),
             },
             {"configurable": {"thread_id": thread_id}},
         )

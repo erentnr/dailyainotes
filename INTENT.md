@@ -217,7 +217,8 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 
 ## Performance and Cost
 
-- **Free quotas are the budget.** A daily draft cap (default 15, at most 2 per topic); a per-provider
+- **Free quotas are the budget.** A daily draft cap (default 15, at most 2 per topic), shared so every active topic gets
+  one story before any gets a second, the extras rotating by day; a per-provider
   daily token budget in the router; one request at a time to Ollama; OpenRouter's free requests
   go to the pipeline before Ask.
 - **Ask limits** (ADR 0004): 10 questions a day per reader, 30 per hashed IP and 200 in total. No
