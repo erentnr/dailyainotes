@@ -248,7 +248,7 @@ h3 {
 
 /* Loose text on a page sits 8 px further in than cards, like the page's heading. */
 @media (max-width: 759px) {
-  .page > :is(p, .measure, .section, .stat-tiles, .pipeline) {
+  .page > :is(p, .measure, .section, .pipeline) {
     padding-left: 8px;
     padding-right: 8px;
   }
@@ -2354,29 +2354,6 @@ textarea.input {
   }
 }
 
-/* How it works */
-
-.stat-tiles {
-  display: grid;
-  gap: var(--space-3);
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-}
-
-.stat-tile {
-  background: var(--card);
-  border-radius: var(--radius-card);
-  padding: 18px;
-}
-
-.stat-value {
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  font-size: 40px;
-  line-height: 44px;
-  font-feature-settings: "tnum" 1;
-  margin: var(--space-2) 0;
-}
-
 .plain-list {
   list-style: none;
   padding: 0;
@@ -2386,11 +2363,6 @@ textarea.input {
 .plain-list > li {
   padding: var(--space-3) 0;
   border-top: 1px solid var(--line);
-}
-
-.table-card {
-  padding: var(--space-1) var(--space-4);
-  overflow-x: auto;
 }
 
 /* A table wider than a phone scrolls inside its own box, never the page. */

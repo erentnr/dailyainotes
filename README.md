@@ -68,7 +68,7 @@ The worker also runs it nightly with the Ask model and a judge from another mode
 
 ## Cost per day
 
-$0. Models run on Ollama Cloud's free plan with OpenRouter's free models as the fallback, embeddings run locally (fastembed, `BAAI/bge-small-en-v1.5`), tracing uses Langfuse Cloud's free plan, and the router stops each provider at its daily limit. Every model call is recorded with its tokens in `llm_calls`; How it works shows calls, tokens and cost for the last 14 days.
+$0. Models run on Ollama Cloud's free plan with OpenRouter's free models as the fallback, embeddings run locally (fastembed, `BAAI/bge-small-en-v1.5`), tracing uses Langfuse Cloud's free plan, and the router stops each provider at its daily limit. Every model call is recorded with its tokens in `llm_calls`, which the site does not show.
 
 ## Development
 

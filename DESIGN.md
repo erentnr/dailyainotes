@@ -277,11 +277,6 @@ components:
     typography: "{typography.title}"
     rounded: "{rounded.cover}"
     padding: 12px
-  stat-tile:
-    backgroundColor: "{colors.card}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.card}"
-    padding: 18px
   chat-question:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.card}"
@@ -407,7 +402,6 @@ The reader's chat question has one sharp corner: 20 px on three corners and 6 px
 - **Ask example:** for a visitor who is not signed in, a card labelled "Example" plays what Ask does: a question types itself and is sent, "Searching the notes…" and "✓ Found 1 note" pass, the answer streams in with its citation chips, and a chip opens the cited note; it fades and starts again. It is made up, about a fictional company from the eval corpus, and says so. The parts appear in place, so nothing moves on the page; the moving parts are hidden from screen readers; a Pause button stops it; with reduced motion it shows its last frame.
 - **One story's night** (How it works): a card that plays the steps as a diagram. Four reports drop in and three merge into a story (the fourth is about another event), facts with their source numbers appear, a note with a Fern cover is written line by line, its citation chips turn `acc` as code checks them, `ok` checks appear as the fact-checker supports each claim, the editor's pill fills with ink, and an Ask question links to the note. The list of steps beside it puts the playing step's number in an ink disc; a line under the diagram says what that step does. On a phone the view is closer and pans from the reports to the note. Same rules as the Ask example: Pause, a still frame for reduced motion and before its script runs, and one sentence for screen readers.
 - **Catalog tile:** a button (`aria-pressed`) with a cover on top (78 px phone, 96 px desktop), the name, the description and the notes so far. Selected: a 3 px ink outline and an ink check disc at the top right.
-- **Stat tile:** a mono label and a big weight-900 number. Real numbers only.
 - **States:** skeleton cards (a cover block and three bars, pulsing unless reduced motion is set); "nothing new" with its explanation; an error card with a `bad` outline, "Couldn't load today. Your notes are safe." and "Try again"; a source-unreachable notice.
 - **Navigation:** phone, a floating tab bar 12 px from the edges with 20 px corners, the active tab ink-filled; desktop, a pill navigation on `card` (Today, Topics, Ask, How it works), the theme toggle, and the reader's initial or "Sign in".
 - **Footer:** one quiet row at the end of every page, on the ground after a `line` rule: the logo, then How it works, Privacy and, when the site's settings name them, Source code and "Made by" the author, in `ink2` at 13 px with 40 px tap targets. Links that leave the site end with the external-link icon. Source code carries GitHub's mark when the code is on github.com, and a code icon elsewhere. On a phone the links wrap under the logo.

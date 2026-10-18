@@ -1,13 +1,7 @@
 ---
-import { StatTile } from "../components/ui/StatTile";
 import StoryNight, { type Stage } from "../islands/StoryNight";
 import Base from "../layouts/Base.astro";
-import { serverApi } from "../lib/api/server";
-import { formatDay } from "../lib/format";
 
-const { data: stats } = await serverApi().GET("/api/v1/stats");
-if (!stats) throw new Error("The API did not answer");
-const { totals, days } = stats;
 const stages: Stage[] = [
   ["Scout", "code + model", "Fetches each topic's feeds and APIs, keeps what their publishers allow, and groups reports of the same event into stories. Independent coverage ranks a story, and a small model checks that the best ones are recent news about the topic. Every topic gets one story a night before any gets a second."],
   ["Researcher", "model", "Reads the story's sources as data and lists the facts each one states."],
@@ -30,32 +24,6 @@ const stages: Stage[] = [
   </header>
 
   <StoryNight client:visible stages={stages} />
-
-  <section class="section">
-    <div class="label">The last 14 days</div>
-    <div class="stat-tiles" style="margin-top: var(--space-4)">
-      <StatTile label="Notes published" value={String(totals.notes_published ?? 0)} series={days.map((d) => d.notes)} />
-      <StatTile label="Topics" value={String(totals.topics_active ?? 0)} />
-      <StatTile label="Reports read" value={String(totals.documents ?? 0)} />
-    </div>
-    <div class="card table-card" style="margin-top: var(--space-4)">
-    <table class="table small">
-      <thead>
-        <tr><th>Day</th><th class="num">Notes</th></tr>
-      </thead>
-      <tbody>
-        {
-          [...days].reverse().map((d) => (
-            <tr>
-              <td class="meta">{formatDay(d.date)}</td>
-              <td class="num">{d.notes}</td>
-            </tr>
-          ))
-        }
-      </tbody>
-    </table>
-    </div>
-  </section>
 
   <p class="small muted section measure">The source is on GitHub under the Apache-2.0 license.</p>
 </Base>
