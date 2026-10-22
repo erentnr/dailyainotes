@@ -15,7 +15,7 @@ Every night, LangGraph agents collect coverage for each topic in a fixed catalog
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/how-it-works-dark.gif">
-  <img alt="One story's night, as the site's How it works page plays it: four reports arrive and three merge into a story, the facts are listed with their source numbers, a note is written with a citation on each line, the citations and claims are checked, the editor approves the note, and an Ask answer links to it." src="docs/images/how-it-works-light.gif">
+  <img alt="One story's night, as the site's How it works page plays it: four reports arrive and three merge into a story, the facts are listed with their source numbers, a note is written with a citation on each line, the citations and claims are checked, the note is published, and an Ask answer links to it." src="docs/images/how-it-works-light.gif">
 </picture>
 
 One story's night, from the site's [How it works](https://dailyainotes.com/how-it-works) page. The pictures come from the live site with `make readme-media`. Underneath, the parts:
