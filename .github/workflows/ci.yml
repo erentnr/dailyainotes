@@ -143,9 +143,6 @@ jobs:
       HOST: ${{ secrets.DEPLOY_HOST }}
       TAG: ${{ github.sha }}
     steps:
-      - if: env.HOST != ''
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
       - name: Deploy over SSH
         if: env.HOST != ''
         env:
@@ -156,7 +153,7 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-          scp deploy/compose.prod.yml deploy/Caddyfile deploy/*.sh "deploy@$HOST:/srv/dailyainotes/"
-          # TAG expands here, on the runner, on purpose.
+          # The key's forced command, deploy/ssh-deploy.sh, takes the commit and fetches its deploy/
+          # files itself. TAG expands here, on the runner, on purpose.
           # shellcheck disable=SC2029
-          ssh "deploy@$HOST" "/srv/dailyainotes/deploy.sh $TAG"
+          ssh "deploy@$HOST" "$TAG"

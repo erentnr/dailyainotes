@@ -150,7 +150,12 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 adduser --disabled-password --gecos "" deploy && usermod -aG docker deploy
 install -d -o deploy -g deploy -m 700 /srv/dailyainotes /srv/dailyainotes/backups
 install -d -o deploy -g deploy -m 700 /home/deploy/.ssh
-# Put your public key and the deploy workflow's public key in /home/deploy/.ssh/authorized_keys.
+# The deploy workflow's key may only deploy a commit of main (deploy/ssh-deploy.sh).
+apt install -y git
+sudo -u deploy git clone https://github.com/<owner>/dailyainotes.git /srv/dailyainotes/src
+install -m 755 /srv/dailyainotes/src/deploy/ssh-deploy.sh /usr/local/bin/dailyainotes-deploy
+# Put your public key and the workflow's in /home/deploy/.ssh/authorized_keys, the workflow's as
+#   restrict,command="/usr/local/bin/dailyainotes-deploy" ssh-ed25519 AAAA... dailyainotes-deploy
 
 # SSH: keys only. Root keeps key login: `PermitRootLogin no` would lock out a root-only login.
 tee /etc/ssh/sshd_config.d/10-hardening.conf <<EOF
@@ -194,7 +199,7 @@ Readers sign in with a code sent by email ([ADR 0003](docs/adr/0003-sign-in-and-
 ### GitHub settings
 
 - Secret `DEPLOY_HOST`: the server's address. A secret, not a variable, so it stays out of the public CI logs. Until it is set, CI builds and pushes images and skips the deploy steps.
-- Secret `DEPLOY_SSH_KEY`: a private key made only for deploys (`ssh-keygen -t ed25519 -f deploy_key -N ""`), whose public half is in `deploy`'s `authorized_keys`.
+- Secret `DEPLOY_SSH_KEY`: a private key made only for deploys (`ssh-keygen -t ed25519 -f deploy_key -N ""`), whose public half is in `deploy`'s `authorized_keys` behind the forced command.
 - Secret `DEPLOY_KNOWN_HOSTS`: the output of `ssh-keyscan -t ed25519 <server>`.
 - After the first push, make the `dailyainotes` and `dailyainotes-web` packages public in their GHCR settings, so the server pulls without a token. Otherwise, run `docker login ghcr.io` as `deploy` with a token that can only read packages.
 
