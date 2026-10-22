@@ -151,7 +151,7 @@ export default function NoteView({ note, topics, context, day, readerTopics }: P
               <a href={`/ask?topic=${encodeURIComponent(note.topic)}`}>Ask a follow-up →</a>
               <p className="small muted">
                 Our own summary, with quotes of at most 25 words from each source. Follow the links for the
-                full reporting. Approved by the editor.
+                full reporting. Published after the checks; no person reviewed it first.
               </p>
             </section>
           </aside>
@@ -286,7 +286,7 @@ function HowMade({ note }: { note: NoteDetail }) {
         ? `Checked ${plural(note.claims, "claim")} against the sources they cite.`
         : "Found no claims to check.",
     },
-    { agent: "Editor", at: trail.approved_at, what: "Read it and approved it for publishing." },
+    { agent: "Publish", at: trail.approved_at, what: "Published once the checks were done, with each claim's verdict." },
   ];
   const drafted = trail.drafted_at ? duration(trail.collected_at, trail.drafted_at) : null;
   const tone = note.unsupported ? "bad" : note.weak ? "warn" : "ok";
@@ -296,7 +296,7 @@ function HowMade({ note }: { note: NoteDetail }) {
         <span className="disclosure-text">
           <span className="disclosure-title">How this note was made</span>
           <span className="meta">
-            {steps.length} steps{drafted && ` · first draft in ${drafted}`} · approved by the editor
+            {steps.length} steps{drafted && ` · first draft in ${drafted}`} · published after the checks
           </span>
         </span>
         <span className="disclosure-glyph" aria-hidden="true">

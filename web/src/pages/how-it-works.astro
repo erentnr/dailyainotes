@@ -8,7 +8,7 @@ const stages: Stage[] = [
   ["Writer", "model", "Writes a short note in which every sentence cites its sources: [1], [2]."],
   ["Citation check", "code", "Every sentence must cite a source that exists, and every number and quote must appear in it. A failing draft goes back to the Writer, twice at most."],
   ["Fact-checker", "model", "A model from another family than the Writer's checks each claim against the sources it cites. A factual claim needs two independent publishers, one trusted, or a primary source."],
-  ["Editor", "person", "Nothing is published until the editor approves it."],
+  ["Publish", "code", "When every check is done, the note is published with each claim's verdict. Nobody reviews it first; the editor can withdraw a note afterwards."],
   ["Ask", "code + model", "Searches published notes by words and meaning. With no strong match it says so without a model; otherwise one model answers from the notes, and code drops any citation that points nowhere."],
 ];
 ---
@@ -16,7 +16,7 @@ const stages: Stage[] = [
 <Base title="How it works">
   <header class="page-head">
     <div class="label">How it works</div>
-    <h1 class="h1">A notebook kept by agents, checked by code, approved by a person</h1>
+    <h1 class="h1">A notebook kept by agents and checked by code</h1>
     <p class="muted measure">
       Every night at 01:30 UTC, each topic goes through the same steps. Models are used only
       where judging text matters; everything that can be counted is code.

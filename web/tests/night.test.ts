@@ -16,10 +16,10 @@ describe("one story's night", () => {
     expect(nightAt(STEPS[3] - 0.01).lines).toBe(3);
   });
 
-  it("checks citations, then claims, before the editor approves and Ask cites the note", () => {
-    const beforeApproval = nightAt(STEPS[5]);
-    expect(beforeApproval).toMatchObject({ cited: 3, supported: 3, approved: false, asked: false });
-    expect(nightAt(STEPS[5] + 1).approved).toBe(true);
+  it("checks citations, then claims, before the note is published and Ask cites it", () => {
+    const beforePublishing = nightAt(STEPS[5]);
+    expect(beforePublishing).toMatchObject({ cited: 3, supported: 3, published: false, asked: false });
+    expect(nightAt(STEPS[5] + 1).published).toBe(true);
     expect(nightAt(STEPS[6]).asked).toBe(true);
   });
 
@@ -28,7 +28,7 @@ describe("one story's night", () => {
     expect(nightAt(NIGHT_LENGTH + 2)).toEqual(nightAt(2));
   });
 
-  it("stands still on the approved note", () => {
-    expect(nightAt(NIGHT_STILL)).toMatchObject({ lines: 3, cited: 3, supported: 3, approved: true, asked: false });
+  it("stands still on the published note", () => {
+    expect(nightAt(NIGHT_STILL)).toMatchObject({ lines: 3, cited: 3, supported: 3, published: true, asked: false });
   });
 });

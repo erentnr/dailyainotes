@@ -177,7 +177,7 @@ export default function TopicPicker({ topics, signedIn, twoSteps }: Props) {
           );
         })}
         {words && matches.length === 0 && (
-          <p className="lede">No topic matches “{query.trim()}”. Suggest it below, and the editor will read it.</p>
+          <p className="lede">No topic matches “{query.trim()}”. Add it below.</p>
         )}
 
         <div className="only-phone">
@@ -288,7 +288,7 @@ function Preview({ slug, topic, motif, slot }: { slug: string; topic: Topic; mot
             </>
           ) : (
             note === null && (
-              <b className="preview-title">Your first note on {topic.name} arrives once the editor approves one.</b>
+              <b className="preview-title">No note on {topic.name} yet. Notes are written and checked overnight.</b>
             )
           )}
         </div>
@@ -378,7 +378,7 @@ function Suggest({
         </a>
       )}
       <span role="status" className="small">
-        {state === "sent" && "Added. We are finding sources for it; it goes live once the editor approves them."}
+        {state === "sent" && "Added. We are finding sources for it; it goes live once we find three news feeds we may read."}
         {state === "covered" && message}
         {state === "failed" && <span className="form-error">{message}</span>}
       </span>

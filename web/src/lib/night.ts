@@ -1,6 +1,6 @@
 /** One story's night, as How it works plays it: reports arrive and merge into a story, facts
- * are gathered, a note is written, its citations and claims are checked, the editor approves it,
- * and Ask cites it. Every frame is a function of time, so it can be tested and shown still. */
+ * are gathered, a note is written, its citations and claims are checked, it is published, and Ask
+ * cites it. Every frame is a function of time, so it can be tested and shown still. */
 
 /** When each step starts, in seconds, in the order How it works lists them. */
 export const STEPS = [0, 3, 5, 7.5, 9, 11, 13] as const;
@@ -16,7 +16,7 @@ export interface NightFrame {
   lines: number;
   cited: number;
   supported: number;
-  approved: boolean;
+  published: boolean;
   asked: boolean;
   fading: boolean;
 }
@@ -38,11 +38,11 @@ export function nightAt(seconds: number): NightFrame {
     lines: three(at, STEPS[2], STEPS[3]),
     cited: three(at, STEPS[3], STEPS[4]),
     supported: three(at, STEPS[4], STEPS[5]),
-    approved: at >= STEPS[5] + 0.8,
+    published: at >= STEPS[5] + 0.8,
     asked: at >= STEPS[6],
     fading: at >= NIGHT_LENGTH - 0.6,
   };
 }
 
-/** The frame to show still: the note written, checked and approved. */
+/** The frame to show still: the note written, checked and published. */
 export const NIGHT_STILL = STEPS[6] - 0.5;

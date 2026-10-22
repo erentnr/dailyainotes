@@ -7,7 +7,7 @@ AI takes notes on what's happening, every day, on the things you care about.
   <img alt="The daily page at dailyainotes.com on a desktop and on a phone: the date, the number of stories and minutes to read them, an Ask box, a tab for each topic, and the day's biggest story on its topic's cover." src="docs/images/daily-light.webp">
 </picture>
 
-Every night, LangGraph agents collect coverage for each topic in a fixed catalog, group reports of the same event into stories, research them, write short notes in which every sentence cites its sources, and fact-check every claim. A person approves each note before it is published. Visitors pick topics, read the day's notes and ask questions answered only from the notes, with citations, or told plainly that the notes don't cover it.
+Every night, LangGraph agents collect coverage for each topic in a fixed catalog, group reports of the same event into stories, research them, write short notes in which every sentence cites its sources, and fact-check every claim, then publish them: nobody reviews a note first, and the editor can withdraw one ([ADR 0008](docs/adr/0008-publish-without-review.md)). Visitors pick topics, read the day's notes and ask questions answered only from the notes, with citations, or told plainly that the notes don't cover it.
 
 **Status:** a proof of concept ([ADR 0001](docs/adr/0001-proof-of-concept-scope.md)); the milestones and what each one waits for are in [INTENT.md](INTENT.md). The design and its trade-offs are in [docs/design.md](docs/design.md).
 
@@ -30,17 +30,17 @@ flowchart LR
         cite -- "a number or quote<br/>not in its source" --> writer
         cite --> verify["Claim extraction and<br/>fact-checker (models)"]
         verify -- "weak claims,<br/>twice at most" --> writer
-        verify --> review(["Editor approves<br/>dan review · /admin"])
+        verify --> publish(["Publish<br/>withdraw: dan review · /admin"])
     end
     sources[("RSS · arXiv<br/>GitHub · HN")] --> scout
-    review --> pg[("Postgres 18 + pgvector<br/>notes · vectors · queue<br/>checkpoints")]
+    publish --> pg[("Postgres 18 + pgvector<br/>notes · vectors · queue<br/>checkpoints")]
     pg --> site["Astro site<br/>daily page · notes<br/>timelines · How it works"]
     pg --> ask["Ask<br/>hybrid search, then one model<br/>or not enough"]
     router["LLM router<br/>Ollama Cloud → OpenRouter free"] -.-> research & writer & verify & ask
 ```
 
 - **Scout is mostly code:** it fetches the topic's sources, keeps only what each publisher allows (full text, a summary, or a link), groups reports of one event by their vectors, and ranks stories by independent coverage. Then a small model is asked, best story first, whether each is recent news about the topic, so a general feed's photo gallery or an "on this day" piece is not drafted.
-- **Each picked story is its own LangGraph thread** with a Postgres checkpointer, so a note can wait for approval for days, and a run that stops resumes where it stopped.
+- **Each picked story is its own LangGraph thread** with a Postgres checkpointer, so a run that stops resumes where it stopped.
 - **Code checks before models check:** every sentence must cite a source that exists, and every number and quote must appear in it. Then a model from another family than the Writer's checks each claim; a factual claim needs two independent publishers, one of them trusted, or a primary source.
 - **Ask is a pipeline, not an agent:** full-text and vector search over published notes, merged by reciprocal rank fusion. With no strong match it answers "Not enough in the notes" without calling a model.
 
@@ -102,9 +102,9 @@ The site in `web/` is Astro, rendered on the server, with React islands for the 
 
 ```sh
 uv run dan catalog sync              # load config/catalog.toml
-uv run dan topics plan --all         # the Topic Planner proposes sources for each draft topic
-uv run dan review list               # approve or reject: dan review approve plan-<id>
-uv run dan edition run --all         # today's notes; each waits for dan review approve note-<id>
+uv run dan topics plan --all         # plan each draft topic; three readable feeds make it live
+uv run dan edition run --all         # today's notes, published when their checks finish
+uv run dan review withdraw note-<id> # take a published note down
 uv run dan ask "What changed in ..." # answered from published notes, with citations
 uv run dan evals run                 # the 30-question eval (evals/README.md)
 ```
@@ -205,10 +205,10 @@ Commands run in the worker's container, which has the most memory. In `/srv/dail
 ```sh
 alias dan='TAG=$(cat .deployed) docker compose -f compose.prod.yml exec worker dan'
 dan catalog sync
-dan topics plan --all && dan review list
+dan topics plan --all
 ```
 
-The worker runs every active topic's edition at 01:30 UTC; `dan review list` shows the notes waiting for approval.
+The worker runs every active topic's edition at 01:30 UTC and publishes the notes; `dan review withdraw note-<id>` takes one down, as Withdraw does at /admin.
 
 ### Backups
 
@@ -241,7 +241,7 @@ To go back to an earlier release, run `./deploy.sh <commit sha>`. Logs: `TAG=$(c
 
 Deferred by [ADR 0001](docs/adr/0001-proof-of-concept-scope.md) and still open after [ADR 0003](docs/adr/0003-sign-in-and-reader-accounts.md), in rough order:
 
-- A full review UI: request a rewrite, edit a draft (topic plans are reviewed at /admin since ADR 0003).
+- Editing a published note, or asking for a rewrite, at /admin (today the editor can only withdraw a note, ADR 0008).
 - Offsite backups, once the site has real readers (the nightly dumps stay on the server).
 
 ## How this repository is run

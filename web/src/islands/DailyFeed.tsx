@@ -119,7 +119,7 @@ export default function DailyFeed({ date }: { date?: string | undefined }) {
           <EmptyState>
             <p className="state-title">{day ? "Nothing on your topics that day." : "No notes on your topics yet."}</p>
             <p className="muted">
-              Notes are written overnight and appear once the editor approves them. We don't pad your page.
+              Notes are written and checked overnight. We don't pad your page.
             </p>
           </EmptyState>
         )}
@@ -278,7 +278,7 @@ function TopicStatus({ rows }: { rows: { name: string; count: number; motif: Ret
         ))}
       </ul>
       <p className="small muted">
-        "Nothing new" means no note on that topic was approved for this day. We don't pad your page.
+        "Nothing new" means no note on that topic was published for this day. We don't pad your page.
       </p>
     </section>
   );
@@ -290,7 +290,7 @@ function CaughtUp({ day, hasNotes }: { day: string; hasNotes: boolean }) {
     <div className="caught-up">
       {hasNotes && <p className="caught-up-title">You're all caught up.</p>}
       <p className="caught-up-text">
-        New notes are written overnight and appear once the editor approves them. Every claim links back to its source.
+        New notes are written and checked overnight. Every claim links back to its source.
       </p>
       <a className="button button-light" href={`/day/${previous}`}>
         ← {formatLongDay(previous)}

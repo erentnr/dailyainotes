@@ -3274,25 +3274,25 @@ textarea.input {
   stroke-linejoin: round;
 }
 
-.night-approve {
+.night-publish {
   fill: transparent;
   stroke: var(--ink);
   stroke-width: 1.5;
   transition: fill 0.3s;
 }
 
-.night-approve.is-approved {
+.night-publish.is-published {
   fill: var(--ink);
 }
 
-.night-approve-text {
+.night-publish-text {
   fill: var(--ink);
   font-size: 13px;
   font-weight: 700;
   text-anchor: middle;
 }
 
-.night-approve-text.is-approved {
+.night-publish-text.is-published {
   fill: var(--card);
 }
 
@@ -3331,7 +3331,7 @@ textarea.input {
   .night-part,
   .night-grow,
   .night-chip,
-  .night-approve {
+  .night-publish {
     transition: none;
   }
 }

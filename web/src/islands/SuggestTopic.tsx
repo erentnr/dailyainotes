@@ -10,7 +10,7 @@ function outcome(s: Suggestion): string {
   if (s.topic_status === "active") return "Live for everyone, and in your topics.";
   if (s.status === "declined") return s.reason ? `Not added: ${s.reason}` : "Not added.";
   if (s.status === "open") return "Waiting for the editor.";
-  return "We are finding sources for it; it goes live once the editor approves them.";
+  return "We are finding sources for it; it goes live once we find three news feeds we may read.";
 }
 
 /** Add a topic (ADR 0006): planned at once, unless an existing topic covers it. */
@@ -51,7 +51,7 @@ export default function SuggestTopic({ initial }: { initial: Suggestion[] }) {
     <div className="stack">
       <p className="muted">
         Missing a topic? Add it. If a topic already covers it, we point you there; otherwise we look
-        for sources, and it goes live for everyone once the editor approves them.
+        for sources, and it goes live for everyone once we find three news feeds we may read.
       </p>
       <form className="stack" onSubmit={submit}>
         <div className="field">

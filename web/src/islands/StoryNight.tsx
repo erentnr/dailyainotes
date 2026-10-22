@@ -12,7 +12,7 @@ const CAPTIONS = [
   "A short note: every sentence cites a source.",
   "Code checks every citation, number and quote.",
   "Another model checks each claim against its sources.",
-  "Nothing is published until the editor approves it.",
+  "When every check is done, the note is published.",
   "Answers from published notes, citing them.",
 ];
 
@@ -35,7 +35,7 @@ const LINES = [104, 134, 164];
 /** One story's night, played: the steps of How it works as a diagram, with the list of steps
  * beside it marking the one playing. Screen readers get the diagram in one sentence and the list
  * in full. It can be paused, and before its script runs, or with reduced motion, it shows the
- * approved note and stays. */
+ * published note and stays. */
 export default function StoryNight({ stages }: { stages: Stage[] }) {
   const [seconds, setSeconds] = useState(NIGHT_STILL);
   const [playing, setPlaying] = useState(false);
@@ -86,7 +86,7 @@ export default function StoryNight({ stages }: { stages: Stage[] }) {
             className={f.fading ? "night-svg is-fading" : "night-svg"}
             viewBox="0 0 600 240"
             role="img"
-            aria-label="Reports merge into a story, a note is written from it, checked and approved, and Ask cites it."
+            aria-label="Reports merge into a story, a note is written from it, checked and published, and Ask cites it."
           >
             {ARRIVED.map((arrived, i) => {
               // The reports land one after another, then three of them stack into the story.
@@ -152,10 +152,10 @@ export default function StoryNight({ stages }: { stages: Stage[] }) {
                   </g>
                 </g>
               ))}
-              <g className="night-part" style={{ opacity: f.step >= 5 || f.approved ? 1 : 0 }}>
-                <rect x="14" y="188" width="128" height="26" rx="13" className={f.approved ? "night-approve is-approved" : "night-approve"} />
-                <text x="78" y="205" className={f.approved ? "night-approve-text is-approved" : "night-approve-text"}>
-                  {f.approved ? "✓ Approved" : "Approve"}
+              <g className="night-part" style={{ opacity: f.step >= 5 || f.published ? 1 : 0 }}>
+                <rect x="14" y="188" width="128" height="26" rx="13" className={f.published ? "night-publish is-published" : "night-publish"} />
+                <text x="78" y="205" className={f.published ? "night-publish-text is-published" : "night-publish-text"}>
+                  {f.published ? "✓ Published" : "Publish"}
                 </text>
               </g>
             </g>
@@ -174,7 +174,7 @@ export default function StoryNight({ stages }: { stages: Stage[] }) {
           </svg>
         </div>
         <p className="night-caption" aria-hidden="true">
-          <b>{stages[f.step]?.[0]}</b> {moving ? CAPTIONS[f.step] : "A note, written, checked and approved."}
+          <b>{stages[f.step]?.[0]}</b> {moving ? CAPTIONS[f.step] : "A note, written, checked and published."}
         </p>
       </figure>
 
