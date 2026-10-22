@@ -1,27 +1,22 @@
-from collections.abc import AsyncIterator, Callable
-from contextlib import asynccontextmanager
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-import httpx2
 import pytest
 from langchain_core.embeddings import Embeddings
-from langgraph.types import Command
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from dailyainotes import accounts
-from dailyainotes.api.app import create_app
 from dailyainotes.db import planner as planner_db
 from dailyainotes.db import suggestions as suggestions_db
 from dailyainotes.db.checkpoints import checkpointer
 from dailyainotes.db.tables import Source, Topic, TopicProfile, TopicSource
-from dailyainotes.graphs.planning import EmptyPlanError, decide_plan
+from dailyainotes.graphs import topic_planner
 from dailyainotes.graphs.topic_planner import MoreSites, PlannerDeps, ProfileDraft, build_planner
 from dailyainotes.ingestion.catalog import Catalog, sync_catalog
-from dailyainotes.settings import Settings
 
 pytestmark = [pytest.mark.integration, pytest.mark.anyio]
 
@@ -97,38 +92,42 @@ async def start(engine: AsyncEngine) -> tuple[dict[str, Any], dict[str, Any]]:
     return state, {"configurable": {"thread_id": thread_id}}
 
 
-async def test_a_plan_waits_for_approval_then_activates_the_topic(
+async def test_a_plan_with_enough_readable_feeds_makes_the_topic_live(
     engine: AsyncEngine,
     database_url: str,
     embeddings: Embeddings,
     web: Callable[..., Any],
     fixture: Callable[[str], bytes],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # The fixture site has one readable, on-topic feed.
+    monkeypatch.setattr(topic_planner, "MIN_FEEDS", 1)
     router = FakeRouter()
     state, config = await start(engine)
     recorded = web(site(fixture))
     async with checkpointer(database_url) as saver:
         graph = build_planner(PlannerDeps(engine, router, recorded.http, NOW, embeddings), saver)
 
-        paused = await graph.ainvoke(state, config)
+        finished = await graph.ainvoke(state, config)
 
-        assert "__interrupt__" in paused
-        (proposal,) = await planner_db.proposals(engine, status="proposed")
-        assert proposal.profile["keywords"] == ["safety car", "engine penalty", "grid"]
-        sources = {(s["type"], s["locator"]) for s in proposal.profile["sources"]}
-        assert sources == {
-            ("rss", f"{SITE}blog/feed.xml"),
-            ("arxiv", 'abs:"open-weight"'),
-            ("github_releases", "vllm-project/vllm"),
-            ("hackernews", "open weights"),
-        }
-        assert not any("insecure" in str(r.url) for r in recorded.requests)
-        assert not any("theguardian" in str(r.url) for r in recorded.requests)
-
-        await graph.ainvoke(
-            Command(resume={"decision": "approve", "comment": "ok", "by": "dan review"}), config
-        )
-
+    assert "__interrupt__" not in finished
+    (proposal,) = await planner_db.proposals(engine)
+    assert proposal.status == "approved"
+    assert proposal.profile["keywords"] == ["safety car", "engine penalty", "grid"]
+    sources = {(s["type"], s["locator"]) for s in proposal.profile["sources"]}
+    assert sources == {
+        ("rss", f"{SITE}blog/feed.xml"),
+        ("arxiv", 'abs:"open-weight"'),
+        ("github_releases", "vllm-project/vllm"),
+        ("hackernews", "open weights"),
+    }
+    (feed,) = [s for s in proposal.profile["sources"] if s["type"] == "rss"]
+    assert feed["readable_share"] == 1.0
+    dropped = {d["locator"]: d["reason"] for d in proposal.profile["dropped"]}
+    assert dropped["http://insecure.example.com/"] == "not an https address"
+    assert dropped[GUARDIAN] == "an excluded publisher"
+    assert not any("insecure" in str(r.url) for r in recorded.requests)
+    assert not any("theguardian" in str(r.url) for r in recorded.requests)
     async with engine.connect() as connection:
         status = (
             await connection.execute(select(Topic.status).where(Topic.slug == "demo"))
@@ -141,15 +140,15 @@ async def test_a_plan_waits_for_approval_then_activates_the_topic(
                 .where(Topic.slug == "demo")
             )
         ).scalars()
+        decided = (await connection.execute(select(TopicProfile.decided_by))).scalar_one()
         assert status == "active"
         assert set(linked) == {locator for _, locator in sources}
-    (approved,) = await planner_db.proposals(engine, status="approved")
-    assert approved.id == proposal.id
-    # One readable feed is fewer than three, so the planner asked once more for sites.
-    assert router.calls == 2
+    assert decided == "automatic"
+    # One feed is enough here, so the planner did not ask for more sites.
+    assert router.calls == 1
 
 
-async def test_a_rejected_plan_leaves_the_topic_as_it_was(
+async def test_a_plan_with_too_few_readable_feeds_is_rejected_and_the_topic_stays_a_draft(
     engine: AsyncEngine,
     database_url: str,
     embeddings: Embeddings,
@@ -164,20 +163,21 @@ async def test_a_rejected_plan_leaves_the_topic_as_it_was(
         )
         await graph.ainvoke(state, config)
 
-        await graph.ainvoke(
-            Command(resume={"decision": "reject", "comment": "too broad", "by": "dan review"}),
-            config,
-        )
-
     async with engine.connect() as connection:
         status = (
             await connection.execute(select(Topic.status).where(Topic.slug == "demo"))
         ).scalar_one()
         sources = (await connection.execute(select(Source.id))).all()
-    assert status == "draft"
-    assert sources == []
+        comment, decided = (
+            await connection.execute(select(TopicProfile.decision_comment, TopicProfile.decided_by))
+        ).one()
+    assert (status, sources) == ("draft", [])
     (rejected,) = await planner_db.proposals(engine, status="rejected")
     assert rejected.profile["sources"]
+    assert comment == "We found 1 news feed we may read on this topic; it needs 3."
+    assert decided == "automatic"
+    # One readable feed is fewer than three, so the planner asked once more for sites.
+    assert router.calls == 2
 
 
 async def test_a_feed_whose_pages_a_model_may_not_read_is_not_proposed(
@@ -198,7 +198,7 @@ async def test_a_feed_whose_pages_a_model_may_not_read_is_not_proposed(
         )
         await graph.ainvoke(state, config)
 
-    (proposal,) = await planner_db.proposals(engine, status="proposed")
+    (proposal,) = await planner_db.proposals(engine)
     kinds = [s["type"] for s in proposal.profile["sources"]]
     assert "rss" not in kinds
     assert kinds == ["arxiv", "github_releases", "hackernews"]
@@ -249,7 +249,7 @@ async def test_a_feed_whose_headlines_are_closest_to_the_topic_is_kept_without_k
         )
         await build_planner(deps, saver).ainvoke(state, {"configurable": {"thread_id": thread_id}})
 
-    (proposal,) = await planner_db.proposals(engine, status="proposed")
+    (proposal,) = await planner_db.proposals(engine)
     (feed,) = proposal.profile["sources"]
     assert feed["locator"] == f"{SITE}blog/feed.xml"
     assert feed["match_share"] == 0.0
@@ -290,7 +290,7 @@ async def test_too_few_readable_feeds_ask_the_model_for_other_sites_with_the_rea
     assert "block AI crawlers" in first_system
     assert f"- {BLOCKED}: its robots.txt disallows us" in second_user
     assert f"- {NO_FEED}: advertises no feed, nor serves one at the usual paths" in second_user
-    (proposal,) = await planner_db.proposals(engine, status="proposed")
+    (proposal,) = await planner_db.proposals(engine)
     assert [s["locator"] for s in proposal.profile["sources"]] == [f"{SITE}blog/feed.xml"]
     dropped = {d["locator"]: d["reason"] for d in proposal.profile["dropped"]}
     assert dropped[BLOCKED] == "its robots.txt disallows us"
@@ -310,12 +310,11 @@ async def test_the_planner_stops_after_its_second_round(
         graph = build_planner(
             PlannerDeps(engine, router, web(unusable()).http, NOW, embeddings), saver
         )
-        paused = await graph.ainvoke(state, config)
+        await graph.ainvoke(state, config)
 
-    assert "__interrupt__" in paused
     assert router.calls == 2
-    (proposal,) = await planner_db.proposals(engine, status="proposed")
-    assert proposal.profile["sources"] == []
+    (proposal,) = await planner_db.proposals(engine)
+    assert (proposal.status, proposal.profile["sources"]) == ("rejected", [])
     assert {d["locator"] for d in proposal.profile["dropped"]} == {
         BLOCKED,
         NO_FEED,
@@ -323,39 +322,15 @@ async def test_the_planner_stops_after_its_second_round(
     }
 
 
-async def test_a_plan_without_sources_can_be_rejected_but_not_approved(
-    engine: AsyncEngine,
-    database_url: str,
-    embeddings: Embeddings,
-    web: Callable[..., Any],
-) -> None:
-    state, config = await start(engine)
-    async with checkpointer(database_url) as saver:
-        graph = build_planner(
-            PlannerDeps(engine, FakeRouter(SITES_ONLY), web(unusable()).http, NOW, embeddings),
-            saver,
-        )
-        await graph.ainvoke(state, config)
-        (proposal,) = await planner_db.proposals(engine, status="proposed")
-
-        with pytest.raises(EmptyPlanError):
-            await decide_plan(engine, graph, proposal.id, "approve", "", by="dan review")
-        await decide_plan(engine, graph, proposal.id, "reject", "nothing usable", by="dan review")
-
-    (rejected,) = await planner_db.proposals(engine, status="rejected")
-    assert rejected.id == proposal.id
-
-
-@asynccontextmanager
-async def reader_added_topic(
+async def reader_adds_chess(
     engine: AsyncEngine,
     database_url: str,
     embeddings: Embeddings,
     web: Callable[..., Any],
     fixture: Callable[[str], bytes],
-) -> AsyncIterator[tuple[int, int, Any]]:
-    """A reader who follows topics in slots 1 and 2 adds "Chess", and the Topic Planner proposes
-    its plan: the reader's id, the plan's id and the graph that decides it."""
+) -> int:
+    """A reader who follows topics in slots 1 and 2 adds "Chess", and the Topic Planner plans it
+    and decides: the reader's id."""
     await sync_catalog(
         engine,
         Catalog.model_validate(
@@ -381,25 +356,24 @@ async def reader_added_topic(
     state = {"topic_id": topic.id, "slug": slug, "name": "Chess", "description": "Chess"}
     async with checkpointer(database_url) as saver:
         deps = PlannerDeps(engine, FakeRouter(), web(site(fixture)).http, NOW, embeddings)
-        graph = build_planner(deps, saver)
-        await graph.ainvoke(
+        await build_planner(deps, saver).ainvoke(
             {**state, "version": 1, "thread_id": thread_id},
             {"configurable": {"thread_id": thread_id}},
         )
-        (proposal,) = await planner_db.proposals(engine, status="proposed")
-        yield session.reader_id, proposal.id, graph
+    return session.reader_id
 
 
-async def test_an_approved_topic_a_reader_added_joins_their_topics(
+async def test_a_topic_a_reader_added_joins_their_topics_when_it_goes_live(
     engine: AsyncEngine,
     database_url: str,
     embeddings: Embeddings,
     web: Callable[..., Any],
     fixture: Callable[[str], bytes],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async with reader_added_topic(engine, database_url, embeddings, web, fixture) as added:
-        reader_id, plan_id, graph = added
-        await decide_plan(engine, graph, plan_id, "approve", "", by="dan review")
+    monkeypatch.setattr(topic_planner, "MIN_FEEDS", 1)
+
+    reader_id = await reader_adds_chess(engine, database_url, embeddings, web, fixture)
 
     topics = await accounts.followed(engine, reader_id)
     assert sorted((t.slug, t.slot) for t in topics) == [("chess", 3), ("demo", 1), ("other", 2)]
@@ -414,62 +388,11 @@ async def test_a_rejected_plan_tells_the_reader_who_added_the_topic_why(
     web: Callable[..., Any],
     fixture: Callable[[str], bytes],
 ) -> None:
-    async with reader_added_topic(engine, database_url, embeddings, web, fixture) as added:
-        reader_id, plan_id, graph = added
-        await decide_plan(engine, graph, plan_id, "reject", "Too few sources.", by="dan review")
+    reader_id = await reader_adds_chess(engine, database_url, embeddings, web, fixture)
 
     (mine,) = await accounts.suggestions(engine, reader_id)
-    assert (mine.status, mine.reason) == ("declined", "Too few sources.")
+    assert (mine.status, mine.reason) == (
+        "declined",
+        "We found 1 news feed we may read on this topic; it needs 3.",
+    )
     assert sorted(t.slug for t in await accounts.followed(engine, reader_id)) == ["demo", "other"]
-
-
-async def test_the_editor_reviews_a_plan_at_admin(
-    engine: AsyncEngine,
-    database_url: str,
-    embeddings: Embeddings,
-    web: Callable[..., Any],
-    fixture: Callable[[str], bytes],
-    access: Any,
-) -> None:
-    state, config = await start(engine)
-    async with checkpointer(database_url) as saver:
-        graph = build_planner(
-            PlannerDeps(engine, FakeRouter(), web(site(fixture)).http, NOW, embeddings), saver
-        )
-        await graph.ainvoke(state, config)
-    app = create_app(Settings(_env_file=None, database_url=database_url))
-    app.state.engine = engine  # ASGITransport does not run the lifespan
-    app.state.access = access.verifier
-    editor = {"Cf-Access-Jwt-Assertion": access.token("editor@example.com")}
-
-    transport = httpx2.ASGITransport(app=app)
-    async with httpx2.AsyncClient(transport=transport, base_url="http://test") as client:
-        (plan,) = (await client.get("/api/v1/admin/plans", headers=editor)).json()
-        approved = await client.post(
-            f"/api/v1/admin/plans/{plan['id']}/decision",
-            json={"decision": "approve", "comment": "good feeds"},
-            headers=editor,
-        )
-        again = await client.post(
-            f"/api/v1/admin/plans/{plan['id']}/decision",
-            json={"decision": "reject"},
-            headers=editor,
-        )
-        left = (await client.get("/api/v1/admin/plans", headers=editor)).json()
-
-    assert (plan["topic"], plan["name"], plan["version"]) == ("demo", "Demo", 1)
-    assert plan["keywords"] == ["safety car", "engine penalty", "grid"]
-    (feed,) = [s for s in plan["sources"] if s["type"] == "rss"]
-    assert feed["readable_share"] == 1.0
-    dropped = {d["locator"]: d["reason"] for d in plan["dropped"]}
-    assert dropped["http://insecure.example.com/"] == "not an https address"
-    assert dropped[GUARDIAN] == "an excluded publisher"
-    assert approved.json() == {"status": "approved"}
-    assert again.status_code == 409
-    assert left == []
-    async with engine.connect() as connection:
-        status = (
-            await connection.execute(select(Topic.status).where(Topic.slug == "demo"))
-        ).scalar_one()
-        decided = (await connection.execute(select(TopicProfile.decided_by))).scalar_one()
-    assert (status, decided) == ("active", "editor@example.com")

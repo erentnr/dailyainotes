@@ -8,14 +8,12 @@ import httpx2
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from langchain_core.embeddings import Embeddings
-from langgraph.types import Command
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
 from typer.testing import CliRunner
 
 from dailyainotes.api.app import create_app
-from dailyainotes.api.deps import story_deps
 from dailyainotes.cli import app
 from dailyainotes.db import editorial as db
 from dailyainotes.db.checkpoints import checkpointer
@@ -32,7 +30,7 @@ from dailyainotes.db.tables import (
 )
 from dailyainotes.domain.chunking import heading_chunk
 from dailyainotes.graphs import scout as scout_graph
-from dailyainotes.graphs.edition import decide_note, run_edition
+from dailyainotes.graphs.edition import run_edition
 from dailyainotes.graphs.scout import Relevance, ScoutDeps, build_scout
 from dailyainotes.graphs.story import (
     Brief,
@@ -318,7 +316,7 @@ async def test_scout_stops_asking_after_the_share_and_the_spare_checks(
     assert router.calls["scout"] == 1
 
 
-async def test_a_planted_number_is_rewritten_and_the_note_waits_for_approval(
+async def test_a_planted_number_is_rewritten_and_the_note_is_published_without_a_review(
     engine: AsyncEngine, database_url: str, embeddings: Embeddings
 ) -> None:
     topic_id = await seed(engine, embeddings)
@@ -335,11 +333,10 @@ async def test_a_planted_number_is_rewritten_and_the_note_waits_for_approval(
     async with checkpointer(database_url) as saver:
         graph = build_story_graph(StoryDeps(engine, router, embeddings), saver)
 
-        paused = await graph.ainvoke({"story_id": story_id, "note_id": note_id}, config)
+        finished = await graph.ainvoke({"story_id": story_id, "note_id": note_id}, config)
 
-        assert "__interrupt__" in paused
+        assert "__interrupt__" not in finished
         assert "The number 5.1 is not in the cited evidence" in router.prompts["writer"][1]
-        assert (await note_row(engine, note_id)).status == "awaiting_approval"
         _, citations, claims = await db.version_detail(engine, note_id, 2)
         assert [(c.marker, c.publisher) for c in citations] == [
             (1, "Fia"),
@@ -354,10 +351,6 @@ async def test_a_planted_number_is_rewritten_and_the_note_waits_for_approval(
         # Planted and caught by code, so no model checked the first draft.
         assert router.calls == {"researcher": 1, "writer": 2, "extractor": 1, "verifier": 1}
 
-        await graph.ainvoke(
-            Command(resume={"decision": "approve", "comment": "ok", "by": "dan review"}), config
-        )
-
     note = await note_row(engine, note_id)
     assert (note.status, note.published_version) == ("published", 2)
     # Indexed for Ask, without its markers.
@@ -369,7 +362,7 @@ async def test_a_planted_number_is_rewritten_and_the_note_waits_for_approval(
     assert (approval.decision, approval.version, approval.decided_by) == (
         "approve",
         2,
-        "dan review",
+        "automatic",
     )
 
 
@@ -403,9 +396,6 @@ async def test_where_independent_publishers_disagree_the_published_note_says_so(
     async with checkpointer(database_url) as saver:
         graph = build_story_graph(StoryDeps(engine, router, embeddings), saver)
         await graph.ainvoke({"story_id": story_id, "note_id": note_id}, config)
-        await graph.ainvoke(
-            Command(resume={"decision": "approve", "comment": "", "by": "dan review"}), config
-        )
     app = create_app(Settings(_env_file=None))
     app.state.engine = engine  # ASGITransport does not run the lifespan
     transport = httpx2.ASGITransport(app=app)
@@ -421,7 +411,7 @@ async def test_where_independent_publishers_disagree_the_published_note_says_so(
     assert "The winning margin" in router.prompts["writer"][0]
 
 
-async def test_a_weak_claim_reaches_review_after_two_rewrites_and_can_be_rejected(
+async def test_a_weak_claim_is_published_with_its_verdict_after_two_rewrites(
     engine: AsyncEngine, database_url: str, embeddings: Embeddings
 ) -> None:
     topic_id = await seed(engine, embeddings)
@@ -445,14 +435,9 @@ async def test_a_weak_claim_reaches_review_after_two_rewrites_and_can_be_rejecte
         assert "is weak: Only 1 independent origin supports it" in router.prompts["writer"][2]
         _, _, claims = await db.version_detail(engine, note_id, 3)
         assert [c.verdict for c in claims] == ["supported", "supported", "weak"]
-        assert (await note_row(engine, note_id)).status == "awaiting_approval"
-
-        await graph.ainvoke(
-            Command(resume={"decision": "reject", "comment": "weak", "by": "dan review"}), config
-        )
 
     note = await note_row(engine, note_id)
-    assert (note.status, note.published_version) == ("rejected", None)
+    assert (note.status, note.published_version) == ("published", 3)
 
 
 async def test_an_edition_resumes_where_the_models_ran_out_and_runs_once_a_day(
@@ -477,7 +462,7 @@ async def test_an_edition_resumes_where_the_models_ran_out_and_runs_once_a_day(
             slug="f1",
             day=day,
         )
-        assert (failed.status, failed.stories, failed.waiting) == ("failed", 3, [])
+        assert (failed.status, failed.stories, failed.published) == ("failed", 3, [])
         assert len(failed.errors) == 2
 
         resumed = await run_edition(
@@ -488,7 +473,7 @@ async def test_an_edition_resumes_where_the_models_ran_out_and_runs_once_a_day(
             slug="f1",
             day=day,
         )
-        assert (resumed.status, len(resumed.waiting)) == ("done", 2)
+        assert (resumed.status, len(resumed.published)) == ("done", 2)
         # Each story graph resumed at the verifier; nothing before it ran again.
         assert working.calls == {"verifier": 2}
 
@@ -502,13 +487,13 @@ async def test_an_edition_resumes_where_the_models_ran_out_and_runs_once_a_day(
         )
         assert again.status == "skipped"
 
-    notes = await db.notes(engine, status="awaiting_approval")
+    notes = await db.notes(engine, status="published")
     assert len(notes) == 2
     assert len({n.slug for n in notes}) == 2
 
 
 @pytest.mark.usefixtures("settings_from_env")
-async def test_the_owner_reads_and_approves_a_note_with_dan_review(
+async def test_the_owner_reads_and_withdraws_a_note_with_dan_review(
     engine: AsyncEngine,
     database_url: str,
     embeddings: Embeddings,
@@ -530,29 +515,37 @@ async def test_the_owner_reads_and_approves_a_note_with_dan_review(
             {"story_id": story_id, "note_id": note_id}, {"configurable": {"thread_id": "note:1"}}
         )
     monkeypatch.setenv("DATABASE_URL", database_url)
-    # Approving indexes the note; the stand-in keeps the real model (and the network) out.
-    monkeypatch.setattr("dailyainotes.cli.LocalEmbeddings", lambda cache_dir: embeddings)
 
-    def dan(*args: str) -> str:
-        result = CliRunner().invoke(app, list(args))
-        assert result.exit_code == 0, result.output
-        return result.output
+    def dan(*args: str) -> Any:
+        return CliRunner().invoke(app, list(args))
 
     # The command line runs its own event loop, so it gets a thread of its own.
-    listed = await anyio.to_thread.run_sync(dan, "review", "list")
     shown = await anyio.to_thread.run_sync(dan, "review", "show", "note-1")
-    await anyio.to_thread.run_sync(dan, "review", "approve", "note-1")
+    withdrawn = await anyio.to_thread.run_sync(
+        dan, "review", "withdraw", "note-1", "--comment", "off topic"
+    )
+    again = await anyio.to_thread.run_sync(dan, "review", "withdraw", "note-1")
 
-    assert "note-1" in listed
-    assert "2/3 claims supported" in listed
-    assert "Why it matters: The win extends his lead in the championship [2][3]." in shown
-    assert "[2] Wire" in shown
-    assert "weak" in shown
-    note = await note_row(engine, note_id)
-    assert (note.status, note.published_version) == ("published", 3)
+    assert "· published ·" in shown.output
+    assert "Why it matters: The win extends his lead in the championship [2][3]." in shown.output
+    assert "[2] Wire" in shown.output
+    assert "weak" in shown.output
+    assert (withdrawn.exit_code, withdrawn.output.strip()) == (0, "note-1 withdrawn.")
+    assert again.exit_code != 0
+    assert "note-1 is not published" in again.output
+    assert (await note_row(engine, note_id)).status == "withdrawn"
+    async with engine.connect() as connection:
+        decisions = (
+            await connection.execute(
+                select(Approval.decision, Approval.comment, Approval.decided_by).order_by(
+                    Approval.id
+                )
+            )
+        ).all()
+    assert decisions == [("approve", "", "automatic"), ("withdraw", "off topic", "dan review")]
 
 
-async def test_the_editor_approves_a_note_at_admin_and_the_site_shows_it(
+async def test_the_editor_withdraws_a_note_at_admin_and_the_site_drops_it(
     engine: AsyncEngine, database_url: str, embeddings: Embeddings, access: Any
 ) -> None:
     topic_id = await seed(engine, embeddings)
@@ -565,15 +558,13 @@ async def test_the_editor_approves_a_note_at_admin_and_the_site_shows_it(
             "verifier": [verdicts([1, 2], [1, 2], [2, 3])],
         }
     )
-    deps = StoryDeps(engine, router, embeddings)
     async with checkpointer(database_url) as saver:
-        await build_story_graph(deps, saver).ainvoke(
+        await build_story_graph(StoryDeps(engine, router, embeddings), saver).ainvoke(
             {"story_id": story_id, "note_id": note_id}, {"configurable": {"thread_id": "note:1"}}
         )
     site = create_app(Settings(_env_file=None, database_url=database_url))
     site.state.engine = engine  # ASGITransport does not run the lifespan
     site.state.access = access.verifier  # the team's keys, without the network
-    site.dependency_overrides[story_deps] = lambda: deps
     owner = {"Cf-Access-Jwt-Assertion": access.token("Editor@Example.com")}
     stranger = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     forged = {"Cf-Access-Jwt-Assertion": access.token(key=stranger)}
@@ -581,29 +572,32 @@ async def test_the_editor_approves_a_note_at_admin_and_the_site_shows_it(
     transport = httpx2.ASGITransport(app=site)
     async with httpx2.AsyncClient(transport=transport, base_url="http://test") as c:
         anonymous = await c.get("/api/v1/admin/notes")
-        refused = await c.get("/api/v1/admin/notes", headers=forged)
+        refused = await c.post(f"/api/v1/admin/notes/{note_id}/withdraw", json={}, headers=forged)
         me = (await c.get("/api/v1/admin/me", headers=owner)).json()
-        (waiting,) = (await c.get("/api/v1/admin/notes", headers=owner)).json()
-        decided = await c.post(
-            f"/api/v1/admin/notes/{note_id}/decision", json={"decision": "approve"}, headers=owner
+        (listed,) = (await c.get("/api/v1/admin/notes", headers=owner)).json()
+        before = (await c.get("/api/v1/notes?date=2026-10-13")).json()
+        withdrawn = await c.post(
+            f"/api/v1/admin/notes/{note_id}/withdraw",
+            json={"comment": "wrong race"},
+            headers=owner,
         )
-        again = await c.post(
-            f"/api/v1/admin/notes/{note_id}/decision", json={"decision": "approve"}, headers=owner
-        )
-        published = (await c.get("/api/v1/notes?date=2026-10-13")).json()
+        again = await c.post(f"/api/v1/admin/notes/{note_id}/withdraw", json={}, headers=owner)
+        after = (await c.get("/api/v1/notes?date=2026-10-13")).json()
+        page = await c.get("/api/v1/notes/slug")
 
     assert (anonymous.status_code, refused.status_code) == (401, 401)
     assert me == {"email": "editor@example.com"}
-    assert waiting["title"] == "Verstappen wins in Austin"
-    assert [c["verdict"] for c in waiting["claims"]] == ["supported"] * 3
-    assert decided.json() == {"status": "published"}
+    assert (listed["id"], listed["title"]) == (note_id, "Verstappen wins in Austin")
+    assert (listed["supported"], listed["claims"]) == (3, 3)
+    assert len(before["notes"]) == 1
+    assert withdrawn.json() == {"status": "withdrawn"}
     assert again.status_code == 409
-    (card,) = published["notes"]
-    assert (card["sources"], card["supported"], card["claims"]) == (3, 3, 3)
-    assert sorted(card["publishers"]) == ["Blog", "Fia", "Wire"]
+    assert (after["notes"], page.status_code) == ([], 404)
     async with engine.connect() as connection:
-        approval = (await connection.execute(select(Approval))).one()
-    assert approval.decided_by == "editor@example.com"
+        withdrawal = (
+            await connection.execute(select(Approval).where(Approval.decision == "withdraw"))
+        ).one()
+    assert (withdrawal.comment, withdrawal.decided_by) == ("wrong race", "editor@example.com")
 
 
 async def test_a_note_shows_how_it_was_made_and_the_reports_it_did_not_cite(
@@ -627,12 +621,10 @@ async def test_a_note_shows_how_it_was_made_and_the_reports_it_did_not_cite(
             "verifier": [verdicts([1, 2], [1, 2], [2, 3])],
         }
     )
-    deps = StoryDeps(engine, router, embeddings)
     async with checkpointer(database_url) as saver:
-        await build_story_graph(deps, saver).ainvoke(
+        await build_story_graph(StoryDeps(engine, router, embeddings), saver).ainvoke(
             {"story_id": story_id, "note_id": note_id}, {"configurable": {"thread_id": "note:1"}}
         )
-    await decide_note(deps, database_url, note_id, "approve", "", by="editor@example.com")
     site = create_app(Settings(_env_file=None, database_url=database_url))
     site.state.engine = engine  # ASGITransport does not run the lifespan
 

@@ -1,7 +1,8 @@
-"""The Topic Planner graph: a catalog topic becomes keywords, entities and validated sources,
-then waits for the owner's approval.
+"""The Topic Planner graph: a topic becomes keywords, entities and validated sources. Nobody
+reviews the plan first (ADR 0008): it goes live with at least MIN_FEEDS readable, on-topic
+feeds, and is rejected with the reason otherwise.
 
-    draft_profile → discover → validate → propose → review (interrupt) → apply
+    draft_profile → discover → validate → propose → decide
                        ↑           ↓
                        more_sites ←  (fewer than MIN_FEEDS readable feeds, once)
 
@@ -13,7 +14,7 @@ plain JSON (dicts and lists), so checkpoints never deserialize our own classes.
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Literal, Protocol, TypedDict
+from typing import Any, Protocol, TypedDict
 from urllib.parse import urljoin
 
 import structlog
@@ -21,11 +22,11 @@ from langchain_core.embeddings import Embeddings
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.types import interrupt
 from pydantic import BaseModel, Field
 
 from dailyainotes.db import planner as db
 from dailyainotes.db.engine import AsyncEngine
+from dailyainotes.domain.editorial import AUTOMATIC
 from dailyainotes.domain.exclusions import is_excluded
 from dailyainotes.domain.matching import match_share, nearest_share
 from dailyainotes.sources.connectors import SourceSpec, fetch_source
@@ -94,13 +95,6 @@ class MoreSites(BaseModel):
     candidate_sites: list[str] = Field(default_factory=list, max_length=MAX_SITES)
 
 
-class Decision(TypedDict):
-    decision: Literal["approve", "reject"]
-    # Who decided: the editor's email from /admin, or "dan review".
-    by: str
-    comment: str
-
-
 class PlannerState(TypedDict, total=False):
     topic_id: int
     slug: str
@@ -119,7 +113,6 @@ class PlannerState(TypedDict, total=False):
     dropped_sites: list[dict[str, str]]
     sources: list[dict[str, Any]]
     proposal_id: int
-    decision: Decision
 
 
 class StructuredModel(Protocol):
@@ -134,8 +127,7 @@ class PlannerDeps:
     router: StructuredModel
     http: Http
     now: datetime
-    # None when the graph only resumes with the editor's decision, which embeds nothing.
-    embeddings: Embeddings | None = None
+    embeddings: Embeddings
 
 
 def build_planner(
@@ -173,15 +165,12 @@ def build_planner(
     async def validate(state: PlannerState) -> PlannerState:
         draft = ProfileDraft.model_validate(state["draft"])
         terms = draft.keywords + draft.entities
-        embeddings = deps.embeddings
-        if embeddings is None:
-            raise RuntimeError("planning needs embeddings; only resuming a decision does not")
         texts = await db.topic_texts(deps.engine)
         ids = list(texts)
-        topics = [await embeddings.aembed_query(texts[i]) for i in ids]
+        topics = [await deps.embeddings.aembed_query(texts[i]) for i in ids]
 
         async def closest(items: list[str]) -> float:
-            vectors = await embeddings.aembed_documents(items)
+            vectors = await deps.embeddings.aembed_documents(items)
             return nearest_share(vectors, topics, ids.index(state["topic_id"]))
 
         # With no other topic, every headline is closest to this one: keywords alone decide.
@@ -218,7 +207,7 @@ def build_planner(
             "negative_keywords": draft.negative_keywords,
             "entities": draft.entities,
             "sources": state["sources"],
-            # For the editor: what was tried and could not be used, and why.
+            # What was tried and could not be used, and why.
             "dropped": dropped(state),
         }
         proposal_id = await db.save_proposal(
@@ -226,30 +215,27 @@ def build_planner(
         )
         return {"proposal_id": proposal_id}
 
-    def review(state: PlannerState) -> PlannerState:
-        # Pauses the graph; `dan review approve|reject` resumes it with the decision.
-        decision: Decision = interrupt({"proposal_id": state["proposal_id"], "slug": state["slug"]})
-        return {"decision": decision}
-
-    async def apply(state: PlannerState) -> PlannerState:
-        decision = state["decision"]
-        if decision["decision"] == "approve":
-            await db.approve(deps.engine, state["proposal_id"], decision["comment"], decision["by"])
+    async def decide(state: PlannerState) -> PlannerState:
+        feeds = [s for s in state["sources"] if s["type"] == "rss"]
+        if len(feeds) >= MIN_FEEDS:
+            await db.approve(deps.engine, state["proposal_id"], "", AUTOMATIC)
         else:
-            await db.reject(deps.engine, state["proposal_id"], decision["comment"], decision["by"])
+            # A reader who added the topic sees this (ADR 0006).
+            found = f"{len(feeds)} news feed{'' if len(feeds) == 1 else 's'}"
+            reason = f"We found {found} we may read on this topic; it needs {MIN_FEEDS}."
+            await db.reject(deps.engine, state["proposal_id"], reason, AUTOMATIC)
         return {}
 
     graph = StateGraph(PlannerState)
-    for node in (draft_profile, discover, validate, more_sites, propose, review, apply):
+    for node in (draft_profile, discover, validate, more_sites, propose, decide):
         graph.add_node(node)
     graph.add_edge(START, "draft_profile")
     graph.add_edge("draft_profile", "discover")
     graph.add_edge("discover", "validate")
     graph.add_conditional_edges("validate", enough, ["more_sites", "propose"])
     graph.add_edge("more_sites", "discover")
-    graph.add_edge("propose", "review")
-    graph.add_edge("review", "apply")
-    graph.add_edge("apply", END)
+    graph.add_edge("propose", "decide")
+    graph.add_edge("decide", END)
     return graph.compile(checkpointer=checkpointer)
 
 

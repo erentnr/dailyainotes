@@ -111,10 +111,6 @@ async def proposals(engine: AsyncEngine, *, status: str | None = None) -> list[P
         return [Proposal(*row) for row in await connection.execute(statement)]
 
 
-async def proposal(engine: AsyncEngine, proposal_id: int) -> Proposal | None:
-    return next((p for p in await proposals(engine) if p.id == proposal_id), None)
-
-
 async def approve(engine: AsyncEngine, proposal_id: int, comment: str, by: str) -> None:
     """Add the proposed sources, activate the topic and mark the proposal approved."""
     async with engine.begin() as connection:

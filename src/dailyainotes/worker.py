@@ -37,7 +37,7 @@ async def daily_edition(timestamp: int) -> None:
             status=report.status,
             collected=report.collected,
             stories=report.stories,
-            waiting=len(report.waiting),
+            published=len(report.published),
             errors=report.errors,
         )
 
@@ -64,8 +64,8 @@ async def purge_sign_ins(timestamp: int) -> None:
         await engine.dispose()
 
 
-# Queued by /admin when the editor accepts a suggestion (queue.PLAN_TOPIC names it). A retry is
-# safe: a failed plan saved no proposal.
+# Queued when a reader adds a topic (queue.PLAN_TOPIC names it); the plan decides itself (ADR
+# 0008). A retry is safe: a failed plan saved no proposal.
 @app.task(retry=procrastinate.RetryStrategy(max_attempts=2, wait=600))
 async def plan_topic(slug: str) -> None:
     settings = get_settings()
@@ -74,7 +74,7 @@ async def plan_topic(slug: str) -> None:
         embeddings = LocalEmbeddings(settings.embedding_cache_dir)
         async with planning.planner(settings, engine, embeddings) as graph:
             proposal = await planning.plan_topic(engine, graph, slug)
-        log.info("topic_planned", topic=slug, proposal=proposal.id)
+        log.info("topic_planned", topic=slug, proposal=proposal.id, status=proposal.status)
     finally:
         await engine.dispose()
 

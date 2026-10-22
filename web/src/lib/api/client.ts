@@ -6,9 +6,8 @@ export type NoteCard = components["schemas"]["NoteCard"];
 export type NoteDetail = components["schemas"]["NoteDetail"];
 export type Topic = components["schemas"]["Topic"];
 export type Stats = components["schemas"]["Stats"];
-export type Review = components["schemas"]["Review"];
+export type AdminNote = components["schemas"]["AdminNote"];
 export type Me = components["schemas"]["Me"];
-export type Plan = components["schemas"]["Plan"];
 export type Suggestion = components["schemas"]["Suggestion"];
 export type AskedQuestion = components["schemas"]["AskedQuestion"];
 

@@ -55,13 +55,3 @@ class DbLedger:
                 )
             ).one()
         return Usage(requests=requests, tokens=tokens)
-
-
-async def finish_waiting_runs(engine: AsyncEngine, thread_id: str, status: str) -> None:
-    """Close the run that paused this thread, once a decision resumes it."""
-    async with engine.begin() as connection:
-        await connection.execute(
-            update(AgentRun)
-            .where(AgentRun.thread_id == thread_id, AgentRun.status == "waiting")
-            .values(status=status, finished_at=func.now())
-        )

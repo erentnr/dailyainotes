@@ -2,10 +2,7 @@
 import { SIGN_OUT } from "../lib/admin";
 
 // The editor's pages, all behind Cloudflare Access (ADR 0003).
-const links = [
-  ["/admin", "Notes"],
-  ["/admin/plans", "Topic plans"],
-];
+const links = [["/admin", "Notes"]];
 const path = Astro.url.pathname.replace(/\/$/, "");
 ---
 

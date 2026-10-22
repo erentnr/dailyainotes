@@ -12,6 +12,8 @@ Verdict = Literal["supported", "weak", "unsupported", "contradicted"]
 ClaimKind = Literal["factual", "numeric", "attributed", "context"]
 
 MAX_REWRITES = 2
+# Who decided, on a note or a topic plan that nobody reviews first (ADR 0008).
+AUTOMATIC = "automatic"
 # A factual claim needs two independent origins, one at least this trusted, or one primary
 # source (INTENT.md, Architectural Constraints).
 TRUSTED = 0.7
@@ -111,9 +113,9 @@ def sole_publisher(evidence: list[tuple[str, str, float]]) -> str | None:
 
 
 def next_step(problems: list[str], verdicts: list[Verdict], rewrites: int) -> str:
-    """`write` for another attempt, `review` when the draft is clean or out of attempts."""
+    """`write` for another attempt, `publish` when the draft is clean or out of attempts."""
     clean = not problems and all(v == "supported" for v in verdicts)
-    return "review" if clean or rewrites >= MAX_REWRITES else "write"
+    return "publish" if clean or rewrites >= MAX_REWRITES else "write"
 
 
 def without_markers(text: str) -> str:

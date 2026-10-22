@@ -9,7 +9,6 @@ from starlette.datastructures import State
 
 from dailyainotes.ask import AskDeps
 from dailyainotes.db.runs import DbLedger
-from dailyainotes.graphs.story import StoryDeps
 from dailyainotes.llm.embeddings import LocalEmbeddings
 from dailyainotes.llm.providers import build_router
 from dailyainotes.llm.router import Router
@@ -36,7 +35,3 @@ def load_models(state: State) -> Models:
 
 def ask_deps(request: Request, loaded: Annotated[Models, Depends(models)]) -> AskDeps:
     return AskDeps(request.app.state.engine, loaded.embeddings, loaded.router)
-
-
-def story_deps(request: Request, loaded: Annotated[Models, Depends(models)]) -> StoryDeps:
-    return StoryDeps(request.app.state.engine, loaded.router, loaded.embeddings)

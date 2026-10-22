@@ -1,5 +1,5 @@
 """A topic's daily edition: Scout picks the stories, then each picked story runs its story
-graph until the note waits for the owner. A fixed sequence, so a function, not a graph.
+graph until the note is published. A fixed sequence, so a function, not a graph.
 
 Reruns are safe: a finished edition is skipped, Scout runs only until it has ranked the
 edition, and a story graph that stopped part-way resumes from its last checkpoint.
@@ -12,14 +12,13 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.types import Command
 
 from dailyainotes.db import editorial as db
 from dailyainotes.db.checkpoints import checkpointer
 from dailyainotes.db.engine import AsyncEngine, create_engine
 from dailyainotes.db.ingest import active_topic_slugs, purge_expired_content
 from dailyainotes.db.planner import topic as find_topic
-from dailyainotes.db.runs import DbLedger, finish_run, finish_waiting_runs, start_run
+from dailyainotes.db.runs import DbLedger, finish_run, start_run
 from dailyainotes.domain.editorial import slugify, story_shares
 from dailyainotes.graphs.scout import ScoutDeps, build_scout
 from dailyainotes.graphs.story import StoryDeps, StoryState, build_story_graph
@@ -39,10 +38,6 @@ class NoActiveTopicError(Exception):
     pass
 
 
-class NotAwaitingApprovalError(Exception):
-    pass
-
-
 @dataclass
 class EditionReport:
     slug: str
@@ -50,7 +45,7 @@ class EditionReport:
     status: str = "done"
     collected: int = 0
     stories: int = 0
-    waiting: list[int] = field(default_factory=list)
+    published: list[int] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
 
@@ -143,14 +138,14 @@ async def run_edition(
             report.errors.append(f"story {story_id}: {error}")
             continue
         if note_id is not None:
-            report.waiting.append(note_id)
+            report.published.append(note_id)
 
     report.status = "failed" if report.errors else "done"
     stats = {
         "collected": report.collected,
         "stories": report.stories,
         "picked": len(story_ids),
-        "waiting": len(report.waiting),
+        "published": len(report.published),
         "errors": report.errors,
     }
     await db.finish_edition(engine, edition_id, report.status, stats)
@@ -162,11 +157,11 @@ async def write_note(
     engine: AsyncEngine,
     story_id: int,
 ) -> int | None:
-    """Run the story's graph until its note waits for review; the note's id, or None when it
-    was already decided."""
+    """Run the story's graph until its note is published; the note's id, or None when it was
+    already finished."""
     existing = await db.note_for_story(engine, story_id)
     if existing and existing[1] != "drafting":
-        return existing[0] if existing[1] == "awaiting_approval" else None
+        return None
 
     thread_id = f"note:{story_id}"
     config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
@@ -187,23 +182,5 @@ async def write_note(
     except ModelsExhaustedError as error:
         await finish_run(engine, run_id, "failed", str(error))
         raise
-    await finish_run(engine, run_id, "waiting")
+    await finish_run(engine, run_id, "done")
     return note_id
-
-
-async def decide_note(
-    deps: StoryDeps, database_url: str, note_id: int, decision: str, comment: str, *, by: str
-) -> None:
-    """Resume the note's paused story graph with the owner's decision: `dan review` and
-    /admin both come here. Approving publishes the note and indexes it for Ask."""
-    found = await db.note_for_id(deps.engine, note_id)
-    if found is None or found[0] != "awaiting_approval":
-        status = found[0] if found else "missing"
-        raise NotAwaitingApprovalError(f"note-{note_id} is {status}, not awaiting approval")
-    thread_id = found[1]
-    async with checkpointer(database_url) as saver:
-        resume: Command[Any] = Command(resume={"decision": decision, "comment": comment, "by": by})
-        await build_story_graph(deps, saver).ainvoke(
-            resume, {"configurable": {"thread_id": thread_id}}
-        )
-    await finish_waiting_runs(deps.engine, thread_id, "done")

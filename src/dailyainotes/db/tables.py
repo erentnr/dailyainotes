@@ -277,7 +277,8 @@ class Note(Base):
     __tablename__ = "notes"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('drafting', 'awaiting_approval', 'published', 'rejected')", name="status"
+            "status IN ('drafting', 'awaiting_approval', 'published', 'rejected', 'withdrawn')",
+            name="status",
         ),
         Index("ix_notes_tsv", "tsv", postgresql_using="gin"),
         Index(
@@ -374,7 +375,9 @@ class ClaimCheck(Base):
 
 class Approval(Base):
     __tablename__ = "approvals"
-    __table_args__ = (CheckConstraint("decision IN ('approve', 'reject')", name="decision"),)
+    __table_args__ = (
+        CheckConstraint("decision IN ('approve', 'reject', 'withdraw')", name="decision"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     note_id: Mapped[int] = mapped_column(ForeignKey("notes.id", ondelete="CASCADE"))

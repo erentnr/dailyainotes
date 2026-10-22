@@ -1,9 +1,10 @@
-"""The story graph: one picked story becomes a cited, fact-checked note that waits for the
-owner's approval.
+"""The story graph: one picked story becomes a cited, fact-checked, published note. Nobody
+reviews it first (ADR 0008); its claims' verdicts are published with it, and the editor can
+withdraw it.
 
     research → write → check_citations ─(problems, rewrites left)→ write
                               └→ extract_claims → verify → gate ─(weak, rewrites left)→ write
-                                                             └→ review (interrupt) → publish
+                                                             └→ publish
 
 Four model calls on the happy path (research, write, extract, verify); every check that can
 be counted is code. Version n of a draft is its (n - 1)th rewrite, at most MAX_REWRITES.
@@ -11,18 +12,18 @@ be counted is code. Version n of a draft is its (n - 1)th rewrite, at most MAX_R
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal, TypedDict
+from typing import Any, TypedDict
 
 from langchain_core.embeddings import Embeddings
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.types import interrupt
 from pydantic import BaseModel, Field
 
 from dailyainotes.db import editorial as db
 from dailyainotes.db.engine import AsyncEngine
 from dailyainotes.domain.editorial import (
+    AUTOMATIC,
     MARKER,
     MAX_REWRITES,
     ClaimKind,
@@ -127,13 +128,6 @@ class Verdicts(BaseModel):
     verdicts: list[ClaimVerdict]
 
 
-class Decision(TypedDict):
-    decision: Literal["approve", "reject"]
-    comment: str
-    # Who decided: the editor's email from /admin, or "dan review".
-    by: str
-
-
 class StoryState(TypedDict, total=False):
     story_id: int
     note_id: int
@@ -145,7 +139,6 @@ class StoryState(TypedDict, total=False):
     draft: dict[str, Any]
     problems: list[str]
     claims: list[dict[str, Any]]
-    decision: Decision
 
 
 @dataclass(frozen=True)
@@ -336,38 +329,22 @@ def build_story_graph(
         verdicts = [c["verdict"] for c in state["claims"]]
         return next_step(state["problems"], verdicts, rewrites=state["version"] - 1)
 
-    async def review(state: StoryState) -> StoryState:
-        await db.set_status(deps.engine, state["note_id"], "awaiting_approval")
-        # Pauses the graph; `dan review approve|reject note-<id>` resumes it.
-        decision: Decision = interrupt({"note_id": state["note_id"], "version": state["version"]})
-        return {"decision": decision}
-
     async def publish(state: StoryState) -> StoryState:
-        decision = state["decision"]
-        await db.decide(
-            deps.engine,
-            state["note_id"],
-            state["version"],
-            decision["decision"],
-            decision["comment"],
-            decision["by"],
-        )
-        if decision["decision"] == "approve":
-            draft = state["draft"]
-            text = search_text(draft["title"], draft["body"], draft["why_it_matters"])
-            (vector,) = await deps.embeddings.aembed_documents([text])
-            await db.index_note(deps.engine, state["note_id"], text, vector)
+        await db.decide(deps.engine, state["note_id"], state["version"], "approve", "", AUTOMATIC)
+        draft = state["draft"]
+        text = search_text(draft["title"], draft["body"], draft["why_it_matters"])
+        (vector,) = await deps.embeddings.aembed_documents([text])
+        await db.index_note(deps.engine, state["note_id"], text, vector)
         return {}
 
     graph = StateGraph(StoryState)
-    for node in (research, write, check, extract_claims, verify, review, publish):
+    for node in (research, write, check, extract_claims, verify, publish):
         graph.add_node(node.__name__, node)
     graph.add_edge(START, "research")
     graph.add_edge("research", "write")
     graph.add_edge("write", "check")
     graph.add_conditional_edges("check", after_check, ["write", "extract_claims"])
     graph.add_edge("extract_claims", "verify")
-    graph.add_conditional_edges("verify", gate, ["write", "review"])
-    graph.add_edge("review", "publish")
+    graph.add_conditional_edges("verify", gate, ["write", "publish"])
     graph.add_edge("publish", END)
     return graph.compile(checkpointer=checkpointer)

@@ -1,5 +1,5 @@
-"""Running the Topic Planner for one topic, and resuming it with the editor's decision. `dan
-topics plan`, `dan review`, the worker and /admin all come here."""
+"""Running the Topic Planner for one topic: `dan topics plan` and the worker come here. The plan
+decides itself (ADR 0008)."""
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -7,12 +7,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 from langchain_core.embeddings import Embeddings
-from langgraph.types import Command
 
 from dailyainotes.db import planner as db
 from dailyainotes.db.checkpoints import checkpointer
 from dailyainotes.db.engine import AsyncEngine
-from dailyainotes.db.runs import DbLedger, finish_run, finish_waiting_runs, start_run
+from dailyainotes.db.runs import DbLedger, finish_run, start_run
 from dailyainotes.graphs.topic_planner import PlannerDeps, build_planner
 from dailyainotes.llm.providers import build_router
 from dailyainotes.llm.router import ModelsExhaustedError
@@ -25,20 +24,11 @@ class UnknownTopicError(Exception):
     pass
 
 
-class NotProposedError(Exception):
-    """The plan was already approved or rejected, or does not exist."""
-
-
-class EmptyPlanError(Exception):
-    """The plan keeps no source: approving it would make a topic active with nothing to read."""
-
-
 @asynccontextmanager
 async def planner(
-    settings: Settings, engine: AsyncEngine, embeddings: Embeddings | None = None
+    settings: Settings, engine: AsyncEngine, embeddings: Embeddings
 ) -> AsyncIterator[Any]:
-    """The Topic Planner graph with its models, HTTP client and checkpointer. Planning needs
-    `embeddings`; resuming a plan with the editor's decision does not."""
+    """The Topic Planner graph with its models, HTTP client and checkpointer."""
     router = build_router(settings, DbLedger(engine))
     try:
         async with create_http() as http, checkpointer(settings.database_url) as saver:
@@ -49,7 +39,8 @@ async def planner(
 
 
 async def plan_topic(engine: AsyncEngine, graph: Any, slug: str) -> db.Proposal:
-    """Run the planner until its proposal waits for the editor."""
+    """Run the planner to the end; the proposal comes back approved, with the topic live, or
+    rejected with the reason."""
     topic = await db.topic(engine, slug)
     if topic is None:
         raise UnknownTopicError(f"no topic {slug!r}")
@@ -70,23 +61,6 @@ async def plan_topic(engine: AsyncEngine, graph: Any, slug: str) -> db.Proposal:
     except ModelsExhaustedError as error:
         await finish_run(engine, run_id, "failed", str(error))
         raise
-    await finish_run(engine, run_id, "waiting")
+    await finish_run(engine, run_id, "done")
     (proposal,) = [p for p in await db.proposals(engine) if p.thread_id == thread_id]
     return proposal
-
-
-async def decide_plan(
-    engine: AsyncEngine, graph: Any, proposal_id: int, decision: str, comment: str, *, by: str
-) -> None:
-    """Resume the plan's paused graph: approving adds its sources and activates the topic."""
-    proposal = await db.proposal(engine, proposal_id)
-    if proposal is None or proposal.status != "proposed":
-        status = proposal.status if proposal else "missing"
-        raise NotProposedError(f"plan-{proposal_id} is {status}, not waiting for review")
-    if decision == "approve" and not proposal.profile["sources"]:
-        raise EmptyPlanError(
-            f"plan-{proposal_id} has no sources: reject it, or plan the topic again"
-        )
-    resume: Command[Any] = Command(resume={"decision": decision, "comment": comment, "by": by})
-    await graph.ainvoke(resume, {"configurable": {"thread_id": proposal.thread_id}})
-    await finish_waiting_runs(engine, proposal.thread_id, "done")

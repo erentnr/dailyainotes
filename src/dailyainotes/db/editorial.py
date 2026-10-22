@@ -374,11 +374,6 @@ async def save_claims(engine: AsyncEngine, version_id: int, claims: list[ClaimRo
             )
 
 
-async def set_status(engine: AsyncEngine, note_id: int, status: str) -> None:
-    async with engine.begin() as connection:
-        await connection.execute(update(Note).where(Note.id == note_id).values(status=status))
-
-
 async def decide(
     engine: AsyncEngine, note_id: int, version: int, decision: str, comment: str, by: str
 ) -> None:
@@ -397,6 +392,32 @@ async def decide(
                 "published_at": func.now(),
             }
         await connection.execute(update(Note).where(Note.id == note_id).values(**values))
+
+
+async def withdraw(engine: AsyncEngine, note_id: int, comment: str, by: str) -> bool:
+    """Take a published note off the site, Ask and the MCP server, and keep who did it and why
+    with the decisions (ADR 0008). False when the note is not published."""
+    async with engine.begin() as connection:
+        version = (
+            await connection.execute(
+                update(Note)
+                .where(Note.id == note_id, Note.status == "published")
+                .values(status="withdrawn")
+                .returning(Note.published_version)
+            )
+        ).scalar_one_or_none()
+        if version is None:
+            return False
+        await connection.execute(
+            insert(Approval).values(
+                note_id=note_id,
+                version=version,
+                decision="withdraw",
+                comment=comment,
+                decided_by=by,
+            )
+        )
+    return True
 
 
 async def index_note(

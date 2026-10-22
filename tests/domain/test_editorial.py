@@ -96,10 +96,10 @@ def test_the_model_saying_unsupported_is_kept() -> None:
 
 
 def test_a_clean_draft_goes_to_review_and_a_flawed_one_is_rewritten_twice_at_most() -> None:
-    assert next_step([], ["supported", "supported"], rewrites=0) == "review"
+    assert next_step([], ["supported", "supported"], rewrites=0) == "publish"
     assert next_step(["No citation"], ["supported"], rewrites=0) == "write"
     assert next_step([], ["supported", "weak"], rewrites=1) == "write"
-    assert next_step([], ["weak"], rewrites=2) == "review"
+    assert next_step([], ["weak"], rewrites=2) == "publish"
 
 
 def test_a_slug_is_the_date_and_the_title_in_ascii() -> None:

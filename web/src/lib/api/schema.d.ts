@@ -334,45 +334,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Waiting */
-        get: operations["waiting_api_v1_admin_notes_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/notes/{note_id}/decision": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Decide */
-        post: operations["decide_api_v1_admin_notes__note_id__decision_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/plans": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
         /**
-         * Plans
-         * @description Topic plans waiting for review.
+         * Published
+         * @description The latest published notes, newest first, so the editor can withdraw one.
          */
-        get: operations["plans_api_v1_admin_plans_get"];
+        get: operations["published_api_v1_admin_notes_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -381,7 +347,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/plans/{plan_id}/decision": {
+    "/api/v1/admin/notes/{note_id}/withdraw": {
         parameters: {
             query?: never;
             header?: never;
@@ -391,10 +357,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Decide On Plan
-         * @description Approving adds the plan's sources and makes the topic active.
+         * Withdraw
+         * @description Take the note off the site, Ask and the MCP server, keeping who did it and why.
          */
-        post: operations["decide_on_plan_api_v1_admin_plans__plan_id__decision_post"];
+        post: operations["withdraw_api_v1_admin_notes__note_id__withdraw_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -405,6 +371,26 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdminNote */
+        AdminNote: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Topic */
+            topic: string;
+            /**
+             * Edition Date
+             * Format: date
+             */
+            edition_date: string;
+            /** Title */
+            title: string;
+            /** Supported */
+            supported: number;
+            /** Claims */
+            claims: number;
+        };
         /** AskedQuestion */
         AskedQuestion: {
             /** Question */
@@ -419,27 +405,27 @@ export interface components {
             /** Notes */
             notes: components["schemas"]["CitedNote"][];
         };
+        /** Citation */
+        Citation: {
+            /** Marker */
+            marker: number;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+            /** Publisher */
+            publisher: string;
+            /** Published At */
+            published_at: string | null;
+            /** Quote */
+            quote: string;
+        };
         /** CitedNote */
         CitedNote: {
             /** Slug */
             slug: string;
             /** Title */
             title: string;
-        };
-        /** Claim */
-        Claim: {
-            /** Text */
-            text: string;
-            /** Kind */
-            kind: string;
-            /** Markers */
-            markers: number[];
-            /** Verdict */
-            verdict: string;
-            /** Independent Origins */
-            independent_origins: number;
-            /** Rationale */
-            rationale: string;
         };
         /** CodeRequest */
         CodeRequest: {
@@ -488,32 +474,12 @@ export interface components {
             /** Notes */
             notes: number;
         };
-        /** Decision */
-        Decision: {
-            /**
-             * Decision
-             * @enum {string}
-             */
-            decision: "approve" | "reject";
-            /**
-             * Comment
-             * @default
-             */
-            comment: string;
-        };
         /** Disagreement */
         Disagreement: {
             /** Point */
             point: string;
             /** Positions */
             positions: components["schemas"]["Position"][];
-        };
-        /** DroppedSource */
-        DroppedSource: {
-            /** Locator */
-            locator: string;
-            /** Reason */
-            reason: string;
         };
         /** Feedback */
         Feedback: {
@@ -656,7 +622,7 @@ export interface components {
             /** Independent Publishers */
             independent_publishers: number;
             /** Citations */
-            citations: components["schemas"]["dailyainotes__api__notes__Citation"][];
+            citations: components["schemas"]["Citation"][];
             trail: components["schemas"]["Trail"];
             /** Other Reports */
             other_reports: components["schemas"]["Report"][];
@@ -672,60 +638,6 @@ export interface components {
             sign_in: boolean;
             /** Turnstile Site Key */
             turnstile_site_key: string | null;
-        };
-        /** Plan */
-        Plan: {
-            /** Id */
-            id: number;
-            /** Topic */
-            topic: string;
-            /** Name */
-            name: string;
-            /** Version */
-            version: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Keywords */
-            keywords: string[];
-            /** Negative Keywords */
-            negative_keywords: string[];
-            /** Entities */
-            entities: string[];
-            /** Sources */
-            sources: components["schemas"]["PlanSource"][];
-            /** Dropped */
-            dropped: components["schemas"]["DroppedSource"][];
-        };
-        /** PlanDecision */
-        PlanDecision: {
-            /**
-             * Decision
-             * @enum {string}
-             */
-            decision: "approve" | "reject";
-            /**
-             * Comment
-             * @default
-             */
-            comment: string;
-        };
-        /** PlanSource */
-        PlanSource: {
-            /** Type */
-            type: string;
-            /** Locator */
-            locator: string;
-            /** Recent Items */
-            recent_items: number;
-            /** Match Share */
-            match_share: number;
-            /** Topic Share */
-            topic_share?: number | null;
-            /** Readable Share */
-            readable_share?: number | null;
         };
         /** Position */
         Position: {
@@ -766,30 +678,6 @@ export interface components {
             publisher: string;
             /** Published At */
             published_at: string | null;
-        };
-        /** Review */
-        Review: {
-            /** Id */
-            id: number;
-            /** Topic */
-            topic: string;
-            /**
-             * Edition Date
-             * Format: date
-             */
-            edition_date: string;
-            /** Version */
-            version: number;
-            /** Title */
-            title: string;
-            /** Body */
-            body: string;
-            /** Why It Matters */
-            why_it_matters: string;
-            /** Citations */
-            citations: components["schemas"]["dailyainotes__api__admin__Citation"][];
-            /** Claims */
-            claims: components["schemas"]["Claim"][];
         };
         /** SignedInEditor */
         SignedInEditor: {
@@ -891,31 +779,13 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
-        /** Citation */
-        dailyainotes__api__admin__Citation: {
-            /** Marker */
-            marker: number;
-            /** Title */
-            title: string;
-            /** Url */
-            url: string;
-            /** Publisher */
-            publisher: string;
-        };
-        /** Citation */
-        dailyainotes__api__notes__Citation: {
-            /** Marker */
-            marker: number;
-            /** Title */
-            title: string;
-            /** Url */
-            url: string;
-            /** Publisher */
-            publisher: string;
-            /** Published At */
-            published_at: string | null;
-            /** Quote */
-            quote: string;
+        /** Withdrawal */
+        Withdrawal: {
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
         };
     };
     responses: never;
@@ -1607,7 +1477,7 @@ export interface operations {
             };
         };
     };
-    waiting_api_v1_admin_notes_get: {
+    published_api_v1_admin_notes_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1622,12 +1492,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Review"][];
+                    "application/json": components["schemas"]["AdminNote"][];
                 };
             };
         };
     };
-    decide_api_v1_admin_notes__note_id__decision_post: {
+    withdraw_api_v1_admin_notes__note_id__withdraw_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -1638,7 +1508,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Decision"];
+                "application/json": components["schemas"]["Withdrawal"];
             };
         };
         responses: {
@@ -1653,71 +1523,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description Not waiting */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    plans_api_v1_admin_plans_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Plan"][];
-                };
-            };
-        };
-    };
-    decide_on_plan_api_v1_admin_plans__plan_id__decision_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                plan_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlanDecision"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
-                };
-            };
-            /** @description Not waiting, or approving a plan without sources */
+            /** @description Not published */
             409: {
                 headers: {
                     [name: string]: unknown;

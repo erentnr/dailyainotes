@@ -13,9 +13,9 @@ procedures) lives in `MEMORY.md`. Design rationale lives in `docs/design.md` and
 Daily AI Notes (dailyainotes.com) is an open-source, multi-agent RAG application: "AI takes notes
 on what's happening, every day, on the things you care about." Every day, LangGraph agents collect
 coverage for each catalog topic, cluster duplicate reports into stories, research them, write
-short notes with inline citations, fact-check every claim and wait for a human approval before
-publishing. Visitors read the notes for the topics they pick and ask questions answered only from
-the notes, with citations. It is a portfolio project: architecture, code quality, tests and
+short notes with inline citations, fact-check every claim and publish them (ADR 0008: no person
+reviews them first; the editor can withdraw one). Visitors read the notes for the topics they
+pick and ask questions answered only from the notes, with citations. It is a portfolio project: architecture, code quality, tests and
 documentation count as much as features.
 
 Phase 1 is a proof of concept (ADR 0001): a working, demoable end-to-end pipeline, not
@@ -24,7 +24,7 @@ production completeness.
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Proof of concept: M0 to M6 below | In progress |
-| 2 | First part (ADR 0003): editor sign-in through Cloudflare Access, reader accounts, topic suggestions: M7 to M9 below. The MCP server (ADR 0005): M10. Readers add topics, and only followed topics run (ADR 0006): M11. More like this (ADR 0007): M12. Then the README's Next steps | In progress |
+| 2 | First part (ADR 0003): editor sign-in through Cloudflare Access, reader accounts, topic suggestions: M7 to M9 below. The MCP server (ADR 0005): M10. Readers add topics, and only followed topics run (ADR 0006): M11. More like this (ADR 0007): M12. Publishing without a review (ADR 0008): M13. Then the README's Next steps | In progress |
 
 Phase 1 is done when, on dailyainotes.com: a visitor picks topics from the 12-topic catalog and
 reads today's approved notes for them, each with inline citations and a "how this note was made"
@@ -130,8 +130,11 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
   or more, or the primary source for a claim about itself; otherwise it is attributed or cut.
   Independent means a different owner group and not a syndicated copy. The fact-checker uses a
   different model family than the Writer.
-- **Nothing publishes without approval.** Every note and every topic profile passes a LangGraph
-  interrupt that the owner resolves (owner's decision, 2026-10-12).
+- **Notes and topic plans publish without a review** (ADR 0008, owner's decision 2026-10-22,
+  replacing the approval rule of 2026-10-12). A note that finishes its checks is published with
+  its claims' verdicts; a topic plan goes live with at least three readable, on-topic feeds and is
+  rejected otherwise. The editor can withdraw a published note at /admin or with `dan review`, and
+  every decision records who made it (`automatic`, the editor's email, or `dan review`).
 - **Copyright.** Show only our own summaries, quotes of at most 25 words per source, and links to
   originals. Never republish full text. Paywalled or AI-opted-out pages are link-only. Source text
   is purged after 30 days. Reddit, Guardian and NYT content is excluded.
@@ -243,7 +246,7 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - [x] M5 Ask the notes and evals (2026-10-13; a cited answer and a "not enough" on the local site, the eval gate green in CI): search over notes, citation validation, "not enough", per-IP limits, streaming; 30-question eval → check: a cited answer from the Ask endpoint; "Not enough in the notes" for an off-catalog question; the eval gate in CI
 - [ ] M6 Web app and How it works (live 2026-10-13: pages, notes, Ask with a model and approving at /admin work through Cloudflare; the topic picker is not checked on the live site): Astro from DESIGN.md, topic picker, daily page, note, timeline, Ask, How it works, minimal /admin; README and docs/design.md → check: on dailyainotes.com, pick topics, read, ask, approve at /admin; `pnpm check` in CI
 
-### High: phase 2 (ADR 0003, ADR 0005 to ADR 0007)
+### High: phase 2 (ADR 0003, ADR 0005 to ADR 0008)
 
 - [ ] M7 Editor sign-in: Cloudflare Access in front of `/admin` and `/api/v1/admin`, the API checks its token, decisions record who made them, `ADMIN_TOKEN` removed → check: tests with tokens signed by a test key (valid, forged, expired, wrong audience or issuer, no email); on dailyainotes.com, /admin asks Cloudflare to sign you in, an approval records your email, and the admin API refuses a request that did not pass Access
 - [ ] M8 Reader accounts: sign-in by emailed code or link (Resend), sessions in an HttpOnly cookie, limits and Turnstile on sign-in, topics on every device, account and privacy pages, delete account → check: tests on codes, sessions, limits and the same-origin rule; sign in on two devices and see the same topics; deleting the account removes its rows
@@ -252,6 +255,7 @@ Claude Code loads `MEMORY.md` through AGENTS.md and the private file through `CL
 - [ ] M10 MCP server (ADR 0005; live 2026-10-17: each tool answers through the SDK's client on dailyainotes.com, and a foreign origin gets 403; the owner's Claude Code check is open): `list_topics`, `search_notes`, `get_note` at `/api/mcp`, public and read-only, rate-limited, kept out of Langfuse → check: tests through the SDK's client and over HTTP (limits, host check); on dailyainotes.com, Claude Code adds the server and each tool answers
 - [ ] M11 Readers add topics (ADR 0006): a reader adds a topic, a model checks whether an existing one covers it, otherwise it is made and planned at once, approving its plan makes it live and adds it to the creator's topics; the nightly run covers only topics a signed-in reader follows → check: tests on coverage, limits and the plan decisions; on dailyainotes.com, add a topic that one covers (pointed there) and one that none covers (planned, approved, in your topics); a topic nobody follows gets no new notes
 - [ ] M12 More like this (ADR 0007): signed-in readers mark notes more or less like this, the account keeps the marks and deleting it removes them, and their daily page leads with the notes closest to what they liked → check: tests on scores, the endpoints and deletion; on dailyainotes.com, mark a note and see your page's order change
+- [ ] M13 Publish without a review (ADR 0008): a note that finishes its checks is published, a topic plan with at least three readable, on-topic feeds goes live and one with fewer is rejected with the reason, and the editor can withdraw a published note at /admin or with `dan review withdraw` → check: tests on the story and planner graphs, withdraw and the admin API; on dailyainotes.com, the night's notes appear without anyone approving them, and a withdrawn note leaves the site, Ask and the MCP server
 
 ### Medium
 

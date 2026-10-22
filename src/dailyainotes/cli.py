@@ -20,22 +20,8 @@ from dailyainotes.db.ingest import active_topic_slugs, purge_expired_content
 from dailyainotes.db.migrate import upgrade_to_head
 from dailyainotes.db.runs import DbLedger
 from dailyainotes.evals import EVALS, baseline, regressions, run_eval
-from dailyainotes.graphs.edition import (
-    EditionReport,
-    NoActiveTopicError,
-    NotAwaitingApprovalError,
-    decide_note,
-    run_editions,
-)
-from dailyainotes.graphs.planning import (
-    EmptyPlanError,
-    NotProposedError,
-    UnknownTopicError,
-    decide_plan,
-    plan_topic,
-    planner,
-)
-from dailyainotes.graphs.story import StoryDeps
+from dailyainotes.graphs.edition import EditionReport, NoActiveTopicError, run_editions
+from dailyainotes.graphs.planning import UnknownTopicError, plan_topic, planner
 from dailyainotes.ingestion.catalog import CATALOG_PATH, load_catalog, sync_catalog
 from dailyainotes.ingestion.run import SourceReport, ingest_topic
 from dailyainotes.llm.embeddings import LocalEmbeddings
@@ -52,8 +38,10 @@ db_app = typer.Typer(no_args_is_help=True, help="Database commands.")
 catalog_app = typer.Typer(no_args_is_help=True, help="The topic catalog.")
 topics_app = typer.Typer(no_args_is_help=True, help="Topic planning.")
 edition_app = typer.Typer(no_args_is_help=True, help="Daily editions.")
-review_app = typer.Typer(no_args_is_help=True, help="Approve or reject what waits for you.")
-# Recorded as who decided; /admin records the editor's email instead.
+review_app = typer.Typer(
+    no_args_is_help=True, help="Read a note or a topic plan, or withdraw a published note."
+)
+# Recorded as who withdrew a note; /admin records the editor's email instead.
 BY = "dan review"
 llm_app = typer.Typer(no_args_is_help=True, help="Model providers.")
 evals_app = typer.Typer(no_args_is_help=True, help="The eval set in evals/.")
@@ -188,7 +176,7 @@ def topics_plan(
     slug: Annotated[str | None, typer.Argument(help="A topic slug.")] = None,
     all_drafts: Annotated[bool, typer.Option("--all", help="Every topic still in draft.")] = False,
 ) -> None:
-    """Run the Topic Planner; each proposal waits for `dan review`."""
+    """Run the Topic Planner; a plan with enough readable feeds makes the topic live."""
     if not slug and not all_drafts:
         raise typer.BadParameter("give a topic slug or --all")
     asyncio.run(_plan(slug, all_drafts))
@@ -209,7 +197,8 @@ async def _plan(slug: str | None, all_drafts: bool) -> None:
                 except ModelsExhaustedError as error:
                     typer.echo(f"{each}: no model answered. {error}")
                     continue
-                typer.echo(f"{each}: proposal plan-{proposal.id} waits for review")
+                live = "; the topic is live" if proposal.status == "approved" else ""
+                typer.echo(f"{each}: plan-{proposal.id} {proposal.status}{live}")
                 print_proposal(proposal)
     finally:
         await engine.dispose()
@@ -240,7 +229,8 @@ def edition_run(
     all_active: Annotated[bool, typer.Option("--all", help="Every active topic.")] = False,
     collect: Annotated[bool, typer.Option(help="Fetch new items first.")] = True,
 ) -> None:
-    """Write today's notes: Scout picks the stories, and each note waits for `dan review`."""
+    """Write and publish today's notes: Scout picks the stories, and each note is published
+    when its checks finish."""
     if not slug and not all_active:
         raise typer.BadParameter("give a topic slug or --all")
     for report in asyncio.run(_edition(slug, collect)):
@@ -249,9 +239,9 @@ def edition_run(
             continue
         typer.echo(
             f"{report.slug}: {report.collected} new items, {report.stories} stories, "
-            f"{len(report.waiting)} notes wait for review"
+            f"{len(report.published)} notes published"
         )
-        for note_id in report.waiting:
+        for note_id in report.published:
             typer.echo(f"  note-{note_id}")
         for error in report.errors:
             typer.echo(f"  failed: {error}")
@@ -262,35 +252,6 @@ async def _edition(slug: str | None, collect: bool) -> list[EditionReport]:
         return await run_editions(get_settings(), slug, collect=collect)
     except NoActiveTopicError as error:
         raise typer.BadParameter(str(error)) from error
-
-
-@review_app.command("list")
-def review_list() -> None:
-    """Everything waiting for your decision."""
-    proposals, notes = asyncio.run(_pending())
-    if not proposals and not notes:
-        typer.echo("Nothing waits for review.")
-    for proposal in proposals:
-        item = f"plan-{proposal.id}"
-        sources = f"{len(proposal.profile['sources'])} sources"
-        created = proposal.created_at.date().isoformat()
-        typer.echo(f"{item:<10} {proposal.slug:<28} v{proposal.version}  {sources}  {created}")
-    for note in notes:
-        item = f"note-{note.id}"
-        checks = f"{note.supported}/{note.claims} claims supported"
-        typer.echo(f"{item:<10} {note.topic:<28} v{note.version}  {checks}  {note.edition_date}")
-        typer.echo(f"{'':<10} {note.title}")
-
-
-async def _pending() -> tuple[list[planner_db.Proposal], list[editorial_db.NoteSummary]]:
-    engine = create_engine(get_settings().database_url)
-    try:
-        return (
-            await planner_db.proposals(engine, status="proposed"),
-            await editorial_db.notes(engine, status="awaiting_approval"),
-        )
-    finally:
-        await engine.dispose()
 
 
 @review_app.command("show")
@@ -354,41 +315,23 @@ async def _note_detail(note_id: int) -> tuple[editorial_db.NoteSummary, Any]:
         await engine.dispose()
 
 
-@review_app.command("approve")
-def review_approve(
-    item: str, comment: Annotated[str, typer.Option(help="Kept with the decision.")] = ""
+@review_app.command("withdraw")
+def review_withdraw(
+    item: str, comment: Annotated[str, typer.Option(help="Why; kept with the decision.")] = ""
 ) -> None:
-    """Approve an item; its paused graph resumes and finishes."""
-    asyncio.run(_decide(item, "approve", comment))
-    typer.echo(f"{item} approved.")
-
-
-@review_app.command("reject")
-def review_reject(
-    item: str, comment: Annotated[str, typer.Option(help="Kept with the decision.")] = ""
-) -> None:
-    """Reject an item; its paused graph resumes and records the rejection."""
-    asyncio.run(_decide(item, "reject", comment))
-    typer.echo(f"{item} rejected.")
-
-
-async def _decide(item: str, decision: str, comment: str) -> None:
+    """Take a published note off the site, Ask and the MCP server."""
     kind, number = parse_item(item)
-    settings = get_settings()
-    engine = create_engine(settings.database_url)
+    if kind != "note":
+        raise typer.BadParameter("only a note can be withdrawn, like note-12")
+    if not asyncio.run(_withdraw(number, comment)):
+        raise typer.BadParameter(f"{item} is not published")
+    typer.echo(f"{item} withdrawn.")
+
+
+async def _withdraw(note_id: int, comment: str) -> bool:
+    engine = create_engine(get_settings().database_url)
     try:
-        if kind == "plan":
-            async with planner(settings, engine) as graph:
-                await decide_plan(engine, graph, number, decision, comment, by=BY)
-            return
-        deps = StoryDeps(
-            engine,
-            build_router(settings, DbLedger(engine)),
-            LocalEmbeddings(settings.embedding_cache_dir),
-        )
-        await decide_note(deps, settings.database_url, number, decision, comment, by=BY)
-    except (NotAwaitingApprovalError, NotProposedError, EmptyPlanError) as error:
-        raise typer.BadParameter(str(error)) from error
+        return await editorial_db.withdraw(engine, note_id, comment, BY)
     finally:
         await engine.dispose()
 

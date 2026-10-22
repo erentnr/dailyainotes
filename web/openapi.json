@@ -725,8 +725,9 @@
   },
   "/api/v1/admin/notes": {
    "get": {
-    "summary": "Waiting",
-    "operationId": "waiting_api_v1_admin_notes_get",
+    "summary": "Published",
+    "description": "The latest published notes, newest first, so the editor can withdraw one.",
+    "operationId": "published_api_v1_admin_notes_get",
     "responses": {
      "200": {
       "description": "Successful Response",
@@ -734,10 +735,10 @@
        "application/json": {
         "schema": {
          "items": {
-          "$ref": "#/components/schemas/Review"
+          "$ref": "#/components/schemas/AdminNote"
          },
          "type": "array",
-         "title": "Response Waiting Api V1 Admin Notes Get"
+         "title": "Response Published Api V1 Admin Notes Get"
         }
        }
       }
@@ -745,10 +746,11 @@
     }
    }
   },
-  "/api/v1/admin/notes/{note_id}/decision": {
+  "/api/v1/admin/notes/{note_id}/withdraw": {
    "post": {
-    "summary": "Decide",
-    "operationId": "decide_api_v1_admin_notes__note_id__decision_post",
+    "summary": "Withdraw",
+    "description": "Take the note off the site, Ask and the MCP server, keeping who did it and why.",
+    "operationId": "withdraw_api_v1_admin_notes__note_id__withdraw_post",
     "parameters": [
      {
       "name": "note_id",
@@ -765,7 +767,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/Decision"
+        "$ref": "#/components/schemas/Withdrawal"
        }
       }
      }
@@ -780,93 +782,13 @@
          "additionalProperties": {
           "type": "string"
          },
-         "title": "Response Decide Api V1 Admin Notes  Note Id  Decision Post"
+         "title": "Response Withdraw Api V1 Admin Notes  Note Id  Withdraw Post"
         }
        }
       }
      },
      "409": {
-      "description": "Not waiting"
-     },
-     "422": {
-      "description": "Validation Error",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      }
-     }
-    }
-   }
-  },
-  "/api/v1/admin/plans": {
-   "get": {
-    "summary": "Plans",
-    "description": "Topic plans waiting for review.",
-    "operationId": "plans_api_v1_admin_plans_get",
-    "responses": {
-     "200": {
-      "description": "Successful Response",
-      "content": {
-       "application/json": {
-        "schema": {
-         "items": {
-          "$ref": "#/components/schemas/Plan"
-         },
-         "type": "array",
-         "title": "Response Plans Api V1 Admin Plans Get"
-        }
-       }
-      }
-     }
-    }
-   }
-  },
-  "/api/v1/admin/plans/{plan_id}/decision": {
-   "post": {
-    "summary": "Decide On Plan",
-    "description": "Approving adds the plan's sources and makes the topic active.",
-    "operationId": "decide_on_plan_api_v1_admin_plans__plan_id__decision_post",
-    "parameters": [
-     {
-      "name": "plan_id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "integer",
-       "title": "Plan Id"
-      }
-     }
-    ],
-    "requestBody": {
-     "required": true,
-     "content": {
-      "application/json": {
-       "schema": {
-        "$ref": "#/components/schemas/PlanDecision"
-       }
-      }
-     }
-    },
-    "responses": {
-     "200": {
-      "description": "Successful Response",
-      "content": {
-       "application/json": {
-        "schema": {
-         "type": "object",
-         "additionalProperties": {
-          "type": "string"
-         },
-         "title": "Response Decide On Plan Api V1 Admin Plans  Plan Id  Decision Post"
-        }
-       }
-      }
-     },
-     "409": {
-      "description": "Not waiting, or approving a plan without sources"
+      "description": "Not published"
      },
      "422": {
       "description": "Validation Error",
@@ -884,6 +806,50 @@
  },
  "components": {
   "schemas": {
+   "AdminNote": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "topic": {
+      "type": "string",
+      "title": "Topic"
+     },
+     "edition_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Edition Date"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "supported": {
+      "type": "integer",
+      "title": "Supported"
+     },
+     "claims": {
+      "type": "integer",
+      "title": "Claims"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "slug",
+     "topic",
+     "edition_date",
+     "title",
+     "supported",
+     "claims"
+    ],
+    "title": "AdminNote"
+   },
    "AskedQuestion": {
     "properties": {
      "question": {
@@ -916,6 +882,52 @@
     ],
     "title": "AskedQuestion"
    },
+   "Citation": {
+    "properties": {
+     "marker": {
+      "type": "integer",
+      "title": "Marker"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "url": {
+      "type": "string",
+      "title": "Url"
+     },
+     "publisher": {
+      "type": "string",
+      "title": "Publisher"
+     },
+     "published_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Published At"
+     },
+     "quote": {
+      "type": "string",
+      "title": "Quote"
+     }
+    },
+    "type": "object",
+    "required": [
+     "marker",
+     "title",
+     "url",
+     "publisher",
+     "published_at",
+     "quote"
+    ],
+    "title": "Citation"
+   },
    "CitedNote": {
     "properties": {
      "slug": {
@@ -933,47 +945,6 @@
      "title"
     ],
     "title": "CitedNote"
-   },
-   "Claim": {
-    "properties": {
-     "text": {
-      "type": "string",
-      "title": "Text"
-     },
-     "kind": {
-      "type": "string",
-      "title": "Kind"
-     },
-     "markers": {
-      "items": {
-       "type": "integer"
-      },
-      "type": "array",
-      "title": "Markers"
-     },
-     "verdict": {
-      "type": "string",
-      "title": "Verdict"
-     },
-     "independent_origins": {
-      "type": "integer",
-      "title": "Independent Origins"
-     },
-     "rationale": {
-      "type": "string",
-      "title": "Rationale"
-     }
-    },
-    "type": "object",
-    "required": [
-     "text",
-     "kind",
-     "markers",
-     "verdict",
-     "independent_origins",
-     "rationale"
-    ],
-    "title": "Claim"
    },
    "CodeRequest": {
     "properties": {
@@ -1098,28 +1069,6 @@
     ],
     "title": "DayStats"
    },
-   "Decision": {
-    "properties": {
-     "decision": {
-      "type": "string",
-      "enum": [
-       "approve",
-       "reject"
-      ],
-      "title": "Decision"
-     },
-     "comment": {
-      "type": "string",
-      "title": "Comment",
-      "default": ""
-     }
-    },
-    "type": "object",
-    "required": [
-     "decision"
-    ],
-    "title": "Decision"
-   },
    "Disagreement": {
     "properties": {
      "point": {
@@ -1140,24 +1089,6 @@
      "positions"
     ],
     "title": "Disagreement"
-   },
-   "DroppedSource": {
-    "properties": {
-     "locator": {
-      "type": "string",
-      "title": "Locator"
-     },
-     "reason": {
-      "type": "string",
-      "title": "Reason"
-     }
-    },
-    "type": "object",
-    "required": [
-     "locator",
-     "reason"
-    ],
-    "title": "DroppedSource"
    },
    "Feedback": {
     "properties": {
@@ -1484,7 +1415,7 @@
      },
      "citations": {
       "items": {
-       "$ref": "#/components/schemas/dailyainotes__api__notes__Citation"
+       "$ref": "#/components/schemas/Citation"
       },
       "type": "array",
       "title": "Citations"
@@ -1557,152 +1488,6 @@
      "turnstile_site_key"
     ],
     "title": "Options"
-   },
-   "Plan": {
-    "properties": {
-     "id": {
-      "type": "integer",
-      "title": "Id"
-     },
-     "topic": {
-      "type": "string",
-      "title": "Topic"
-     },
-     "name": {
-      "type": "string",
-      "title": "Name"
-     },
-     "version": {
-      "type": "integer",
-      "title": "Version"
-     },
-     "created_at": {
-      "type": "string",
-      "format": "date-time",
-      "title": "Created At"
-     },
-     "keywords": {
-      "items": {
-       "type": "string"
-      },
-      "type": "array",
-      "title": "Keywords"
-     },
-     "negative_keywords": {
-      "items": {
-       "type": "string"
-      },
-      "type": "array",
-      "title": "Negative Keywords"
-     },
-     "entities": {
-      "items": {
-       "type": "string"
-      },
-      "type": "array",
-      "title": "Entities"
-     },
-     "sources": {
-      "items": {
-       "$ref": "#/components/schemas/PlanSource"
-      },
-      "type": "array",
-      "title": "Sources"
-     },
-     "dropped": {
-      "items": {
-       "$ref": "#/components/schemas/DroppedSource"
-      },
-      "type": "array",
-      "title": "Dropped"
-     }
-    },
-    "type": "object",
-    "required": [
-     "id",
-     "topic",
-     "name",
-     "version",
-     "created_at",
-     "keywords",
-     "negative_keywords",
-     "entities",
-     "sources",
-     "dropped"
-    ],
-    "title": "Plan"
-   },
-   "PlanDecision": {
-    "properties": {
-     "decision": {
-      "type": "string",
-      "enum": [
-       "approve",
-       "reject"
-      ],
-      "title": "Decision"
-     },
-     "comment": {
-      "type": "string",
-      "title": "Comment",
-      "default": ""
-     }
-    },
-    "type": "object",
-    "required": [
-     "decision"
-    ],
-    "title": "PlanDecision"
-   },
-   "PlanSource": {
-    "properties": {
-     "type": {
-      "type": "string",
-      "title": "Type"
-     },
-     "locator": {
-      "type": "string",
-      "title": "Locator"
-     },
-     "recent_items": {
-      "type": "integer",
-      "title": "Recent Items"
-     },
-     "match_share": {
-      "type": "number",
-      "title": "Match Share"
-     },
-     "topic_share": {
-      "anyOf": [
-       {
-        "type": "number"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Topic Share"
-     },
-     "readable_share": {
-      "anyOf": [
-       {
-        "type": "number"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Readable Share"
-     }
-    },
-    "type": "object",
-    "required": [
-     "type",
-     "locator",
-     "recent_items",
-     "match_share"
-    ],
-    "title": "PlanSource"
    },
    "Position": {
     "properties": {
@@ -1835,66 +1620,6 @@
      "published_at"
     ],
     "title": "Report"
-   },
-   "Review": {
-    "properties": {
-     "id": {
-      "type": "integer",
-      "title": "Id"
-     },
-     "topic": {
-      "type": "string",
-      "title": "Topic"
-     },
-     "edition_date": {
-      "type": "string",
-      "format": "date",
-      "title": "Edition Date"
-     },
-     "version": {
-      "type": "integer",
-      "title": "Version"
-     },
-     "title": {
-      "type": "string",
-      "title": "Title"
-     },
-     "body": {
-      "type": "string",
-      "title": "Body"
-     },
-     "why_it_matters": {
-      "type": "string",
-      "title": "Why It Matters"
-     },
-     "citations": {
-      "items": {
-       "$ref": "#/components/schemas/dailyainotes__api__admin__Citation"
-      },
-      "type": "array",
-      "title": "Citations"
-     },
-     "claims": {
-      "items": {
-       "$ref": "#/components/schemas/Claim"
-      },
-      "type": "array",
-      "title": "Claims"
-     }
-    },
-    "type": "object",
-    "required": [
-     "id",
-     "topic",
-     "edition_date",
-     "version",
-     "title",
-     "body",
-     "why_it_matters",
-     "citations",
-     "claims"
-    ],
-    "title": "Review"
    },
    "SignedInEditor": {
     "properties": {
@@ -2175,79 +1900,16 @@
     ],
     "title": "ValidationError"
    },
-   "dailyainotes__api__admin__Citation": {
+   "Withdrawal": {
     "properties": {
-     "marker": {
-      "type": "integer",
-      "title": "Marker"
-     },
-     "title": {
+     "comment": {
       "type": "string",
-      "title": "Title"
-     },
-     "url": {
-      "type": "string",
-      "title": "Url"
-     },
-     "publisher": {
-      "type": "string",
-      "title": "Publisher"
+      "title": "Comment",
+      "default": ""
      }
     },
     "type": "object",
-    "required": [
-     "marker",
-     "title",
-     "url",
-     "publisher"
-    ],
-    "title": "Citation"
-   },
-   "dailyainotes__api__notes__Citation": {
-    "properties": {
-     "marker": {
-      "type": "integer",
-      "title": "Marker"
-     },
-     "title": {
-      "type": "string",
-      "title": "Title"
-     },
-     "url": {
-      "type": "string",
-      "title": "Url"
-     },
-     "publisher": {
-      "type": "string",
-      "title": "Publisher"
-     },
-     "published_at": {
-      "anyOf": [
-       {
-        "type": "string",
-        "format": "date-time"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Published At"
-     },
-     "quote": {
-      "type": "string",
-      "title": "Quote"
-     }
-    },
-    "type": "object",
-    "required": [
-     "marker",
-     "title",
-     "url",
-     "publisher",
-     "published_at",
-     "quote"
-    ],
-    "title": "Citation"
+    "title": "Withdrawal"
    }
   }
  }
