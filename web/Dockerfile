@@ -1,5 +1,5 @@
 # The site: Astro rendered on the server by Node 24 LTS.
-FROM node:24.21.0-trixie-slim AS build
+FROM node:24.22.1-trixie-slim AS build
 WORKDIR /web
 # pnpm at the version package.json names.
 RUN corepack enable
@@ -9,7 +9,7 @@ COPY . .
 # The build downloads the fonts, so the server never fetches them.
 RUN pnpm build && pnpm prune --prod
 
-FROM node:24.21.0-trixie-slim
+FROM node:24.22.1-trixie-slim
 WORKDIR /web
 COPY --from=build /web/package.json ./
 COPY --from=build /web/node_modules ./node_modules
