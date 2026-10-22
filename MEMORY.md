@@ -18,6 +18,8 @@ Started 2026-10-12; consolidated 2026-10-13 after M6 (Episodic entries up to the
 
 (Consolidated on 2026-10-13; new entries go here.)
 
+- [2026-10-22] #event **Withdraw checked live:** the owner withdrew note-101 (a game patch note, "not important") at /admin at 17:08 UTC; the approvals row kept his email and the reason. From outside: `/api/v1/notes/<slug>` and the note page answer 404, the day's list dropped from 12 to 11, the MCP `get_note` says no published note has the slug, and `search_notes` (the function Ask uses too) no longer finds it.
+
 - [2026-10-22] #decision **Nothing waits for a person** (owner, ADR 0008): "now, we should remove human observation from loop". The owner chose every finished draft publishing (over clean drafts only, or clean ones with the rest waiting), topic plans deciding themselves at three readable, on-topic feeds, the 48 waiting drafts published under the new rule, and a Withdraw action at /admin. Decisions are recorded as `automatic`; a withdrawal keeps the editor's email or `dan review` and the reason. The approval queue, the plans page and the approve and reject commands and endpoints went.
 - [2026-10-22] #event **The 48 waiting drafts (note-55 to note-102) were published** with the old code before the deploy, as `dan review`, in a `nohup` loop on the server (about 8 s each), since the new story graph has no approval node to resume a paused thread at.
 - [2026-10-22] #insight **Alembic applies the naming convention to the names given to `op.drop_constraint` and `op.create_check_constraint`,** so `"ck_notes_status"` became `ck_notes_ck_notes_status`; wrap a full name in `op.f()`. Migration 0010 created `ck_topics_ck_topics_category` this way; it works, and the drift test does not compare check constraint names.
