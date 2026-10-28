@@ -18,6 +18,8 @@ Started 2026-10-12; consolidated 2026-10-13 after M6 (Episodic entries up to the
 
 (Consolidated on 2026-10-13; new entries go here.)
 
+- [2026-10-28] #decision **The README and the GitHub description lead with the technology** (owner: "we should underline the tech behind it"): a "What's inside" list opens the README, "Cost per day" became "Models" with the router first and $0 last, and the repository description names the stack (topics `mcp`, `langfuse` and `llm-evals` added). The old description still said notes were "approved by a person". The site's How it works page stays written for readers.
+
 - [2026-10-22] #event **Withdraw checked live:** the owner withdrew note-101 (a game patch note, "not important") at /admin at 17:08 UTC; the approvals row kept his email and the reason. From outside: `/api/v1/notes/<slug>` and the note page answer 404, the day's list dropped from 12 to 11, the MCP `get_note` says no published note has the slug, and `search_notes` (the function Ask uses too) no longer finds it.
 
 - [2026-10-22] #decision **Nothing waits for a person** (owner, ADR 0008): "now, we should remove human observation from loop". The owner chose every finished draft publishing (over clean drafts only, or clean ones with the rest waiting), topic plans deciding themselves at three readable, on-topic feeds, the 48 waiting drafts published under the new rule, and a Withdraw action at /admin. Decisions are recorded as `automatic`; a withdrawal keeps the editor's email or `dan review` and the reason. The approval queue, the plans page and the approve and reject commands and endpoints went.

@@ -1,13 +1,26 @@
 # Daily AI Notes
 
-AI takes notes on what's happening, every day, on the things you care about.
+A multi-agent RAG application, live at [dailyainotes.com](https://dailyainotes.com): every night LangGraph agents write short notes on each topic's news, every sentence citing its sources and every claim fact-checked, and Ask answers questions only from those notes.
+
+## What's inside
+
+- **Agents:** LangGraph graphs with a Postgres checkpointer. Scout collects, clusters and ranks, then Researcher, Writer and Fact-checker run in a rewrite loop; each story is its own thread and resumes after a failure.
+- **Grounding in code:** every sentence must cite, every number and quote must appear in its source, a model from another family verifies each claim, and a claim needs two independent publishers or is attributed.
+- **Retrieval:** Postgres full-text search and pgvector, merged by reciprocal rank fusion, over local ONNX embeddings (fastembed).
+- **LLM router:** per-role fallback chains across providers on rate limits, spent quotas, timeouts and invalid output; Pydantic-validated output; Langfuse tracing.
+- **Evals:** a 30-question retrieval set gates every pull request; an LLM judge scores faithfulness nightly.
+- **Interfaces:** FastAPI (REST, streamed answers, an MCP server), an Astro site with React islands and a typed client generated from the OpenAPI schema, and the `dan` CLI.
+- **One datastore:** PostgreSQL 18 holds the data, the vectors, the job queue (Procrastinate) and the agent checkpoints.
+- **Quality:** mypy `--strict`, ruff, pytest with a network guard, an architecture test for layer imports and a migration drift test; GitHub Actions deploys to Docker Compose.
+
+## The product
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/daily-dark.webp">
   <img alt="The daily page at dailyainotes.com on a desktop and on a phone: the date, the number of stories and minutes to read them, an Ask box, a tab for each topic, and the day's biggest story on its topic's cover." src="docs/images/daily-light.webp">
 </picture>
 
-Every night, LangGraph agents collect coverage for each topic in a fixed catalog, group reports of the same event into stories, research them, write short notes in which every sentence cites its sources, and fact-check every claim, then publish them: nobody reviews a note first, and the editor can withdraw one ([ADR 0008](docs/adr/0008-publish-without-review.md)). Visitors pick topics, read the day's notes and ask questions answered only from the notes, with citations, or told plainly that the notes don't cover it.
+AI takes notes on what's happening, every day, on the things you care about. Every night, LangGraph agents collect coverage for each topic in the catalog, group reports of the same event into stories, research them, write short notes in which every sentence cites its sources, and fact-check every claim, then publish them: nobody reviews a note first, and the editor can withdraw one ([ADR 0008](docs/adr/0008-publish-without-review.md)). Visitors pick topics, read the day's notes and ask questions answered only from the notes, with citations, or told plainly that the notes don't cover it.
 
 **Status:** a proof of concept ([ADR 0001](docs/adr/0001-proof-of-concept-scope.md)); the milestones and what each one waits for are in [INTENT.md](INTENT.md). The design and its trade-offs are in [docs/design.md](docs/design.md).
 
@@ -66,9 +79,9 @@ The 30-question set in [`evals/`](evals/README.md) (40 fictional notes; 22 quest
 
 The worker also runs it nightly with the Ask model and a judge from another model family, and records the scores in the `eval_runs` table.
 
-## Cost per day
+## Models
 
-$0. Models run on Ollama Cloud's free plan with OpenRouter's free models as the fallback, embeddings run locally (fastembed, `BAAI/bge-small-en-v1.5`), tracing uses Langfuse Cloud's free plan, and the router stops each provider at its daily limit. Every model call is recorded with its tokens in `llm_calls`, which the site does not show.
+The LLM router gives each role (the Topic Planner, Scout's check, Researcher, Writer, claim extraction, the fact-checker, Ask and the eval judge) an ordered chain of `provider:model` in settings, and moves down the chain on a rate limit, a spent daily budget, a timeout or output that fails validation. Every model call is recorded with its tokens in `llm_calls`, which the site does not show. Today the chains run on Ollama Cloud's free plan with OpenRouter's free models as the fallback, embeddings run locally (fastembed, `BAAI/bge-small-en-v1.5`) and tracing uses Langfuse Cloud's free plan, so a day costs $0.
 
 ## Development
 
